@@ -4,7 +4,11 @@ node_modules/
 release/
 dist/
 build/
-zzp-mobile/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 zzp-manager/.claude/settings.local.json
+.expo/
+ios/Pods/
+android/.gradle/
+android/app/build/
+*.keystore
