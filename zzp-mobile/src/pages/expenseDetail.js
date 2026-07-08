@@ -1,6 +1,6 @@
-import { supabase } from '../supabase.js';
 import { currentParam, navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
+import * as repo from '../data/repo.js';
 
 export async function load() {
   const el = document.getElementById('page-content');
@@ -18,26 +18,35 @@ export async function load() {
   if (!id) { wrap.innerHTML = '<p class="error-msg">Brak identyfikatora kosztu.</p>'; return; }
 
   try {
-    const { data: exp, error } = await supabase.from('expenses').select('*').eq('id', id).single();
-    if (error) throw error;
+    const exp = await repo.getExpense(id);
+    if (!exp) throw new Error('Nie znaleziono kosztu (offline — brak w pamięci podręcznej).');
 
     let photoHtml = '';
-    if (exp.receipt_storage_path) {
-      const { data: signed, error: signErr } = await supabase.storage
-        .from('receipts')
-        .createSignedUrl(exp.receipt_storage_path, 60 * 10); // 10 min ważności
-      if (!signErr && signed?.signedUrl) {
+    if (exp._pending && exp._receiptBlob) {
+      const localUrl = URL.createObjectURL(exp._receiptBlob);
+      photoHtml = `
+        <h3 class="section-title">Zdjęcie paragonu</h3>
+        <div class="detail-block">
+          <img src="${localUrl}" alt="Paragon" class="receipt-full-photo">
+        </div>`;
+    } else if (exp.receipt_storage_path) {
+      const signedUrl = await repo.getReceiptUrl(exp.receipt_storage_path);
+      if (signedUrl) {
         photoHtml = `
           <h3 class="section-title">Zdjęcie paragonu</h3>
           <div class="detail-block">
-            <img src="${signed.signedUrl}" alt="Paragon" class="receipt-full-photo">
+            <img src="${signedUrl}" alt="Paragon" class="receipt-full-photo">
           </div>`;
       } else {
-        photoHtml = `<p class="text-muted">⚠️ Nie udało się wczytać zdjęcia paragonu.</p>`;
+        photoHtml = `<p class="text-muted">⚠️ Nie udało się wczytać zdjęcia paragonu (offline?).</p>`;
       }
     }
 
-    wrap.innerHTML = `
+    const pendingBanner = exp._pending
+      ? '<div class="info-box">⏳ Ten koszt czeka na wysłanie do chmury — zostanie zsynchronizowany po odzyskaniu połączenia.</div>'
+      : '';
+
+    wrap.innerHTML = pendingBanner + `
       <div class="detail-header">
         <div>
           <span class="badge badge-info">${escHtml(exp.category)}</span>

@@ -317,6 +317,165 @@ input:focus, select:focus, textarea:focus {
   text-align: center;
 }
 
+/* ── Pasek stanu połączenia / synchronizacji ─────────── */
+.net-status {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: calc(6px + env(safe-area-inset-top)) 14px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.net-status.net-offline {
+  background: color-mix(in srgb, var(--accent-yellow) 22%, var(--bg-secondary));
+  color: var(--accent-yellow);
+  border-bottom: 1px solid var(--accent-yellow);
+}
+.net-status.net-pending {
+  background: color-mix(in srgb, var(--accent-blue) 18%, var(--bg-secondary));
+  color: var(--accent-blue);
+  border-bottom: 1px solid var(--accent-blue);
+}
+
+/* Znacznik wiersza oczekującego na wysłanie (utworzonego offline) */
+.badge-pending {
+  background: color-mix(in srgb, var(--accent-yellow) 20%, transparent);
+  color: var(--accent-yellow);
+}
+
+/* ── Nagłówek strony z akcją ─────────────────────────── */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.page-head .page-title { margin-bottom: 8px; }
+
+.text-danger { color: var(--accent-red); }
+
+/* ── Formularz w karcie (dodawanie klienta/projektu/wpisu) ── */
+.card-form {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.card-form .form-group:last-of-type { margin-bottom: 10px; }
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 4px 0 12px;
+  cursor: pointer;
+}
+.check-row input { width: auto; }
+
+/* ── Pulpit ──────────────────────────────────────────── */
+.dash-period {
+  font-size: 13px;
+  text-transform: capitalize;
+  margin-bottom: 12px;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.stat-tile {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+.stat-value { font-size: 18px; font-weight: 700; }
+.stat-good .stat-value { color: var(--accent-green); }
+.stat-bad .stat-value { color: var(--accent-red); }
+.dash-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ── Menu „Więcej" ───────────────────────────────────── */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.menu-item:active { background: var(--bg-tertiary); }
+.menu-icon { font-size: 18px; }
+.menu-chevron { margin-left: auto; color: var(--text-muted); font-size: 18px; }
+.menu-item-danger { color: var(--accent-red); }
+
+/* ── Licznik czasu ───────────────────────────────────── */
+.timer-running {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-orange);
+  border-radius: var(--radius);
+  padding: 18px 14px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.timer-elapsed {
+  font-size: 40px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-orange);
+  letter-spacing: 0.02em;
+}
+.timer-meta { font-size: 13px; margin: 6px 0 14px; }
+
+.manual-details {
+  margin-bottom: 16px;
+}
+.manual-details > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+}
+.manual-details[open] > summary { border-radius: var(--radius) var(--radius) 0 0; }
+.manual-details > summary::-webkit-details-marker { display: none; }
+.manual-details .card-form {
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin-bottom: 0;
+}
+
 /* ── Toast ──────────────────────────────────────────── */
 .toast {
   position: fixed;

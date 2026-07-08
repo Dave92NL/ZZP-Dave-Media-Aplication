@@ -347,6 +347,15 @@ function getMigrations() {
         status TEXT DEFAULT 'success',
         error_message TEXT DEFAULT ''
       )`
+    ]],
+
+    // Migration 4 — cloud sync mapping for projects + time_entries (mobile companion)
+    [4, [
+      `ALTER TABLE projects ADD COLUMN cloud_id TEXT`,
+      `ALTER TABLE projects ADD COLUMN synced_at DATETIME`,
+      `ALTER TABLE time_entries ADD COLUMN cloud_id TEXT`,
+      `ALTER TABLE time_entries ADD COLUMN synced_at DATETIME`,
+      `ALTER TABLE time_entries ADD COLUMN updated_at DATETIME`
     ]]
   ];
 }

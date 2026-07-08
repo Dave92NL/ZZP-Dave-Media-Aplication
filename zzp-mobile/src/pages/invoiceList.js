@@ -1,6 +1,6 @@
-import { supabase } from '../supabase.js';
 import { navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
+import * as repo from '../data/repo.js';
 
 const STATUS_BADGES = {
   draft: { icon: '📝', label: 'Szkic', cls: 'badge-muted' },
@@ -21,12 +21,7 @@ export async function load() {
 
   const wrap = document.getElementById('inv-list-wrap');
   try {
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('*, clients(name, company_name)')
-      .order('issue_date', { ascending: false })
-      .limit(200);
-    if (error) throw error;
+    const data = await repo.listInvoices();
 
     if (!data || !data.length) {
       wrap.innerHTML = '<p class="text-muted">Brak faktur.</p>';
@@ -36,11 +31,12 @@ export async function load() {
     wrap.innerHTML = data.map(inv => {
       const badge = STATUS_BADGES[inv.status] || STATUS_BADGES.draft;
       const clientName = inv.clients?.company_name || inv.clients?.name || '—';
+      const numberLabel = inv._pending ? '⏳ oczekująca' : escHtml(inv.invoice_number);
       return `
         <div class="list-card" data-id="${inv.id}" role="button" tabindex="0">
           <div class="list-card-header">
-            <span class="mono">${escHtml(inv.invoice_number)}</span>
-            <span class="badge ${badge.cls}">${badge.icon} ${badge.label}</span>
+            <span class="mono">${numberLabel}</span>
+            <span class="badge ${inv._pending ? 'badge-pending' : badge.cls}">${inv._pending ? '📥 offline' : `${badge.icon} ${badge.label}`}</span>
           </div>
           <div class="list-card-body">
             <div>${escHtml(clientName)}</div>

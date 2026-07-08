@@ -22,10 +22,12 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Precache the app shell only — Supabase API/Storage calls are never
-        // intercepted or cached (no offline data support by design).
+        // Precache the app shell only — dane trzymamy sami w IndexedDB, więc
+        // wywołania Supabase API/Storage nie są przechwytywane ani cache'owane.
         globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
-        navigateFallbackDenylist: [/^\/supabase/]
+        navigateFallbackDenylist: [/^\/supabase/],
+        // Dołącz własny handler powiadomień push do generowanego service workera.
+        importScripts: ['push-sw.js']
       }
     })
   ]

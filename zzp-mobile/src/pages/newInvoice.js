@@ -1,8 +1,7 @@
-import { supabase } from '../supabase.js';
 import { calculateTotals } from '../lib/invoiceMath.js';
-import { generateNextInvoiceNumber, isUniqueViolation } from '../lib/invoiceNumber.js';
 import { todayStr, addDays, fmtEur, escHtml } from '../lib/format.js';
 import { navigate } from '../router.js';
+import * as repo from '../data/repo.js';
 
 let _clientsMap = {};
 let _itemRowCount = 0;
@@ -82,12 +81,7 @@ export async function load() {
 async function _loadClients() {
   const select = document.getElementById('inv-client');
   try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('id, name, company_name, btw_rate, btw_reverse_charge')
-      .eq('status', 'active')
-      .order('name');
-    if (error) throw error;
+    const data = await repo.listActiveClients();
 
     _clientsMap = {};
     (data || []).forEach(c => { _clientsMap[c.id] = c; });
@@ -169,46 +163,15 @@ async function _save(status) {
 
   const { subtotal, btwAmount, total, totalEur } = calculateTotals(items, { btwRate, btwReverseCharge });
 
-  const MAX_ATTEMPTS = 3;
-  let lastError = null;
+  const header = {
+    client_id: clientId, issue_date: issueDate, due_date: dueDate,
+    subtotal, btw_rate: btwRate, btw_amount: btwAmount, total, total_eur: totalEur,
+    btw_reverse_charge: btwReverseCharge
+  };
 
   try {
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const invoiceNumber = await generateNextInvoiceNumber(supabase);
-
-      const { data: invRow, error: invErr } = await supabase.from('invoices').insert({
-        invoice_number: invoiceNumber, client_id: clientId, status,
-        issue_date: issueDate, due_date: dueDate,
-        currency: 'EUR', exchange_rate: 1,
-        subtotal, btw_rate: btwRate, btw_amount: btwAmount, total, total_eur: totalEur,
-        notes: '', reference: '', btw_reverse_charge: btwReverseCharge,
-        origin: 'phone'
-      }).select('id').single();
-
-      if (invErr) {
-        if (isUniqueViolation(invErr) && attempt < MAX_ATTEMPTS - 1) {
-          lastError = invErr;
-          continue; // retry with a freshly generated number
-        }
-        throw new Error('Nie udało się zapisać faktury: ' + invErr.message);
-      }
-
-      const itemsPayload = items.map((it, i) => ({
-        invoice_id: invRow.id, description: it.description, quantity: it.quantity,
-        unit: it.unit, unit_price: it.unit_price, btw_rate: 0,
-        total: it.quantity * it.unit_price, sort_order: i
-      }));
-      const { error: itemsErr } = await supabase.from('invoice_items').insert(itemsPayload);
-      if (itemsErr) {
-        throw new Error(
-          'Faktura zapisana, ale pozycje nie zostały zapisane — usuń fakturę ręcznie w aplikacji desktopowej i spróbuj ponownie. (' + itemsErr.message + ')'
-        );
-      }
-
-      navigate('invoices');
-      return;
-    }
-    throw new Error('Nie udało się wygenerować unikalnego numeru faktury po kilku próbach: ' + (lastError?.message || ''));
+    await repo.createInvoice(header, items, status);
+    navigate('invoices');
   } catch (err) {
     _showError(err.message);
   } finally {

@@ -1,8 +1,7 @@
-import { supabase } from '../supabase.js';
 import { CATEGORIES } from '../lib/categories.js';
 import { calculateExpense } from '../lib/expenseMath.js';
-import { compressReceiptPhoto } from '../lib/imageCompress.js';
 import { todayStr, escHtml } from '../lib/format.js';
+import * as repo from '../data/repo.js';
 
 export async function load() {
   const el = document.getElementById('page-content');
@@ -96,37 +95,18 @@ async function _save() {
   btn.textContent = '⏳ Zapisywanie…';
 
   try {
-    let receiptStoragePath = null;
-
-    if (photoFile) {
-      btn.textContent = '⏳ Kompresowanie zdjęcia…';
-      const compressed = await compressReceiptPhoto(photoFile);
-
-      btn.textContent = '⏳ Wysyłanie zdjęcia…';
-      const d = new Date(date);
-      const objectPath = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/receipt_${crypto.randomUUID()}.jpg`;
-
-      const { error: uploadErr } = await supabase.storage.from('receipts').upload(objectPath, compressed, {
-        contentType: 'image/jpeg',
-        upsert: false
-      });
-      if (uploadErr) throw new Error('Nie udało się wysłać zdjęcia: ' + uploadErr.message);
-      receiptStoragePath = objectPath;
-    }
-
-    btn.textContent = '⏳ Zapisywanie kosztu…';
     const { btwAmount, amountEur } = calculateExpense(amount, btwRate, 1);
 
-    const { error: insertErr } = await supabase.from('expenses').insert({
+    const payload = {
       category, description, amount, currency: 'EUR', exchange_rate: 1, amount_eur: amountEur,
       btw_rate: btwRate, btw_amount: btwAmount, btw_deductible: true,
-      date, vendor, receipt_storage_path: receiptStoragePath,
-      is_deductible: true, notes: '', origin: 'phone'
-    });
-    if (insertErr) throw new Error('Nie udało się zapisać kosztu: ' + insertErr.message);
+      date, vendor, is_deductible: true, notes: ''
+    };
+
+    const { synced } = await repo.createExpense(payload, photoFile);
 
     _resetForm();
-    _showToast('✅ Koszt zapisany!');
+    _showToast(synced ? '✅ Koszt zapisany!' : '📥 Zapisano offline — wyślę po połączeniu');
   } catch (err) {
     _showError(err.message);
   } finally {

@@ -1,0 +1,348 @@
+// Repozytorium danych — jedyna warstwa, przez którą strony sięgają po dane.
+// Zasada:
+//  - ODCZYT: online → pobierz z Supabase i zapisz do cache (write-through);
+//            offline/błąd sieci → zwróć z cache IndexedDB. Do wyników doklejamy
+//            wiersze „oczekujące" z outboxa (utworzone offline, jeszcze niewysłane).
+//  - ZAPIS: online → od razu do Supabase (funkcje push*); offline → do outboxa.
+//
+// Funkcje push* wykonują faktyczny zapis do Supabase i są współdzielone przez
+// ścieżkę online (create*) oraz silnik synchronizacji (sync.js → flushOutbox).
+
+import { supabase } from '../supabase.js';
+import * as idb from './idb.js';
+import * as outbox from './outbox.js';
+import { compressReceiptPhoto } from '../lib/imageCompress.js';
+import { generateNextInvoiceNumber, isUniqueViolation } from '../lib/invoiceNumber.js';
+
+export function isOnline() {
+  return navigator.onLine !== false;
+}
+
+function _receiptObjectPath(date) {
+  const d = new Date(date);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/receipt_${crypto.randomUUID()}.jpg`;
+}
+
+async function _clientsById() {
+  const rows = await idb.getAll('clients');
+  const map = {};
+  for (const c of rows) map[c.id] = c;
+  return map;
+}
+
+// ── Prymitywy zapisu do Supabase (zakładają połączenie) ───────────────────────
+
+export async function pushExpense(payload, receipt) {
+  let receipt_storage_path = payload.receipt_storage_path || null;
+  if (receipt) {
+    const objectPath = _receiptObjectPath(payload.date);
+    const { error: upErr } = await supabase.storage.from('receipts')
+      .upload(objectPath, receipt, { contentType: 'image/jpeg', upsert: false });
+    if (upErr) throw new Error('Zdjęcie paragonu: ' + upErr.message);
+    receipt_storage_path = objectPath;
+  }
+  const { data, error } = await supabase.from('expenses')
+    .insert({ ...payload, receipt_storage_path }).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('expenses', data);
+  return data;
+}
+
+export async function pushInvoice(payload, items) {
+  const MAX = 3;
+  let lastErr = null;
+  for (let attempt = 0; attempt < MAX; attempt++) {
+    const invoice_number = payload.invoice_number || await generateNextInvoiceNumber(supabase);
+    const { data: invRow, error } = await supabase.from('invoices')
+      .insert({ ...payload, invoice_number }).select('id').single();
+    if (error) {
+      if (isUniqueViolation(error) && attempt < MAX - 1) { lastErr = error; continue; }
+      throw new Error(error.message);
+    }
+    const itemsPayload = (items || []).map((it, i) => ({
+      invoice_id: invRow.id, description: it.description, quantity: it.quantity,
+      unit: it.unit, unit_price: it.unit_price, btw_rate: 0,
+      total: (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), sort_order: i
+    }));
+    if (itemsPayload.length) {
+      const { error: itErr } = await supabase.from('invoice_items').insert(itemsPayload);
+      if (itErr) throw new Error('pozycje faktury: ' + itErr.message);
+    }
+    return invRow.id;
+  }
+  throw new Error('nie udało się nadać unikalnego numeru faktury: ' + (lastErr?.message || ''));
+}
+
+export async function pushTimeEntry(payload) {
+  const { data, error } = await supabase.from('time_entries').insert(payload).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('time_entries', data);
+  return data;
+}
+
+export async function pushProject(payload) {
+  const { data, error } = await supabase.from('projects').insert(payload).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('projects', data);
+  return data;
+}
+
+export async function pushClient(payload) {
+  const { data, error } = await supabase.from('clients').insert(payload).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('clients', data);
+  return data;
+}
+
+// ── Zapis wywoływany ze stron (decyduje online vs offline) ────────────────────
+
+export async function createExpense(payload, photoFile) {
+  const row = { ...payload, origin: 'phone' };
+  let receipt = null;
+  if (photoFile) {
+    try { receipt = await compressReceiptPhoto(photoFile); } catch { receipt = photoFile; }
+  }
+  if (isOnline()) {
+    const data = await pushExpense(row, receipt);
+    return { synced: true, row: data };
+  }
+  const entry = await outbox.enqueue({ table: 'expenses', type: 'insert-expense', payload: row, receiptBlob: receipt });
+  return { synced: false, row: outbox.toDisplayRow(entry) };
+}
+
+export async function createInvoice(header, items, status) {
+  const base = {
+    ...header, status, invoice_number: '', notes: '', reference: '',
+    currency: 'EUR', exchange_rate: 1, origin: 'phone'
+  };
+  if (isOnline()) {
+    const id = await pushInvoice(base, items);
+    return { synced: true, id };
+  }
+  const entry = await outbox.enqueue({ table: 'invoices', type: 'insert-invoice', payload: base, items });
+  return { synced: false, id: entry.localId };
+}
+
+export async function createTimeEntry(payload) {
+  const row = { ...payload, origin: 'phone' };
+  if (isOnline()) {
+    const data = await pushTimeEntry(row);
+    return { synced: true, row: data };
+  }
+  const entry = await outbox.enqueue({ table: 'time_entries', type: 'insert-time-entry', payload: row });
+  return { synced: false, row: outbox.toDisplayRow(entry) };
+}
+
+export async function createProject(payload) {
+  const row = { ...payload, origin: 'phone' };
+  if (isOnline()) {
+    const data = await pushProject(row);
+    return { synced: true, row: data };
+  }
+  const entry = await outbox.enqueue({ table: 'projects', type: 'insert-project', payload: row });
+  return { synced: false, row: outbox.toDisplayRow(entry) };
+}
+
+export async function createClient(payload) {
+  const row = { ...payload, origin: 'phone' };
+  if (isOnline()) {
+    const data = await pushClient(row);
+    return { synced: true, row: data };
+  }
+  const entry = await outbox.enqueue({ table: 'clients', type: 'insert-client', payload: row });
+  return { synced: false, row: outbox.toDisplayRow(entry) };
+}
+
+// ── Odczyt (write-through cache + nakładka oczekujących) ───────────────────────
+
+export async function refreshCoreCaches() {
+  if (!isOnline()) return;
+  for (const [table, query] of [
+    ['clients', supabase.from('clients').select('*')],
+    ['projects', supabase.from('projects').select('*')]
+  ]) {
+    try {
+      const { data, error } = await query;
+      if (!error && data) await idb.replaceAll(table, data);
+    } catch { /* offline — zostaje cache */ }
+  }
+}
+
+export async function listExpenses() {
+  let server;
+  try {
+    const { data, error } = await supabase.from('expenses').select('*')
+      .order('date', { ascending: false }).limit(200);
+    if (error) throw error;
+    server = data || [];
+    await idb.replaceAll('expenses', server);
+  } catch {
+    server = (await idb.getAll('expenses')).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  }
+  const pending = (await outbox.forTable('expenses')).map(outbox.toDisplayRow);
+  return [...pending, ...server];
+}
+
+export async function getExpense(id) {
+  const entry = await idb.get('outbox', id);
+  if (entry) {
+    const row = outbox.toDisplayRow(entry);
+    row._receiptBlob = entry.receiptBlob || null;
+    return row;
+  }
+  try {
+    const { data, error } = await supabase.from('expenses').select('*').eq('id', id).single();
+    if (error) throw error;
+    await idb.put('expenses', data);
+    return data;
+  } catch {
+    return (await idb.get('expenses', id)) || null;
+  }
+}
+
+export async function listInvoices() {
+  let server;
+  try {
+    const { data, error } = await supabase.from('invoices')
+      .select('*, clients(name, company_name)')
+      .order('issue_date', { ascending: false }).limit(200);
+    if (error) throw error;
+    server = data || [];
+    await idb.replaceAll('invoices', server);
+  } catch {
+    server = (await idb.getAll('invoices')).sort((a, b) => String(b.issue_date || '').localeCompare(String(a.issue_date || '')));
+  }
+  const clientsById = await _clientsById();
+  const pending = (await outbox.forTable('invoices')).map(e => {
+    const row = outbox.toDisplayRow(e);
+    row.clients = clientsById[row.client_id] || null;
+    return row;
+  });
+  return [...pending, ...server];
+}
+
+export async function getInvoice(id) {
+  const entry = await idb.get('outbox', id);
+  if (entry) {
+    const row = outbox.toDisplayRow(entry);
+    const clientsById = await _clientsById();
+    row.clients = clientsById[row.client_id] || null;
+    row.invoice_items = (entry.items || []).map((it, i) => ({
+      ...it, total: (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), sort_order: i
+    }));
+    return row;
+  }
+  try {
+    const { data, error } = await supabase.from('invoices')
+      .select('*, clients(name, company_name, address, postcode, city, country, vat_number, email), invoice_items(*)')
+      .eq('id', id).single();
+    if (error) throw error;
+    await idb.put('invoices', data);
+    for (const it of data.invoice_items || []) await idb.put('invoice_items', it);
+    return data;
+  } catch {
+    const inv = await idb.get('invoices', id);
+    if (!inv) return null;
+    const allItems = await idb.getAll('invoice_items');
+    inv.invoice_items = allItems.filter(it => it.invoice_id === id);
+    if (!inv.clients) {
+      const clientsById = await _clientsById();
+      inv.clients = clientsById[inv.client_id] || null;
+    }
+    return inv;
+  }
+}
+
+export async function listActiveClients() {
+  let server;
+  try {
+    const { data, error } = await supabase.from('clients').select('*').eq('status', 'active').order('name');
+    if (error) throw error;
+    server = data || [];
+    for (const c of server) await idb.put('clients', c);
+  } catch {
+    server = (await idb.getAll('clients'))
+      .filter(c => c.status === 'active')
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }
+  const pending = (await outbox.forTable('clients')).map(outbox.toDisplayRow);
+  return [...pending, ...server];
+}
+
+export async function listAllClients() {
+  let server;
+  try {
+    const { data, error } = await supabase.from('clients').select('*').order('name');
+    if (error) throw error;
+    server = data || [];
+    await idb.replaceAll('clients', server);
+  } catch {
+    server = (await idb.getAll('clients'))
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }
+  const pending = (await outbox.forTable('clients')).map(outbox.toDisplayRow);
+  return [...pending, ...server];
+}
+
+export async function listProjects() {
+  let server;
+  try {
+    const { data, error } = await supabase.from('projects').select('*').order('name');
+    if (error) throw error;
+    server = data || [];
+    await idb.replaceAll('projects', server);
+  } catch {
+    server = (await idb.getAll('projects'))
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }
+  const pending = (await outbox.forTable('projects')).map(outbox.toDisplayRow);
+  return [...pending, ...server];
+}
+
+export async function listTimeEntries(limit = 100) {
+  let server;
+  try {
+    const { data, error } = await supabase.from('time_entries').select('*')
+      .order('date', { ascending: false }).limit(limit);
+    if (error) throw error;
+    server = data || [];
+    await idb.replaceAll('time_entries', server);
+  } catch {
+    server = (await idb.getAll('time_entries'))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  }
+  const pending = (await outbox.forTable('time_entries')).map(outbox.toDisplayRow);
+  const rows = [...pending, ...server];
+  // dopnij nazwę projektu z cache
+  const projById = {};
+  for (const p of await idb.getAll('projects')) projById[p.id] = p;
+  for (const r of rows) r.project_name = r.project_id ? (projById[r.project_id]?.name || null) : null;
+  return rows;
+}
+
+// ── Stan działającego licznika czasu (przeżywa zamknięcie aplikacji) ──────────
+const TIMER_KEY = 'runningTimer';
+
+export async function getRunningTimer() {
+  const rec = await idb.get('meta', TIMER_KEY);
+  return rec?.value || null;
+}
+
+export async function setRunningTimer(timer) {
+  await idb.put('meta', { key: TIMER_KEY, value: timer });
+}
+
+export async function clearRunningTimer() {
+  await idb.del('meta', TIMER_KEY);
+}
+
+export async function getReceiptUrl(storagePath) {
+  if (!storagePath) return null;
+  try {
+    const { data, error } = await supabase.storage.from('receipts').createSignedUrl(storagePath, 600);
+    if (error) throw error;
+    return data?.signedUrl || null;
+  } catch {
+    return null;
+  }
+}

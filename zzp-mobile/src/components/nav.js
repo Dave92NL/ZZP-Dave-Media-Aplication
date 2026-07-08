@@ -1,12 +1,15 @@
-import { signOut } from '../auth.js';
 import { navigate } from '../router.js';
 
 const TABS = [
+  { page: 'dashboard', icon: '📊', label: 'Pulpit' },
   { page: 'expenses', icon: '💸', label: 'Koszty' },
   { page: 'invoices', icon: '📄', label: 'Faktury' },
-  { page: 'add-expense', icon: '📷', label: '+ Koszt' },
-  { page: 'new-invoice', icon: '🧾', label: '+ Faktura' }
+  { page: 'time', icon: '⏱️', label: 'Czas' },
+  { page: 'more', icon: '☰', label: 'Więcej' }
 ];
+
+// Podstrony docierane z menu „Więcej" — podświetlają zakładkę „Więcej".
+const MORE_PAGES = new Set(['projects', 'clients', 'add-expense', 'new-invoice', 'more']);
 
 export function renderNav(currentPage, hidden) {
   const el = document.getElementById('bottom-nav');
@@ -19,23 +22,16 @@ export function renderNav(currentPage, hidden) {
   }
   el.classList.remove('hidden');
 
-  el.innerHTML = `
-    ${TABS.map(t => `
-      <button class="nav-tab${t.page === currentPage ? ' active' : ''}" data-page="${t.page}">
+  el.innerHTML = TABS.map(t => {
+    const active = t.page === currentPage || (t.page === 'more' && MORE_PAGES.has(currentPage));
+    return `
+      <button class="nav-tab${active ? ' active' : ''}" data-page="${t.page}">
         <span class="nav-icon">${t.icon}</span>
         <span class="nav-label">${t.label}</span>
-      </button>`).join('')}
-    <button class="nav-tab nav-logout" id="nav-logout-btn">
-      <span class="nav-icon">🚪</span>
-      <span class="nav-label">Wyloguj</span>
-    </button>
-  `;
+      </button>`;
+  }).join('');
 
   el.querySelectorAll('.nav-tab[data-page]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.page));
-  });
-  document.getElementById('nav-logout-btn')?.addEventListener('click', async () => {
-    await signOut();
-    navigate('login');
   });
 }

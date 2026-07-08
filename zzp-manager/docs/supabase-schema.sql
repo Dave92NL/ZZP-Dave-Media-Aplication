@@ -17,7 +17,10 @@ create extension if not exists pgcrypto;
 drop table if exists public.invoice_items cascade;
 drop table if exists public.invoices cascade;
 drop table if exists public.expenses cascade;
+drop table if exists public.time_entries cascade;
+drop table if exists public.projects cascade;
 drop table if exists public.clients cascade;
+drop table if exists public.push_subscriptions cascade;
 
 create table public.clients (
   id uuid primary key default gen_random_uuid(),
@@ -39,10 +42,29 @@ create table public.clients (
   updated_at timestamptz default now()
 );
 
+create table public.projects (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  client_id uuid references public.clients(id),
+  description text default '',
+  status text default 'active',
+  start_date date,
+  end_date date,
+  hourly_rate numeric default 0,
+  budget_hours numeric default 0,
+  budget_amount numeric default 0,
+  currency text default 'EUR',
+  youtube_episode text default '',
+  origin text not null default 'desktop',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create table public.invoices (
   id uuid primary key default gen_random_uuid(),
   invoice_number text unique,
   client_id uuid references public.clients(id),
+  project_id uuid references public.projects(id),
   status text default 'draft',
   issue_date date not null,
   due_date date not null,
@@ -76,6 +98,7 @@ create table public.invoice_items (
 
 create table public.expenses (
   id uuid primary key default gen_random_uuid(),
+  project_id uuid references public.projects(id),
   category text not null default 'Inne',
   description text not null,
   amount numeric default 0,
@@ -95,7 +118,37 @@ create table public.expenses (
   updated_at timestamptz default now()
 );
 
+create table public.time_entries (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid references public.projects(id),
+  invoice_id uuid references public.invoices(id),
+  category text not null default 'Inne',
+  description text default '',
+  start_time timestamptz,
+  end_time timestamptz,
+  duration_minutes integer default 0,
+  is_pomodoro boolean default false,
+  is_billable boolean default true,
+  date date not null,
+  origin text not null default 'desktop',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Subskrypcje Web Push (telefon) — używane w Fazie D do powiadomień o terminach
+create table public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text default '',
+  created_at timestamptz default now()
+);
+
 alter table public.clients enable row level security;
+alter table public.projects enable row level security;
+alter table public.time_entries enable row level security;
+alter table public.push_subscriptions enable row level security;
 alter table public.invoices enable row level security;
 alter table public.invoice_items enable row level security;
 alter table public.expenses enable row level security;
@@ -103,9 +156,12 @@ alter table public.expenses enable row level security;
 -- Jednoosobowa działalność — każdy zalogowany użytkownik (czyli Ty, z desktopu i telefonu)
 -- ma pełny dostęp. Wystarczające zabezpieczenie dla użytku jednoosobowego.
 create policy "authenticated_all" on public.clients for all using (auth.role() = 'authenticated');
+create policy "authenticated_all" on public.projects for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.invoices for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.invoice_items for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.expenses for all using (auth.role() = 'authenticated');
+create policy "authenticated_all" on public.time_entries for all using (auth.role() = 'authenticated');
+create policy "authenticated_all" on public.push_subscriptions for all using (auth.role() = 'authenticated');
 
 -- ── Storage (bucket "receipts") — OSOBNY system RLS, niezależny od tabel powyżej ──
 -- Bez tej polityki upload zdjęć paragonów kończy się błędem

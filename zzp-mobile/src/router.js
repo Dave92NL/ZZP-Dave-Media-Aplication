@@ -6,7 +6,7 @@ let _currentPage = 'login';
 let _currentParam = null;
 
 const PUBLIC_PAGES = new Set(['login']);
-const DEFAULT_AUTHENTICATED_PAGE = 'expenses';
+const DEFAULT_AUTHENTICATED_PAGE = 'dashboard';
 // Detail pages are reached via a card tap, not the bottom nav — hide the nav bar there.
 const HIDDEN_NAV_PAGES = new Set(['invoice-detail', 'expense-detail']);
 

@@ -1,6 +1,6 @@
-import { supabase } from '../supabase.js';
 import { currentParam, navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
+import * as repo from '../data/repo.js';
 
 const STATUS_BADGES = {
   draft: { icon: '📝', label: 'Szkic', cls: 'badge-muted' },
@@ -26,22 +26,22 @@ export async function load() {
   if (!id) { wrap.innerHTML = '<p class="error-msg">Brak identyfikatora faktury.</p>'; return; }
 
   try {
-    const { data: inv, error } = await supabase
-      .from('invoices')
-      .select('*, clients(name, company_name, address, postcode, city, country, vat_number, email), invoice_items(*)')
-      .eq('id', id)
-      .single();
-    if (error) throw error;
+    const inv = await repo.getInvoice(id);
+    if (!inv) throw new Error('Nie znaleziono faktury (offline — brak w pamięci podręcznej).');
 
     const badge = STATUS_BADGES[inv.status] || STATUS_BADGES.draft;
     const client = inv.clients || {};
     const items = (inv.invoice_items || []).sort((a, b) => a.sort_order - b.sort_order);
+    const numberLabel = inv._pending ? '⏳ oczekująca' : escHtml(inv.invoice_number);
+    const pendingBanner = inv._pending
+      ? '<div class="info-box">📥 Faktura utworzona offline — numer zostanie nadany, a faktura wysłana do chmury po odzyskaniu połączenia.</div>'
+      : '';
 
-    wrap.innerHTML = `
+    wrap.innerHTML = pendingBanner + `
       <div class="detail-header">
         <div>
-          <div class="mono detail-title">${escHtml(inv.invoice_number)}</div>
-          <span class="badge ${badge.cls}">${badge.icon} ${badge.label}</span>
+          <div class="mono detail-title">${numberLabel}</div>
+          <span class="badge ${inv._pending ? 'badge-pending' : badge.cls}">${inv._pending ? '📥 offline' : `${badge.icon} ${badge.label}`}</span>
         </div>
       </div>
 

@@ -112,11 +112,17 @@ function getStatus() {
   const pendingClients = db.prepare(
     `SELECT COUNT(*) c FROM clients WHERE cloud_id IS NULL OR updated_at > synced_at`
   ).get().c;
+  const pendingProjects = db.prepare(
+    `SELECT COUNT(*) c FROM projects WHERE cloud_id IS NULL OR updated_at > synced_at`
+  ).get().c;
   const pendingInvoices = db.prepare(
     `SELECT COUNT(*) c FROM invoices WHERE cloud_id IS NULL OR updated_at > synced_at`
   ).get().c;
   const pendingExpenses = db.prepare(
     `SELECT COUNT(*) c FROM expenses WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
+  ).get().c;
+  const pendingTimeEntries = db.prepare(
+    `SELECT COUNT(*) c FROM time_entries WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
   ).get().c;
 
   return {
@@ -124,7 +130,7 @@ function getStatus() {
     email: settings.get('supabase_email') || '',
     lastPush: settings.get('sync_last_push') || null,
     lastPull: settings.get('sync_last_pull') || null,
-    pendingLocalCount: pendingClients + pendingInvoices + pendingExpenses
+    pendingLocalCount: pendingClients + pendingProjects + pendingInvoices + pendingExpenses + pendingTimeEntries
   };
 }
 
@@ -147,8 +153,16 @@ async function pushLocalChanges() {
   const client = _getClient();
   await _ensureSession(client);
 
-  let pushedClients = 0, pushedInvoices = 0, pushedExpenses = 0;
+  let pushedClients = 0, pushedProjects = 0, pushedInvoices = 0, pushedExpenses = 0, pushedTimeEntries = 0;
   const errors = [];
+
+  // Helpers for mapping local FK → cloud UUID
+  const _clientCloud = (localId) =>
+    localId ? (db.prepare('SELECT cloud_id FROM clients WHERE id = ?').get(localId)?.cloud_id || null) : null;
+  const _projectCloud = (localId) =>
+    localId ? (db.prepare('SELECT cloud_id FROM projects WHERE id = ?').get(localId)?.cloud_id || null) : null;
+  const _invoiceCloud = (localId) =>
+    localId ? (db.prepare('SELECT cloud_id FROM invoices WHERE id = ?').get(localId)?.cloud_id || null) : null;
 
   // 1. Clients — must be pushed before invoices so client_id can be mapped
   const pendingClients = db.prepare(
@@ -178,19 +192,43 @@ async function pushLocalChanges() {
     }
   }
 
-  // 2. Invoices (+ items — always replaced as a full set, matching local update() semantics)
+  // 2. Projects — before invoices/expenses/time_entries so project_id can be mapped
+  const pendingProjects = db.prepare(
+    `SELECT * FROM projects WHERE cloud_id IS NULL OR updated_at > synced_at`
+  ).all();
+  for (const p of pendingProjects) {
+    try {
+      const payload = {
+        name: p.name, client_id: _clientCloud(p.client_id), description: p.description,
+        status: p.status, start_date: p.start_date, end_date: p.end_date,
+        hourly_rate: p.hourly_rate, budget_hours: p.budget_hours, budget_amount: p.budget_amount,
+        currency: p.currency, youtube_episode: p.youtube_episode, origin: 'desktop'
+      };
+      let cloudId = p.cloud_id;
+      if (cloudId) {
+        const { error } = await client.from('projects').update(payload).eq('id', cloudId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await client.from('projects').insert(payload).select('id').single();
+        if (error) throw error;
+        cloudId = data.id;
+      }
+      db.prepare(`UPDATE projects SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cloudId, p.id);
+      pushedProjects++;
+    } catch (err) {
+      errors.push(`Projekt "${p.name}": ${err.message}`);
+    }
+  }
+
+  // 3. Invoices (+ items — always replaced as a full set, matching local update() semantics)
   const pendingInvoices = db.prepare(
     `SELECT * FROM invoices WHERE cloud_id IS NULL OR updated_at > synced_at`
   ).all();
   for (const inv of pendingInvoices) {
     try {
-      let clientCloudId = null;
-      if (inv.client_id) {
-        const cl = db.prepare('SELECT cloud_id FROM clients WHERE id = ?').get(inv.client_id);
-        clientCloudId = cl?.cloud_id || null;
-      }
+      const clientCloudId = _clientCloud(inv.client_id);
       const payload = {
-        invoice_number: inv.invoice_number, client_id: clientCloudId, status: inv.status,
+        invoice_number: inv.invoice_number, client_id: clientCloudId, project_id: _projectCloud(inv.project_id), status: inv.status,
         issue_date: inv.issue_date, due_date: inv.due_date, paid_date: inv.paid_date,
         currency: inv.currency, exchange_rate: inv.exchange_rate, subtotal: inv.subtotal,
         btw_rate: inv.btw_rate, btw_amount: inv.btw_amount, total: inv.total, total_eur: inv.total_eur,
@@ -228,7 +266,7 @@ async function pushLocalChanges() {
     }
   }
 
-  // 3. Expenses (+ receipt photo upload to Storage)
+  // 4. Expenses (+ receipt photo upload to Storage)
   const pendingExpensesRows = db.prepare(
     `SELECT * FROM expenses WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
   ).all();
@@ -245,6 +283,7 @@ async function pushLocalChanges() {
         receiptStoragePath = objectPath;
       }
       const payload = {
+        project_id: _projectCloud(e.project_id),
         category: e.category, description: e.description, amount: e.amount, currency: e.currency,
         exchange_rate: e.exchange_rate, amount_eur: e.amount_eur, btw_rate: e.btw_rate, btw_amount: e.btw_amount,
         btw_deductible: !!e.btw_deductible, date: e.date, vendor: e.vendor,
@@ -267,11 +306,39 @@ async function pushLocalChanges() {
     }
   }
 
-  const totalPushed = pushedClients + pushedInvoices + pushedExpenses;
+  // 5. Time entries — after projects/invoices so project_id/invoice_id can be mapped
+  const pendingTimeEntries = db.prepare(
+    `SELECT * FROM time_entries WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
+  ).all();
+  for (const t of pendingTimeEntries) {
+    try {
+      const payload = {
+        project_id: _projectCloud(t.project_id), invoice_id: _invoiceCloud(t.invoice_id),
+        category: t.category, description: t.description,
+        start_time: t.start_time, end_time: t.end_time, duration_minutes: t.duration_minutes,
+        is_pomodoro: !!t.is_pomodoro, is_billable: !!t.is_billable, date: t.date, origin: 'desktop'
+      };
+      let cloudId = t.cloud_id;
+      if (cloudId) {
+        const { error } = await client.from('time_entries').update(payload).eq('id', cloudId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await client.from('time_entries').insert(payload).select('id').single();
+        if (error) throw error;
+        cloudId = data.id;
+      }
+      db.prepare(`UPDATE time_entries SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cloudId, t.id);
+      pushedTimeEntries++;
+    } catch (err) {
+      errors.push(`Wpis czasu #${t.id} (${t.date}): ${err.message}`);
+    }
+  }
+
+  const totalPushed = pushedClients + pushedProjects + pushedInvoices + pushedExpenses + pushedTimeEntries;
   _recordHistory(db, 'push', totalPushed, 0, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_push', String(Date.now()));
 
-  return { pushedClients, pushedInvoices, pushedExpenses, errors };
+  return { pushedClients, pushedProjects, pushedInvoices, pushedExpenses, pushedTimeEntries, errors };
 }
 
 // ── Pull: cloud → local ─────────────────────────────────────────────────────
@@ -282,11 +349,21 @@ async function pullCloudChanges() {
   await _ensureSession(client);
 
   const contacts = require('./contacts');
+  const projectsModule = require('./projects');
   const invoicesModule = require('./invoices');
   const expensesModule = require('./expenses');
+  const timeModule = require('./time-tracking');
 
-  let pulledClients = 0, pulledInvoices = 0, pulledExpenses = 0;
+  let pulledClients = 0, pulledProjects = 0, pulledInvoices = 0, pulledExpenses = 0, pulledTimeEntries = 0;
   const errors = [];
+
+  // Map a cloud UUID FK back to the local integer id
+  const _localClientId = (cloudId) =>
+    cloudId ? (db.prepare('SELECT id FROM clients WHERE cloud_id = ?').get(cloudId)?.id || null) : null;
+  const _localProjectId = (cloudId) =>
+    cloudId ? (db.prepare('SELECT id FROM projects WHERE cloud_id = ?').get(cloudId)?.id || null) : null;
+  const _localInvoiceId = (cloudId) =>
+    cloudId ? (db.prepare('SELECT id FROM invoices WHERE cloud_id = ?').get(cloudId)?.id || null) : null;
 
   // 1. Clients
   const localClientCloudIds = new Set(
@@ -311,7 +388,30 @@ async function pullCloudChanges() {
     }
   }
 
-  // 2. Invoices (+ items)
+  // 2. Projects — before invoices/expenses/time_entries so project_id can be mapped
+  const localProjectCloudIds = new Set(
+    db.prepare(`SELECT cloud_id FROM projects WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
+  );
+  const { data: cloudProjects, error: prErr } = await client.from('projects').select('*');
+  if (prErr) throw new Error('Pobieranie projektów z chmury nieudane: ' + prErr.message);
+
+  for (const cp of cloudProjects || []) {
+    if (localProjectCloudIds.has(cp.id)) continue;
+    try {
+      const result = projectsModule.create({
+        name: cp.name, client_id: _localClientId(cp.client_id), description: cp.description,
+        status: cp.status, start_date: cp.start_date, end_date: cp.end_date,
+        hourly_rate: cp.hourly_rate, budget_hours: cp.budget_hours, budget_amount: cp.budget_amount,
+        currency: cp.currency, youtube_episode: cp.youtube_episode
+      });
+      db.prepare(`UPDATE projects SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cp.id, result.id);
+      pulledProjects++;
+    } catch (err) {
+      errors.push(`Projekt z chmury "${cp.name}": ${err.message}`);
+    }
+  }
+
+  // 3. Invoices (+ items)
   const localInvoiceCloudIds = new Set(
     db.prepare(`SELECT cloud_id FROM invoices WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
   );
@@ -321,17 +421,13 @@ async function pullCloudChanges() {
   for (const ci of cloudInvoices || []) {
     if (localInvoiceCloudIds.has(ci.id)) continue;
     try {
-      let localClientId = null;
-      if (ci.client_id) {
-        const row = db.prepare('SELECT id FROM clients WHERE cloud_id = ?').get(ci.client_id);
-        localClientId = row?.id || null;
-      }
       const items = (ci.invoice_items || []).map(it => ({
         description: it.description, quantity: it.quantity, unit: it.unit,
         unit_price: it.unit_price, btw_rate: it.btw_rate
       }));
       const result = invoicesModule.create({
-        invoice_number: ci.invoice_number, client_id: localClientId, status: ci.status,
+        invoice_number: ci.invoice_number, client_id: _localClientId(ci.client_id),
+        project_id: _localProjectId(ci.project_id), status: ci.status,
         issue_date: ci.issue_date, due_date: ci.due_date, paid_date: ci.paid_date,
         currency: ci.currency, exchange_rate: ci.exchange_rate, btw_rate: ci.btw_rate,
         btw_reverse_charge: ci.btw_reverse_charge, notes: ci.notes, reference: ci.reference,
@@ -344,7 +440,7 @@ async function pullCloudChanges() {
     }
   }
 
-  // 3. Expenses (+ receipt photo download from Storage)
+  // 4. Expenses (+ receipt photo download from Storage)
   const localExpenseCloudIds = new Set(
     db.prepare(`SELECT cloud_id FROM expenses WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
   );
@@ -355,6 +451,7 @@ async function pullCloudChanges() {
     if (localExpenseCloudIds.has(ce.id)) continue;
     try {
       const result = expensesModule.create({
+        project_id: _localProjectId(ce.project_id),
         category: ce.category, description: ce.description, amount: ce.amount, currency: ce.currency,
         exchange_rate: ce.exchange_rate, btw_rate: ce.btw_rate, btw_deductible: ce.btw_deductible,
         date: ce.date, vendor: ce.vendor, is_deductible: ce.is_deductible, notes: ce.notes
@@ -383,11 +480,34 @@ async function pullCloudChanges() {
     }
   }
 
-  const totalPulled = pulledClients + pulledInvoices + pulledExpenses;
+  // 5. Time entries
+  const localTimeCloudIds = new Set(
+    db.prepare(`SELECT cloud_id FROM time_entries WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
+  );
+  const { data: cloudTimeEntries, error: teErr } = await client.from('time_entries').select('*');
+  if (teErr) throw new Error('Pobieranie wpisów czasu z chmury nieudane: ' + teErr.message);
+
+  for (const ct of cloudTimeEntries || []) {
+    if (localTimeCloudIds.has(ct.id)) continue;
+    try {
+      const result = timeModule.create({
+        project_id: _localProjectId(ct.project_id), invoice_id: _localInvoiceId(ct.invoice_id),
+        category: ct.category, description: ct.description,
+        start_time: ct.start_time, end_time: ct.end_time, duration_minutes: ct.duration_minutes,
+        is_pomodoro: ct.is_pomodoro, is_billable: ct.is_billable, date: ct.date
+      });
+      db.prepare(`UPDATE time_entries SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(ct.id, result.id);
+      pulledTimeEntries++;
+    } catch (err) {
+      errors.push(`Wpis czasu z chmury ${ct.date || ct.id}: ${err.message}`);
+    }
+  }
+
+  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries;
   _recordHistory(db, 'pull', 0, totalPulled, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_pull', String(Date.now()));
 
-  return { pulledClients, pulledInvoices, pulledExpenses, errors };
+  return { pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, errors };
 }
 
 module.exports = {
