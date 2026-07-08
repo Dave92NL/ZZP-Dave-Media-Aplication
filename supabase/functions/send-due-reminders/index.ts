@@ -19,6 +19,9 @@ Deno.serve(async (_req) => {
   const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!;
   const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
   const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com';
+  // Pełny adres hostowanej PWA (GitHub Pages), np.
+  // https://dave92nl.github.io/ZZP-Dave-Media-Aplication/ — używany jako cel kliknięcia.
+  const SITE_URL = Deno.env.get('SITE_URL') ?? '/';
 
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
     return json({ error: 'Brak kluczy VAPID w sekretach funkcji.' }, 500);
@@ -44,7 +47,7 @@ Deno.serve(async (_req) => {
   const payload = JSON.stringify({
     title: '🔴 Faktury po terminie',
     body: `${overdueCount} nieopłaconych faktur na ${total.toFixed(2)} €`,
-    url: '/#invoices',
+    url: SITE_URL.replace(/\/?$/, '/') + '#invoices',
     tag: 'due-invoices'
   });
 

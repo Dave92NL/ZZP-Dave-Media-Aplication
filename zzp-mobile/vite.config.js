@@ -1,12 +1,19 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Aplikacja jest serwowana z GitHub Pages w podkatalogu o nazwie repo,
+// czyli pod https://<user>.github.io/ZZP-Dave-Media-Aplication/ .
+// Wszystkie ścieżki (assety, manifest, scope PWA) muszą uwzględniać ten prefiks.
+const BASE = '/ZZP-Dave-Media-Aplication/';
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
+        id: BASE,
         name: 'ZZP Manager Mobile',
         short_name: 'ZZP Mobile',
         description: 'Dodawanie kosztów i faktur z telefonu — ZZP Manager',
@@ -14,11 +21,12 @@ export default defineConfig({
         background_color: '#0D1117',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: BASE,
+        scope: BASE,
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       workbox: {
