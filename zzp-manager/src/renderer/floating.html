@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'">
+<title>ZZP Manager</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 64px;
+    height: 64px;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #0d1117 url('../assets/icon.png') center / cover no-repeat;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.55);
+    border: 2px solid rgba(255,255,255,0.18);
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: transform 0.08s ease-out;
+  }
+  #icon:active {
+    transform: scale(0.92);
+  }
+</style>
+</head>
+<body>
+  <div id="icon" title="ZZP Manager"></div>
+  <script>
+    const icon = document.getElementById('icon');
+    let dragging = false;
+    let moved = false;
+    let lastX = 0, lastY = 0;
+
+    icon.addEventListener('mousedown', (e) => {
+      dragging = true;
+      moved = false;
+      lastX = e.screenX;
+      lastY = e.screenY;
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const dx = e.screenX - lastX;
+      const dy = e.screenY - lastY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+      if (dx !== 0 || dy !== 0) {
+        window.floatingAPI.move(dx, dy);
+        lastX = e.screenX;
+        lastY = e.screenY;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      if (moved) window.floatingAPI.dragEnd();
+      else window.floatingAPI.click();
+    });
+  </script>
+</body>
+</html>

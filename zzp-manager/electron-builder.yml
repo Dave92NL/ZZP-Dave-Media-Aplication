@@ -1,0 +1,27 @@
+appId: com.zzpmanager.app
+productName: ZZP Manager
+copyright: Copyright © 2025
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  sign: false
+  signingHashAlgorithms: []
+  icon: src/assets/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ZZP Manager
+  installerIcon: src/assets/icon.ico
+  uninstallerIcon: src/assets/icon.ico
+
+files:
+  - "**/*"
+  - "!node_modules/.cache"
+
+directories:
+  output: release

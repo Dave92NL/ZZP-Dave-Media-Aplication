@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.env
+release/
+dist/
+build/
+zzp-mobile/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+zzp-manager/.claude/settings.local.json

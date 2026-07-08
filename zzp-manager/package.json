@@ -1,0 +1,34 @@
+{
+  "name": "zzp-manager",
+  "version": "1.0.0",
+  "description": "ZZP Manager — zarządzanie firmą freelancera w Holandii",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dev": "set NODE_ENV=development&& electron .",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.4.3",
+    "electron-updater": "^6.1.8",
+    "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.7.2",
+    "marked": "^12.0.0",
+    "node-cron": "^3.0.3",
+    "papaparse": "^5.4.1",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.15.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "cross-env": "^7.0.3",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.9.1",
+    "png-to-ico": "^3.0.1"
+  }
+}

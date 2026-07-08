@@ -1,0 +1,88 @@
+/* Dark theme — overrides applied via [data-theme="dark"] in main.css */
+/* Additional dark-specific component styles */
+
+[data-theme="dark"] .card {
+  box-shadow: 0 1px 8px rgba(0,0,0,0.35);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: #0D1117;
+  color: #E6EDF3;
+  border-color: #30363D;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #484F58;
+}
+
+[data-theme="dark"] .sidebar {
+  background: #161B22;
+  border-right-color: #21262D;
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background: #21262D;
+}
+
+[data-theme="dark"] .nav-item.active {
+  background: rgba(247, 129, 102, 0.15);
+  color: #F78166;
+}
+
+[data-theme="dark"] .nav-item.active .nav-icon {
+  filter: none;
+}
+
+[data-theme="dark"] .modal {
+  background: #1C2128;
+  border-color: #30363D;
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: #21262D;
+}
+
+[data-theme="dark"] .modal-footer {
+  border-top-color: #21262D;
+}
+
+[data-theme="dark"] table thead th {
+  background: #21262D;
+}
+
+[data-theme="dark"] tr:hover td {
+  background: rgba(255,255,255,0.03);
+}
+
+[data-theme="dark"] .lock-box {
+  background: #161B22;
+  border-color: #30363D;
+}
+
+[data-theme="dark"] .pin-btn {
+  background: #21262D;
+  border-color: #30363D;
+  color: #E6EDF3;
+}
+
+[data-theme="dark"] .pin-btn:hover {
+  background: #2D333B;
+}
+
+[data-theme="dark"] .pin-btn:active {
+  background: #F78166;
+  color: #fff;
+}
+
+[data-theme="dark"] .onboarding-box {
+  background: #161B22;
+  border-color: #30363D;
+}
+
+[data-theme="dark"] .timer-bar {
+  background: #1C2128;
+  border-bottom-color: #30363D;
+}

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'none'">
+  <title>ZZP Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/dark.css">
+  <link rel="stylesheet" href="styles/light.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOCK SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="lock-screen" class="overlay hidden">
+  <div class="lock-box">
+    <div class="lock-logo">🏢</div>
+    <h1 class="lock-title">ZZP Manager</h1>
+    <p class="lock-subtitle">Wprowadź PIN, aby kontynuować</p>
+    <div class="pin-dots" id="pin-dots">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="pin-pad" id="pin-pad">
+      <button class="pin-btn" data-digit="1">1</button>
+      <button class="pin-btn" data-digit="2">2</button>
+      <button class="pin-btn" data-digit="3">3</button>
+      <button class="pin-btn" data-digit="4">4</button>
+      <button class="pin-btn" data-digit="5">5</button>
+      <button class="pin-btn" data-digit="6">6</button>
+      <button class="pin-btn" data-digit="7">7</button>
+      <button class="pin-btn" data-digit="8">8</button>
+      <button class="pin-btn" data-digit="9">9</button>
+      <button class="pin-btn pin-clear" data-action="clear">✕</button>
+      <button class="pin-btn" data-digit="0">0</button>
+      <button class="pin-btn pin-submit" data-action="submit">✓</button>
+    </div>
+    <div id="lock-error" class="lock-error hidden"></div>
+    <div id="lock-cooldown" class="lock-cooldown hidden"></div>
+    <button class="link-btn" id="forgot-pin-btn" onclick="App.showForgotPin()">Zapomniałem PIN</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ONBOARDING WIZARD
+════════════════════════════════════════════════════════════ -->
+<div id="onboarding" class="overlay hidden">
+  <div class="onboarding-box">
+    <div class="onboarding-header">
+      <h1>🏢 ZZP Manager</h1>
+      <p>Konfiguracja wstępna — krok <span id="ob-step-num">1</span> z 3</p>
+      <div class="ob-progress">
+        <div class="ob-progress-bar" id="ob-progress-bar" style="width:33%"></div>
+      </div>
+    </div>
+
+    <!-- Step 1: Company -->
+    <div class="ob-step" id="ob-step-1">
+      <h2>Dane firmy</h2>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Imię i nazwisko *</label>
+          <input type="text" id="ob-name" placeholder="Jan Kowalski" required>
+        </div>
+        <div class="form-group">
+          <label>Nazwa firmy (opcjonalnie)</label>
+          <input type="text" id="ob-company" placeholder="Kowalski Media">
+        </div>
+        <div class="form-group full">
+          <label>Adres</label>
+          <input type="text" id="ob-address" placeholder="Straat 123">
+        </div>
+        <div class="form-group">
+          <label>Postcode</label>
+          <input type="text" id="ob-postcode" placeholder="1234 AB">
+        </div>
+        <div class="form-group">
+          <label>Miasto</label>
+          <input type="text" id="ob-city" placeholder="Amsterdam">
+        </div>
+        <div class="form-group">
+          <label>KvK-nummer</label>
+          <input type="text" id="ob-kvk" placeholder="12345678">
+        </div>
+        <div class="form-group">
+          <label>BTW-nummer</label>
+          <input type="text" id="ob-btw" placeholder="NL123456789B01">
+        </div>
+        <div class="form-group">
+          <label>IBAN</label>
+          <input type="text" id="ob-iban" placeholder="NL00 BANK 0000 0000 00">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="ob-email" placeholder="jan@example.com">
+        </div>
+        <div class="form-group">
+          <label>Telefon</label>
+          <input type="tel" id="ob-phone" placeholder="+31 6 12345678">
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Invoice settings -->
+    <div class="ob-step hidden" id="ob-step-2">
+      <h2>Ustawienia faktur</h2>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Prefiks numeru faktury</label>
+          <input type="text" id="ob-prefix" value="FV" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label>Numer startowy</label>
+          <input type="number" id="ob-start-num" value="1" min="1">
+        </div>
+        <div class="form-group">
+          <label>Domyślny termin płatności (dni)</label>
+          <input type="number" id="ob-payment-days" value="30" min="1">
+        </div>
+        <div class="form-group">
+          <label>Domyślna stawka godzinowa (€/h)</label>
+          <input type="number" id="ob-hourly-rate" value="0" min="0" step="0.01">
+        </div>
+        <div class="form-group full">
+          <label>Tekst stopki faktury (opcjonalnie)</label>
+          <textarea id="ob-footer" rows="2" placeholder="np. Bedankt voor uw vertrouwen!"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: PIN -->
+    <div class="ob-step hidden" id="ob-step-3">
+      <h2>Zabezpieczenie PIN</h2>
+      <p class="ob-desc">Ustaw PIN dostępu (4–8 cyfr). Po 3 błędnych próbach aplikacja zostanie zablokowana na 30 sekund.</p>
+      <div class="form-grid-1">
+        <div class="form-group">
+          <label>PIN (4–8 cyfr) *</label>
+          <input type="password" id="ob-pin" placeholder="••••" maxlength="8" inputmode="numeric" pattern="\d*">
+        </div>
+        <div class="form-group">
+          <label>Powtórz PIN *</label>
+          <input type="password" id="ob-pin-confirm" placeholder="••••" maxlength="8" inputmode="numeric" pattern="\d*">
+        </div>
+      </div>
+      <div id="ob-pin-error" class="error-msg hidden"></div>
+    </div>
+
+    <div class="ob-actions">
+      <button class="btn btn-secondary" id="ob-back-btn" onclick="App.obBack()" disabled>← Wstecz</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-secondary hidden" id="ob-skip-pin-btn" onclick="App.obSkipPin()" title="Uruchom bez ochrony PIN">Pomiń PIN</button>
+        <button class="btn btn-primary" id="ob-next-btn" onclick="App.obNext()">Dalej →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🏢</div>
+      <div class="sidebar-brand" id="sidebar-brand">ZZP Manager</div>
+      <button class="sidebar-toggle" id="sidebar-toggle" title="Zwiń/Rozwiń">☰</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item" data-page="dashboard" href="#dashboard"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></a>
+      <a class="nav-item" data-page="time" href="#time"><span class="nav-icon">⏱️</span><span class="nav-label">Czas pracy</span></a>
+      <a class="nav-item" data-page="invoices" href="#invoices"><span class="nav-icon">📄</span><span class="nav-label">Faktury</span></a>
+      <a class="nav-item" data-page="expenses" href="#expenses"><span class="nav-icon">💸</span><span class="nav-label">Koszty</span></a>
+      <a class="nav-item" data-page="reports" href="#reports"><span class="nav-icon">📊</span><span class="nav-label">Raporty</span></a>
+      <a class="nav-item" data-page="projects" href="#projects"><span class="nav-icon">📁</span><span class="nav-label">Projekty</span></a>
+      <a class="nav-item" data-page="contacts" href="#contacts"><span class="nav-icon">👥</span><span class="nav-label">Kontakty</span></a>
+      <a class="nav-item" data-page="tasks" href="#tasks"><span class="nav-icon">✅</span><span class="nav-label">Zadania</span></a>
+      <a class="nav-item" data-page="notes" href="#notes"><span class="nav-icon">📝</span><span class="nav-label">Notatnik</span></a>
+      <a class="nav-item" data-page="youtube" href="#youtube"><span class="nav-icon">🎬</span><span class="nav-label">YouTube</span></a>
+      <a class="nav-item" data-page="reminders" href="#reminders"><span class="nav-icon">🔔</span><span class="nav-label">Przypomnienia</span></a>
+      <a class="nav-item" data-page="calendar" href="#calendar"><span class="nav-icon">📅</span><span class="nav-label">Kalendarz</span></a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="nav-item" data-page="settings" href="#settings"><span class="nav-icon">⚙️</span><span class="nav-label">Ustawienia</span></a>
+      <button class="nav-item nav-lock-btn" onclick="App.lock()"><span class="nav-icon">🔒</span><span class="nav-label">Zablokuj</span></button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content" id="main-content">
+    <!-- Live timer bar (shown when timer active) -->
+    <div class="timer-bar hidden" id="timer-bar">
+      <span class="timer-bar-dot"></span>
+      <span id="timer-bar-label">Timer aktywny</span>
+      <span class="timer-bar-time" id="timer-bar-time">00:00:00</span>
+      <button class="btn btn-sm btn-danger" onclick="App.stopGlobalTimer()">⏹ Stop</button>
+    </div>
+
+    <!-- Page container — content injected by router -->
+    <div id="page-content"></div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOAST CONTAINER
+════════════════════════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL CONTAINER
+════════════════════════════════════════════════════════════ -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="UI.closeModal(event)">
+  <div class="modal" id="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modal-title">Modal</h3>
+      <button class="modal-close" onclick="UI.closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer hidden" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="js/translations.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/page-dashboard.js"></script>
+<script src="js/page-invoices.js"></script>
+<script src="js/page-time.js"></script>
+<script src="js/page-expenses.js"></script>
+<script src="js/page-reports.js"></script>
+<script src="js/page-projects.js"></script>
+<script src="js/page-contacts.js"></script>
+<script src="js/page-tasks.js"></script>
+<script src="js/page-notes.js"></script>
+<script src="js/page-youtube.js"></script>
+<script src="js/page-reminders.js"></script>
+<script src="js/page-calendar.js"></script>
+<script src="js/page-settings.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
