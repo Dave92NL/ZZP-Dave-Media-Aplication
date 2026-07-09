@@ -359,9 +359,13 @@ function _parsePDFInvoice(text, filename) {
     /vat[^%\d]*(\d{1,2})\s*%/i
   ]) || 21;
 
-  // Try to find client name (text after "Aan:" / "To:" / "Klant:")
+  // Nazwa klienta — efaktura.nl używa nagłówka "Factuur voor:".
+  // UWAGA: nie używamy gołego "aan"/"to", bo "aan" trafia w holenderskie
+  // nazwy miast typu "Alphen aan den Rijn" i importuje miasto jako klienta.
   const clientName = _rxFind(text, [
-    /(?:aan|to|klant|client|buyer)[:\s]+([^\n]+)/i
+    /factuur\s*voor\s*:?\s*([^\n]+)/i,
+    /factuur\s*aan\s*:?\s*([^\n]+)/i,
+    /(?:klant|client|buyer|bill\s*to|invoice\s*to|debiteur)\s*:\s*([^\n]+)/i
   ]) || '';
 
   const price = totalExcl || (totalIncl > 0 ? totalIncl / (1 + btwRate / 100) : 0);
