@@ -39,8 +39,9 @@ const VALID_CHANNELS = new Set([
   'income:analyzeCSV', 'income:importCSV',
   'dashboard:getData', 'dashboard:getKPIs', 'dashboard:getAlerts', 'dashboard:getChartData',
   'system:getIdleTime',
-  'util:openFile', 'util:showInFolder', 'tray:updateStats',
+  'util:openFile', 'util:showInFolder', 'util:openExternal', 'vies:check', 'tray:updateStats',
   'efaktura:pickFiles', 'efaktura:analyze', 'efaktura:importInvoices', 'efaktura:importExpenses',
+  'hours:pickFiles', 'hours:analyze', 'hours:import',
   'calendar:oauthConnect', 'calendar:getAuthStatus', 'calendar:disconnectAuth',
   'calendar:listEvents', 'calendar:createEvent', 'calendar:updateEvent', 'calendar:deleteEvent',
   'sync:getStatus', 'sync:getHistory', 'sync:configureCredentials', 'sync:testConnection',
@@ -270,7 +271,13 @@ contextBridge.exposeInMainWorld('api', {
   // ── Utility ───────────────────────────────
   util: {
     openFile: (path) => invoke('util:openFile', path),
-    showInFolder: (path) => invoke('util:showInFolder', path)
+    showInFolder: (path) => invoke('util:showInFolder', path),
+    openExternal: (url) => invoke('util:openExternal', url)
+  },
+
+  // ── VIES (weryfikacja VAT) ─────────────────
+  vies: {
+    check: (vat) => invoke('vies:check', vat)
   },
 
   // ── Tray ──────────────────────────────────
@@ -284,6 +291,13 @@ contextBridge.exposeInMainWorld('api', {
     analyze:        (paths, type)    => invoke('efaktura:analyze', paths, type),
     importInvoices: (items)          => invoke('efaktura:importInvoices', items),
     importExpenses: (items)          => invoke('efaktura:importExpenses', items)
+  },
+
+  // ── Hours import (godzinówka) ──────────────
+  hours: {
+    pickFiles: ()               => invoke('hours:pickFiles'),
+    analyze:   (paths)          => invoke('hours:analyze', paths),
+    import:    (items, options) => invoke('hours:import', items, options)
   },
 
   // ── Google Calendar ────────────────────────

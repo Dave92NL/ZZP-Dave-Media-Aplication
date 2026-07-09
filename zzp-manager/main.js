@@ -13,7 +13,7 @@ let isQuitting = false;
 const FLOATING_WIDGET_SIZE = 64;
 
 // Import modules (loaded after app ready)
-let db, auth, invoices, timeTracking, expenses, taxCalc, reports, projects, contacts, tasks, notes, youtube, youtubeApi, notifications, backup, exportModule, settings, incomeImport, efakturaImport, googleCalendar, cloudSync, products, mileage;
+let db, auth, invoices, timeTracking, expenses, taxCalc, reports, projects, contacts, tasks, notes, youtube, youtubeApi, notifications, backup, exportModule, settings, incomeImport, efakturaImport, googleCalendar, cloudSync, products, mileage, hoursImport;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -259,6 +259,7 @@ app.whenReady().then(() => {
   cloudSync = require('./src/modules/cloud-sync');
   products = require('./src/modules/products');
   mileage = require('./src/modules/mileage');
+  hoursImport = require('./src/modules/hours-import');
 
   // Init database
   db.init();
@@ -702,6 +703,18 @@ function registerIpcHandlers() {
   ipcMain.handle('efaktura:importExpenses', (_, parsedItems) =>
     efakturaImport.importExpenses(parsedItems));
 
+  // ── Hours import (godzinówka z efaktura) ──
+  ipcMain.handle('hours:pickFiles', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Wybierz plik godzin (PDF lub XML) z efaktura.nl',
+      filters: [{ name: 'PDF / XML', extensions: ['pdf', 'xml'] }],
+      properties: ['openFile', 'multiSelections']
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle('hours:analyze', (_, filePaths) => hoursImport.parseFiles(filePaths));
+  ipcMain.handle('hours:import', (_, items, options) => hoursImport.importHours(items, options));
+
   // ── Dashboard ─────────────────────────────
   ipcMain.handle('dashboard:getData', () => getDashboardData());
   ipcMain.handle('dashboard:getKPIs', () => getDashboardKPIs());
@@ -727,6 +740,38 @@ function registerIpcHandlers() {
       return true;
     }
     return false;
+  });
+  ipcMain.handle('util:openExternal', async (_, url) => {
+    // Tylko bezpieczne schematy — mailto (wezwania) i http(s) (np. VIES)
+    if (typeof url === 'string' && /^(mailto:|https?:)/i.test(url)) {
+      await shell.openExternal(url);
+      return true;
+    }
+    return false;
+  });
+
+  // ── VIES — weryfikacja numeru VAT klienta (API UE) ──
+  ipcMain.handle('vies:check', async (_, vat) => {
+    const clean = String(vat || '').replace(/[\s.\-]/g, '').toUpperCase();
+    const m = clean.match(/^([A-Z]{2})(.+)$/);
+    if (!m) return { valid: false, error: 'Numer VAT musi zaczynać się od kodu kraju (np. NL, IE).' };
+    const [, cc, num] = m;
+    try {
+      const res = await fetch(
+        `https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${cc}/vat/${num}`,
+        { signal: AbortSignal.timeout(15000), headers: { Accept: 'application/json' } }
+      );
+      if (!res.ok) return { valid: false, error: `VIES odpowiedział błędem ${res.status}` };
+      const data = await res.json();
+      return {
+        valid: !!data.isValid,
+        name: (data.name && data.name !== '---') ? data.name : '',
+        address: (data.address && data.address !== '---') ? data.address : '',
+        countryCode: cc, vatNumber: num
+      };
+    } catch (e) {
+      return { valid: false, error: 'Połączenie z VIES nieudane: ' + e.message };
+    }
   });
   ipcMain.handle('tray:updateStats', (_, stats) => {
     updateTrayMenu(stats);

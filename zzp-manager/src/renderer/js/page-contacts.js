@@ -344,7 +344,13 @@ const PageContacts = (() => {
         <div class="form-group"><label>Postcode</label><input type="text" id="nf-post" value="${UI.esc(c?.postcode||'')}"></div>
         <div class="form-group"><label>Miasto</label><input type="text" id="nf-city" value="${UI.esc(c?.city||'')}"></div>
         <div class="form-group"><label>Kraj</label><input type="text" id="nf-country" value="${UI.esc(c?.country||'')}"></div>
-        <div class="form-group"><label>Numer VAT</label><input type="text" id="nf-vat" value="${UI.esc(c?.vat_number||'')}"></div>
+        <div class="form-group"><label>Numer VAT</label>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="nf-vat" value="${UI.esc(c?.vat_number||'')}" style="flex:1" placeholder="np. IE6388047V">
+            <button class="btn btn-sm btn-secondary" type="button" onclick="PageContacts.checkVies()" title="Sprawdź w bazie VIES (UE)">🔍 VIES</button>
+          </div>
+          <div id="nf-vies-result" style="font-size:12px;margin-top:4px;min-height:16px"></div>
+        </div>
         <div class="form-group"><label>Waluta</label>
           <select id="nf-cur">${['EUR','USD','GBP','PLN'].map(v=>`<option ${(c?.currency||'EUR')===v?'selected':''}>${v}</option>`).join('')}</select></div>
         <div class="form-group"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="nf-rc" ${c?.btw_reverse_charge?'checked':''}> BTW Reverse Charge</label></div>
@@ -414,7 +420,56 @@ const PageContacts = (() => {
     </div>`;
   }
 
-  return { load, openClient, switchTab, openCreate, openEdit, saveForm, saveContactData, openAddInteraction, saveInteraction, deleteInteraction, uploadFile, deleteFile, deleteContact, _newProject };
+  // ── VIES — weryfikacja numeru VAT ────────────────────────
+  let _viesData = null;
+
+  async function checkVies() {
+    const vat = document.getElementById('nf-vat')?.value?.trim();
+    const el = document.getElementById('nf-vies-result');
+    if (!el) return;
+    if (!vat) { el.innerHTML = '<span style="color:var(--accent-yellow)">Wpisz numer VAT.</span>'; return; }
+    el.innerHTML = '⏳ Sprawdzam w bazie VIES…';
+    try {
+      const r = await window.api.vies.check(vat);
+      if (r.error) { el.innerHTML = `<span style="color:var(--accent-red)">⚠️ ${UI.esc(r.error)}</span>`; return; }
+      if (r.valid) {
+        _viesData = r;
+        const fillBtn = (r.name || r.address)
+          ? ` <button class="btn btn-sm btn-secondary" type="button" style="padding:2px 8px;font-size:11px" onclick="PageContacts.fillFromVies()">⤵ Wypełnij dane z VIES</button>`
+          : '';
+        el.innerHTML = `<span style="color:var(--accent-green)">✅ Ważny numer VAT${r.name ? ' — ' + UI.esc(r.name) : ''}</span>${fillBtn}`;
+      } else {
+        el.innerHTML = '<span style="color:var(--accent-red)">❌ Numer VAT nieważny lub nieznany w VIES</span>';
+      }
+    } catch (e) {
+      el.innerHTML = `<span style="color:var(--accent-red)">Błąd: ${UI.esc(e.message)}</span>`;
+    }
+  }
+
+  function fillFromVies() {
+    if (!_viesData) return;
+    const setIf = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    if (_viesData.name) setIf('nf-company', _viesData.name);
+
+    // Adres VIES to jeden wieloliniowy string; spróbuj wydzielić kod/miasto
+    const addr = String(_viesData.address || '').replace(/\r/g, '').trim();
+    if (addr) {
+      const lines = addr.split('\n').map(l => l.trim()).filter(Boolean);
+      const last = lines[lines.length - 1] || '';
+      // NL: "1234 AB PLAATS" | ogólnie: "<kod> <miasto>"
+      const m = last.match(/^([0-9]{4}\s?[A-Z]{2}|[0-9]{4,6})\s+(.+)$/i);
+      if (m && lines.length > 1) {
+        setIf('nf-post', m[1].trim());
+        setIf('nf-city', m[2].trim());
+        setIf('nf-addr', lines.slice(0, -1).join(', '));
+      } else {
+        setIf('nf-addr', lines.join(', '));
+      }
+    }
+    UI.toast('Uzupełniono dane z VIES — sprawdź i zapisz.', 'success');
+  }
+
+  return { load, openClient, switchTab, openCreate, openEdit, saveForm, saveContactData, openAddInteraction, saveInteraction, deleteInteraction, uploadFile, deleteFile, deleteContact, _newProject, checkVies, fillFromVies };
 })();
 
 window.PageContacts = PageContacts;

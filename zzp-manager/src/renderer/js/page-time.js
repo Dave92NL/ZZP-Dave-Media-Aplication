@@ -43,6 +43,7 @@ const PageTime = (() => {
         <div class="page-header">
           <h1 class="page-title">⏱️ Czas pracy</h1>
           <div class="page-actions">
+            <button class="btn btn-secondary" onclick="PageTime.openImportWizard()" title="Importuj godzinówkę z efaktura.nl (PDF/XML)">📥 Import godzin</button>
             <button class="btn btn-secondary" onclick="PageTime.openExportModal()">📤 Eksportuj</button>
           </div>
         </div>
@@ -816,6 +817,119 @@ const PageTime = (() => {
     if (timerState === 'running') timerPause();
   }
 
+  // ── Import godzinówki z efaktura.nl ──────────────────────
+  let _hoursResults = [];
+
+  async function openImportWizard() {
+    const paths = await window.api.hours.pickFiles();
+    if (!paths.length) return;
+    const btn = document.querySelector('[onclick*="openImportWizard"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Analizuję…'; }
+    let results;
+    try {
+      results = await window.api.hours.analyze(paths);
+    } catch (err) {
+      UI.toast('Błąd analizy plików: ' + err.message, 'error');
+      return;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📥 Import godzin'; }
+    }
+    _hoursResults = results;
+    _showHoursPreview(results);
+  }
+
+  function _fmtDur(min) {
+    const h = Math.floor((min || 0) / 60), m = (min || 0) % 60;
+    return `${h}h ${String(m).padStart(2, '0')}m`;
+  }
+
+  function _showHoursPreview(results) {
+    const okFiles = results.filter(r => r.status !== 'error');
+    const errFiles = results.filter(r => r.status === 'error');
+    const allEntries = okFiles.flatMap(r => r.data || []);
+    const totalMin = allEntries.reduce((s, e) => s + (e.duration_minutes || 0), 0);
+
+    const catOpts = CATEGORIES.map(c => `<option value="${UI.escHtml(c)}"${c === 'Inne' ? ' selected' : ''}>${UI.escHtml(c)}</option>`).join('');
+
+    const rows = allEntries.map((e, idx) => `
+      <tr>
+        <td style="text-align:center"><input type="checkbox" class="hrs-chk" data-idx="${idx}" ${e.duration_minutes ? 'checked' : ''}></td>
+        <td class="mono">${UI.escHtml(e.date || '—')}</td>
+        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${UI.escHtml(e.description || '')}">${UI.escHtml(e.description || '—')}</td>
+        <td>${UI.escHtml(e._clientName || '—')}</td>
+        <td style="text-align:right">${e.duration_minutes ? _fmtDur(e.duration_minutes) : '<span style="color:var(--accent-yellow)">0 — uzupełnij</span>'}</td>
+      </tr>`).join('');
+
+    const errNote = errFiles.length
+      ? `<p style="color:var(--accent-red);font-size:12px;margin-top:6px">❌ ${errFiles.length} plik(ów) nie rozpoznano: ${errFiles.map(f => UI.escHtml(f.basename)).join(', ')}. Dla PDF-skanów bez tekstu import nie zadziała.</p>`
+      : '';
+
+    const html = `
+      <div id="hrs-modal-overlay" class="modal-overlay" style="z-index:9999">
+        <div class="modal" style="max-width:860px;width:95vw">
+          <div class="modal-header">
+            <h3>📥 Import godzinówki z efaktura.nl</h3>
+            <button class="modal-close" onclick="document.getElementById('hrs-modal-overlay').remove()">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="margin-bottom:10px;color:var(--text-muted)">
+              Znaleziono <strong>${allEntries.length}</strong> wpisów (${_fmtDur(totalMin)} łącznie) w ${okFiles.length} plik(ach).
+              Odznacz niechciane i wybierz kategorię — wpisy trafią do rejestru czasu.
+            </p>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+              <label style="font-size:13px">Kategoria dla importu:
+                <select id="hrs-category" style="margin-left:6px">${catOpts}</select>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="hrs-billable" checked> rozliczalne
+              </label>
+            </div>
+            <div style="overflow:auto;max-height:420px">
+              <table class="data-table" style="width:100%;font-size:13px">
+                <thead><tr>
+                  <th style="width:36px"><input type="checkbox" id="hrs-chk-all" checked onchange="document.querySelectorAll('.hrs-chk').forEach(c=>c.checked=this.checked)"></th>
+                  <th>Data</th><th>Opis</th><th>Klient</th><th style="text-align:right">Czas</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted)">Brak wpisów</td></tr>'}</tbody>
+              </table>
+            </div>
+            ${errNote}
+          </div>
+          <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px">
+            <button class="btn btn-secondary" onclick="document.getElementById('hrs-modal-overlay').remove()">Anuluj</button>
+            <button class="btn btn-primary" onclick="PageTime.doHoursImport()">Importuj zaznaczone</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  async function doHoursImport() {
+    const checks = Array.from(document.querySelectorAll('.hrs-chk'));
+    const category = document.getElementById('hrs-category')?.value || 'Inne';
+    const isBillable = document.getElementById('hrs-billable')?.checked !== false;
+
+    // Zbuduj listę pozycji z zaznaczonymi wpisami (spłaszczone → per plik)
+    const allEntries = _hoursResults.filter(r => r.status !== 'error').flatMap(r => r.data || []);
+    const selectedEntries = allEntries.filter((_, i) => checks[i]?.checked);
+    if (!selectedEntries.length) { UI.toast('Nie zaznaczono żadnych wpisów.', 'warning'); return; }
+
+    document.getElementById('hrs-modal-overlay')?.remove();
+    try {
+      const r = await window.api.hours.import(
+        [{ basename: 'import', status: 'ok', data: selectedEntries }],
+        { category, is_billable: isBillable }
+      );
+      const msg = `✅ Zaimportowano ${r.imported} wpis(ów) godzin` +
+        (r.skipped ? `, pominięto ${r.skipped}` : '') +
+        (r.errors?.length ? `, błędy: ${r.errors.length}` : '');
+      UI.toast(msg, r.errors?.length ? 'warning' : 'success');
+      await refreshList();
+    } catch (err) {
+      UI.toast('Błąd importu: ' + err.message, 'error');
+    }
+  }
+
   return {
     load, unload,
     timerStart, timerPause, timerStop,
@@ -824,7 +938,8 @@ const PageTime = (() => {
     calcDuration, onDurationInput, addManualEntry,
     applyListFilters, refreshList,
     editEntry, confirmEdit, deleteEntry, confirmDelete,
-    openExportModal, doExport
+    openExportModal, doExport,
+    openImportWizard, doHoursImport
   };
 })();
 

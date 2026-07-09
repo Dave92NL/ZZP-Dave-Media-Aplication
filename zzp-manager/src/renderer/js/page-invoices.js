@@ -169,6 +169,7 @@ const PageInvoices = (() => {
                   ${inv.pdf_path ? `<button class="btn btn-icon btn-sm btn-secondary" title="Otwórz PDF" onclick="PageInvoices.openPDF(${inv.id})">👁</button>` : ''}
                   <button class="btn btn-icon btn-sm btn-secondary" title="Edytuj" onclick="PageInvoices.openEdit(${inv.id})">✏️</button>
                   ${inv.status !== 'paid' ? `<button class="btn btn-icon btn-sm btn-success" title="Oznacz zapłaconą" onclick="PageInvoices.markPaid(${inv.id})">✅</button>` : ''}
+                  ${(inv.status !== 'paid' && inv.status !== 'cancelled') ? `<button class="btn btn-icon btn-sm btn-secondary" title="Przypomnienie / wezwanie do zapłaty" onclick="PageInvoices.openPaymentEmail(${inv.id})">✉️</button>` : ''}
                   <button class="btn btn-icon btn-sm btn-secondary" title="Duplikuj" onclick="PageInvoices.duplicate(${inv.id})">📋</button>
                   <button class="btn btn-icon btn-sm btn-secondary" title="Eksportuj PDF" onclick="PageInvoices.exportPDF(${inv.id})">📄</button>
                   <button class="btn btn-icon btn-sm btn-secondary" title="Eksportuj UBL XML (e-faktura)" onclick="PageInvoices.exportUBL(${inv.id})">🧾</button>
@@ -783,6 +784,185 @@ const PageInvoices = (() => {
     }
   }
 
+  // ── Przypomnienia / wezwania do zapłaty ──────────────────
+  let _payEmailInv = null;
+  let _payEmailProfile = null;
+
+  async function openPaymentEmail(id) {
+    try {
+      _payEmailInv = await window.api.invoices.getById(id);
+      _payEmailProfile = await window.api.profile.get();
+    } catch (err) { UI.toast('Błąd: ' + err.message, 'error'); return; }
+    if (!_payEmailInv) return;
+
+    UI.openModal('✉️ Przypomnienie / wezwanie do zapłaty', `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+        <label style="font-size:13px">Rodzaj:
+          <select id="pe-kind" onchange="PageInvoices.refreshPayEmail()" style="margin-left:6px">
+            <option value="reminder">Przypomnienie (uprzejme)</option>
+            <option value="demand">Wezwanie do zapłaty (stanowcze)</option>
+          </select>
+        </label>
+        <label style="font-size:13px">Język:
+          <select id="pe-lang" onchange="PageInvoices.refreshPayEmail()" style="margin-left:6px">
+            <option value="nl">Niderlandzki</option>
+            <option value="en">Angielski</option>
+            <option value="pl">Polski</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-group">
+        <label>Do (e-mail klienta)</label>
+        <input type="text" id="pe-to" value="${UI.esc(_payEmailInv.client_email || '')}" placeholder="brak e-maila w kontakcie">
+      </div>
+      <div class="form-group">
+        <label>Temat</label>
+        <input type="text" id="pe-subject">
+      </div>
+      <div class="form-group">
+        <label>Treść</label>
+        <textarea id="pe-body" rows="12" style="font-family:inherit"></textarea>
+      </div>`,
+      {
+        size: 'lg',
+        footer: `
+          <button class="btn btn-secondary" onclick="UI.closeModal()">Zamknij</button>
+          <button class="btn btn-secondary" onclick="PageInvoices.copyPayEmail()">📋 Kopiuj treść</button>
+          <button class="btn btn-primary" onclick="PageInvoices.openPayEmailInMail()">✉️ Otwórz w programie pocztowym</button>`,
+        onOpen: () => refreshPayEmail()
+      }
+    );
+  }
+
+  function refreshPayEmail() {
+    const kind = document.getElementById('pe-kind')?.value || 'reminder';
+    const lang = document.getElementById('pe-lang')?.value || 'nl';
+    const { subject, body } = _buildPayEmail(kind, lang, _payEmailInv, _payEmailProfile);
+    const s = document.getElementById('pe-subject'); if (s) s.value = subject;
+    const b = document.getElementById('pe-body'); if (b) b.value = body;
+  }
+
+  function _daysOverdue(dueDate) {
+    if (!dueDate) return 0;
+    const diff = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
+    return Math.max(0, diff);
+  }
+
+  function _buildPayEmail(kind, lang, inv, profile) {
+    const nr = inv.invoice_number || '';
+    const amount = fmtAmount(inv.total, inv.currency || 'EUR');
+    const due = fmtDate(inv.due_date);
+    const overdue = _daysOverdue(inv.due_date);
+    const iban = profile?.iban || '';
+    const company = profile?.name || '';
+    const clientName = inv.company_name || inv.client_name || '';
+
+    const T = {
+      nl: {
+        reminderSubj: `Betalingsherinnering factuur ${nr}`,
+        demandSubj: `Aanmaning – openstaande factuur ${nr}`,
+        reminder:
+`Geachte heer/mevrouw,
+
+Onze administratie geeft aan dat factuur ${nr} van ${amount} nog niet is voldaan. De vervaldatum was ${due}.
+
+Mogelijk is dit aan uw aandacht ontsnapt. Ik verzoek u vriendelijk het bedrag over te maken op ${iban} onder vermelding van factuurnummer ${nr}.
+
+Heeft u de betaling reeds gedaan? Dan kunt u dit bericht als niet verzonden beschouwen.
+
+Met vriendelijke groet,
+${company}`,
+        demand:
+`Geachte heer/mevrouw,
+
+Ondanks eerdere herinnering is factuur ${nr} van ${amount} nog steeds niet voldaan. De factuur is inmiddels ${overdue} dagen over de vervaldatum (${due}).
+
+Ik verzoek u het openstaande bedrag binnen 7 dagen over te maken op ${iban} onder vermelding van factuurnummer ${nr}. Bij uitblijven van betaling zie ik mij genoodzaakt verdere stappen te ondernemen.
+
+Met vriendelijke groet,
+${company}`
+      },
+      en: {
+        reminderSubj: `Payment reminder – invoice ${nr}`,
+        demandSubj: `Final notice – overdue invoice ${nr}`,
+        reminder:
+`Dear Sir or Madam,
+
+Our records show that invoice ${nr} for ${amount} has not yet been paid. The due date was ${due}.
+
+This may have escaped your attention. I kindly ask you to transfer the amount to ${iban}, quoting invoice number ${nr}.
+
+If you have already made the payment, please disregard this message.
+
+Kind regards,
+${company}`,
+        demand:
+`Dear Sir or Madam,
+
+Despite an earlier reminder, invoice ${nr} for ${amount} remains unpaid. The invoice is now ${overdue} days overdue (due date ${due}).
+
+Please transfer the outstanding amount within 7 days to ${iban}, quoting invoice number ${nr}. Should payment not be received, I will be obliged to take further action.
+
+Kind regards,
+${company}`
+      },
+      pl: {
+        reminderSubj: `Przypomnienie o płatności – faktura ${nr}`,
+        demandSubj: `Wezwanie do zapłaty – faktura ${nr}`,
+        reminder:
+`Szanowni Państwo,
+
+Zgodnie z naszą ewidencją faktura ${nr} na kwotę ${amount} nie została jeszcze opłacona. Termin płatności minął ${due}.
+
+Prawdopodobnie umknęło to Państwa uwadze. Uprzejmie proszę o przelew na konto ${iban} z dopiskiem numeru faktury ${nr}.
+
+Jeśli płatność została już dokonana, proszę zignorować tę wiadomość.
+
+Z poważaniem,
+${company}`,
+        demand:
+`Szanowni Państwo,
+
+Pomimo wcześniejszego przypomnienia faktura ${nr} na kwotę ${amount} nadal pozostaje nieopłacona. Faktura jest przeterminowana o ${overdue} dni (termin: ${due}).
+
+Proszę o uregulowanie należności w ciągu 7 dni na konto ${iban}, z dopiskiem numeru faktury ${nr}. W przypadku braku wpłaty będę zmuszony podjąć dalsze kroki.
+
+Z poważaniem,
+${company}`
+      }
+    };
+
+    const t = T[lang] || T.nl;
+    return {
+      subject: kind === 'demand' ? t.demandSubj : t.reminderSubj,
+      body: kind === 'demand' ? t.demand : t.reminder
+    };
+  }
+
+  async function copyPayEmail() {
+    const subject = document.getElementById('pe-subject')?.value || '';
+    const body = document.getElementById('pe-body')?.value || '';
+    const text = subject + '\n\n' + body;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+      else {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      UI.toast('Skopiowano treść.', 'success');
+    } catch { UI.toast('Nie udało się skopiować.', 'error'); }
+  }
+
+  async function openPayEmailInMail() {
+    const to = document.getElementById('pe-to')?.value?.trim() || '';
+    const subject = document.getElementById('pe-subject')?.value || '';
+    const body = document.getElementById('pe-body')?.value || '';
+    const url = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const ok = await window.api.util.openExternal(url);
+    if (!ok) UI.toast('Nie udało się otworzyć programu pocztowego.', 'warning');
+  }
+
   // ── UBL (XML) export ─────────────────────────────────────
   async function exportUBL(id) {
     try {
@@ -991,7 +1171,8 @@ const PageInvoices = (() => {
     duplicate, exportPDF, openPDF, exportUBL,
     applyFilters, clearFilters,
     openImportWizard, doImport,
-    addProductItem, openProducts, saveProduct, deleteProduct
+    addProductItem, openProducts, saveProduct, deleteProduct,
+    openPaymentEmail, refreshPayEmail, copyPayEmail, openPayEmailInMail
   };
 })();
 
