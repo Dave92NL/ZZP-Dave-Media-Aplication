@@ -5,6 +5,7 @@ const PageInvoices = (() => {
   let allInvoices = [];
   let clients = [];
   let projects = [];
+  let products = [];
   let filters = { year: new Date().getFullYear(), month: '', client_id: '', status: '', search: '' };
   let _importResults = []; // held in closure for import wizard
 
@@ -15,6 +16,7 @@ const PageInvoices = (() => {
         <div class="page-header">
           <h1 class="page-title">📄 Faktury</h1>
           <div class="page-actions">
+            <button class="btn btn-secondary" onclick="PageInvoices.openProducts()" title="Katalog produktów/usług do pozycji faktur">📦 Produkty</button>
             <button class="btn btn-secondary" onclick="PageInvoices.openImportWizard()" title="Importuj faktury z efaktura.nl (XML/PDF)">📥 Import XML/PDF</button>
             <button class="btn btn-primary" onclick="PageInvoices.openCreate()">+ Nowa faktura</button>
           </div>
@@ -50,9 +52,10 @@ const PageInvoices = (() => {
       </div>`;
 
     try {
-      [clients, projects] = await Promise.all([
+      [clients, projects, products] = await Promise.all([
         window.api.contacts.getAll(),
-        window.api.projects.getAll()
+        window.api.projects.getAll(),
+        window.api.products.getAll({ activeOnly: true })
       ]);
       populateClientFilter();
       await refresh();
@@ -167,6 +170,7 @@ const PageInvoices = (() => {
                   ${inv.status !== 'paid' ? `<button class="btn btn-icon btn-sm btn-success" title="Oznacz zapłaconą" onclick="PageInvoices.markPaid(${inv.id})">✅</button>` : ''}
                   <button class="btn btn-icon btn-sm btn-secondary" title="Duplikuj" onclick="PageInvoices.duplicate(${inv.id})">📋</button>
                   <button class="btn btn-icon btn-sm btn-secondary" title="Eksportuj PDF" onclick="PageInvoices.exportPDF(${inv.id})">📄</button>
+                  <button class="btn btn-icon btn-sm btn-secondary" title="Eksportuj UBL XML (e-faktura)" onclick="PageInvoices.exportUBL(${inv.id})">🧾</button>
                   <button class="btn btn-icon btn-sm btn-danger" title="Usuń" onclick="PageInvoices.deleteInvoice(${inv.id})">🗑</button>
                 </div>
               </td>
@@ -250,6 +254,10 @@ const PageInvoices = (() => {
           <label>Termin płatności *</label>
           <input type="date" id="inv-due-date" value="${inv.due_date || ''}">
         </div>
+        <div class="form-group">
+          <label>Data sprzedaży / dostawy (leverdatum)</label>
+          <input type="date" id="inv-sale-date" value="${inv.sale_date || ''}" title="Puste = taka sama jak data wystawienia">
+        </div>
       </div>
       <div class="form-group" style="margin-bottom:12px">
         <label>Klient *</label>
@@ -284,7 +292,16 @@ const PageInvoices = (() => {
           <tbody id="inv-items-body">${itemsHTML}</tbody>
         </table>
       </div>
-      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="PageInvoices.addItem()">+ Dodaj pozycję</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-secondary" onclick="PageInvoices.addItem()">+ Dodaj pozycję</button>
+        ${products.length ? `
+          <select id="inv-product-pick" style="max-width:260px">
+            <option value="">📦 …lub wybierz z katalogu</option>
+            ${products.map(p => `<option value="${p.id}">${UI.esc(p.name)} — ${fmtAmount(p.unit_price, 'EUR')}</option>`).join('')}
+          </select>
+          <button class="btn btn-sm btn-secondary" onclick="PageInvoices.addProductItem()">⤵ Wstaw</button>
+        ` : ''}
+      </div>
 
       <div style="margin-top:16px;padding:14px;background:var(--bg-tertiary);border-radius:var(--radius-sm)">
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
@@ -362,6 +379,101 @@ const PageInvoices = (() => {
     if (!tbody) return;
     const i = tbody.querySelectorAll('tr').length;
     tbody.insertAdjacentHTML('beforeend', itemRowHTML(i));
+  }
+
+  // ── Katalog produktów ────────────────────────────────────
+  function addProductItem() {
+    const select = document.getElementById('inv-product-pick');
+    const tbody = document.getElementById('inv-items-body');
+    if (!select || !tbody || !select.value) return;
+    const p = products.find(x => x.id == select.value);
+    if (!p) return;
+
+    // Jeśli jedyny wiersz jest pusty — zastąp go zamiast dokładać
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length === 1 && !rows[0].querySelector('.item-desc')?.value?.trim()) rows[0].remove();
+
+    const i = tbody.querySelectorAll('tr').length;
+    tbody.insertAdjacentHTML('beforeend', itemRowHTML(i, {
+      description: p.description ? `${p.name} — ${p.description}` : p.name,
+      quantity: 1, unit: p.unit || 'usługa',
+      unit_price: p.unit_price || 0, btw_rate: p.btw_rate || 0
+    }));
+    select.value = '';
+    recalc();
+  }
+
+  async function openProducts() {
+    products = await window.api.products.getAll({});
+    const rowsHTML = products.length ? products.map(p => `
+      <tr>
+        <td style="padding:6px 8px">${UI.esc(p.name)}${p.is_active ? '' : ' <span class="text-muted">(nieaktywny)</span>'}</td>
+        <td style="padding:6px 8px" class="text-muted">${UI.esc(p.description || '')}</td>
+        <td style="padding:6px 8px">${UI.esc(p.unit)}</td>
+        <td style="padding:6px 8px;text-align:right" class="mono">${fmtAmount(p.unit_price, 'EUR')}</td>
+        <td style="padding:6px 8px;text-align:right">${p.btw_rate}%</td>
+        <td style="padding:6px 4px;text-align:right">
+          <button class="btn btn-icon btn-sm btn-danger" title="Usuń" onclick="PageInvoices.deleteProduct(${p.id})">🗑</button>
+        </td>
+      </tr>`).join('')
+      : '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--text-muted)">Brak produktów — dodaj pierwszy poniżej.</td></tr>';
+
+    UI.openModal('📦 Katalog produktów / usług', `
+      <p class="text-muted" style="font-size:12px;margin-bottom:12px">
+        Produkty pojawiają się jako lista przy dodawaniu pozycji faktury — jedno kliknięcie zamiast wpisywania.
+      </p>
+      <table style="width:100%;font-size:13px;margin-bottom:16px">
+        <thead><tr>
+          <th style="padding:6px 8px;text-align:left">Nazwa</th>
+          <th style="padding:6px 8px;text-align:left">Opis</th>
+          <th style="padding:6px 8px;text-align:left">Jedn.</th>
+          <th style="padding:6px 8px;text-align:right">Cena netto</th>
+          <th style="padding:6px 8px;text-align:right">BTW</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px">Nowy produkt</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="flex:2;min-width:160px;margin:0"><label>Nazwa *</label><input type="text" id="prod-name" placeholder="np. Advertentieruimte YouTube"></div>
+          <div class="form-group" style="flex:2;min-width:140px;margin:0"><label>Opis</label><input type="text" id="prod-desc"></div>
+          <div class="form-group" style="width:90px;margin:0"><label>Jedn.</label><input type="text" id="prod-unit" value="usługa"></div>
+          <div class="form-group" style="width:110px;margin:0"><label>Cena netto</label><input type="number" id="prod-price" value="0" min="0" step="0.01"></div>
+          <div class="form-group" style="width:80px;margin:0"><label>BTW %</label><input type="number" id="prod-btw" value="0" min="0" max="100"></div>
+          <button class="btn btn-primary" onclick="PageInvoices.saveProduct()">💾 Dodaj</button>
+        </div>
+      </div>`,
+      { size: 'lg', footer: `<button class="btn btn-secondary" onclick="UI.closeModal()">Zamknij</button>` }
+    );
+  }
+
+  async function saveProduct() {
+    const name = document.getElementById('prod-name')?.value?.trim();
+    if (!name) { UI.toast('Nazwa produktu jest wymagana.', 'warning'); return; }
+    try {
+      await window.api.products.create({
+        name,
+        description: document.getElementById('prod-desc')?.value?.trim() || '',
+        unit: document.getElementById('prod-unit')?.value?.trim() || 'usługa',
+        unit_price: parseFloat(document.getElementById('prod-price')?.value) || 0,
+        btw_rate: parseFloat(document.getElementById('prod-btw')?.value) || 0
+      });
+      UI.toast('Produkt dodany.', 'success');
+      await openProducts(); // odśwież modal
+    } catch (err) {
+      UI.toast('Błąd: ' + err.message, 'error');
+    }
+  }
+
+  async function deleteProduct(id) {
+    try {
+      await window.api.products.delete(id);
+      UI.toast('Produkt usunięty.', 'success');
+      await openProducts();
+    } catch (err) {
+      UI.toast('Błąd: ' + err.message, 'error');
+    }
   }
 
   function recalc() {
@@ -462,6 +574,7 @@ const PageInvoices = (() => {
       project_id: document.getElementById('inv-project')?.value || null,
       issue_date: document.getElementById('inv-issue-date')?.value,
       due_date: document.getElementById('inv-due-date')?.value,
+      sale_date: document.getElementById('inv-sale-date')?.value || null,
       currency: document.getElementById('inv-currency')?.value || 'EUR',
       exchange_rate: parseFloat(document.getElementById('inv-exchange')?.value) || 1,
       btw_rate: btwRate,
@@ -669,6 +782,17 @@ const PageInvoices = (() => {
     }
   }
 
+  // ── UBL (XML) export ─────────────────────────────────────
+  async function exportUBL(id) {
+    try {
+      UI.toast('Generowanie UBL XML…', 'info');
+      const path = await window.api.invoices.exportUBL(id);
+      if (path) UI.toast('XML zapisany!', 'success');
+    } catch (err) {
+      UI.toast('Błąd XML: ' + err.message, 'error');
+    }
+  }
+
   // ── Helpers ──────────────────────────────────────────────
   function statusBadge(status) {
     const map = {
@@ -863,9 +987,10 @@ const PageInvoices = (() => {
     saveInvoice, saveAndExportPDF,
     markPaid, confirmMarkPaid,
     deleteInvoice, confirmDelete,
-    duplicate, exportPDF, openPDF,
+    duplicate, exportPDF, openPDF, exportUBL,
     applyFilters, clearFilters,
-    openImportWizard, doImport
+    openImportWizard, doImport,
+    addProductItem, openProducts, saveProduct, deleteProduct
   };
 })();
 

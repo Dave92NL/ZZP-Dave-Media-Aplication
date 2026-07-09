@@ -350,6 +350,7 @@ const App = (() => {
     time: loadTimePage,
     invoices: loadInvoicesPage,
     expenses: loadExpensesPage,
+    mileage: loadMileagePage,
     reports: loadReportsPage,
     projects: loadProjectsPage,
     contacts: loadContactsPage,
@@ -479,6 +480,10 @@ const App = (() => {
 
   function loadExpensesPage() {
     PageExpenses.load();
+  }
+
+  function loadMileagePage() {
+    PageMileage.load();
   }
 
   function loadReportsPage() {

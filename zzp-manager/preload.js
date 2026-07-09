@@ -107,8 +107,26 @@ contextBridge.exposeInMainWorld('api', {
     markPaid: (id, date) => invoke('invoices:markPaid', id, date),
     duplicate: (id) => invoke('invoices:duplicate', id),
     exportPDF: (id) => invoke('invoices:exportPDF', id),
+    exportUBL: (id) => invoke('invoices:exportUBL', id),
     getNextNumber: () => invoke('invoices:getNextNumber'),
     getItems: (invoiceId) => invoke('invoiceItems:getByInvoice', invoiceId)
+  },
+
+  // ── Products (katalog produktów/usług) ────
+  products: {
+    getAll: (filters) => invoke('products:getAll', filters),
+    create: (data) => invoke('products:create', data),
+    update: (id, data) => invoke('products:update', id, data),
+    delete: (id) => invoke('products:delete', id)
+  },
+
+  // ── Mileage (kilometrówka) ────────────────
+  mileage: {
+    getAll: (filters) => invoke('mileage:getAll', filters),
+    create: (data) => invoke('mileage:create', data),
+    update: (id, data) => invoke('mileage:update', id, data),
+    delete: (id) => invoke('mileage:delete', id),
+    getSummary: (year) => invoke('mileage:getSummary', year)
   },
 
   // ── Time Tracking ─────────────────────────

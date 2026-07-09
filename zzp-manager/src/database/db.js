@@ -356,6 +356,36 @@ function getMigrations() {
       `ALTER TABLE time_entries ADD COLUMN cloud_id TEXT`,
       `ALTER TABLE time_entries ADD COLUMN synced_at DATETIME`,
       `ALTER TABLE time_entries ADD COLUMN updated_at DATETIME`
+    ]],
+
+    // Migration 5 — katalog produktów, kilometrówka, data sprzedaży na fakturze
+    [5, [
+      `ALTER TABLE invoices ADD COLUMN sale_date DATE`,
+      `CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        unit TEXT DEFAULT 'usługa',
+        unit_price REAL DEFAULT 0,
+        btw_rate REAL DEFAULT 21,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS mileage_entries (
+        id INTEGER PRIMARY KEY,
+        date DATE NOT NULL,
+        from_location TEXT DEFAULT '',
+        to_location TEXT DEFAULT '',
+        distance_km REAL NOT NULL DEFAULT 0,
+        is_return INTEGER DEFAULT 0,
+        purpose TEXT DEFAULT '',
+        client_id INTEGER REFERENCES clients(id),
+        project_id INTEGER REFERENCES projects(id),
+        rate_per_km REAL DEFAULT 0.23,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_mileage_date ON mileage_entries(date)`
     ]]
   ];
 }

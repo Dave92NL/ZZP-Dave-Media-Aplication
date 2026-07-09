@@ -13,7 +13,7 @@ let isQuitting = false;
 const FLOATING_WIDGET_SIZE = 64;
 
 // Import modules (loaded after app ready)
-let db, auth, invoices, timeTracking, expenses, taxCalc, reports, projects, contacts, tasks, notes, youtube, youtubeApi, notifications, backup, exportModule, settings, incomeImport, efakturaImport, googleCalendar, cloudSync;
+let db, auth, invoices, timeTracking, expenses, taxCalc, reports, projects, contacts, tasks, notes, youtube, youtubeApi, notifications, backup, exportModule, settings, incomeImport, efakturaImport, googleCalendar, cloudSync, products, mileage;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -257,6 +257,8 @@ app.whenReady().then(() => {
   efakturaImport = require('./src/modules/efaktura-import');
   googleCalendar = require('./src/modules/google-calendar');
   cloudSync = require('./src/modules/cloud-sync');
+  products = require('./src/modules/products');
+  mileage = require('./src/modules/mileage');
 
   // Init database
   db.init();
@@ -402,9 +404,25 @@ function registerIpcHandlers() {
     return result;
   });
   ipcMain.handle('invoices:getNextNumber', () => invoices.getNextNumber());
+  ipcMain.handle('invoices:exportUBL', async (_, id) => {
+    return invoices.exportUBL(id, mainWindow);
+  });
 
   // ── Invoice Items ─────────────────────────
   ipcMain.handle('invoiceItems:getByInvoice', (_, invoiceId) => invoices.getItems(invoiceId));
+
+  // ── Products (katalog produktów/usług) ────
+  ipcMain.handle('products:getAll', (_, filters) => products.getAll(filters));
+  ipcMain.handle('products:create', (_, data) => products.create(data));
+  ipcMain.handle('products:update', (_, id, data) => products.update(id, data));
+  ipcMain.handle('products:delete', (_, id) => products.delete(id));
+
+  // ── Mileage (kilometrówka) ────────────────
+  ipcMain.handle('mileage:getAll', (_, filters) => mileage.getAll(filters));
+  ipcMain.handle('mileage:create', (_, data) => mileage.create(data));
+  ipcMain.handle('mileage:update', (_, id, data) => mileage.update(id, data));
+  ipcMain.handle('mileage:delete', (_, id) => mileage.delete(id));
+  ipcMain.handle('mileage:getSummary', (_, year) => mileage.getSummary(year));
 
   // ── Time Tracking ─────────────────────────
   ipcMain.handle('time:getAll', (_, filters) => timeTracking.getAll(filters));

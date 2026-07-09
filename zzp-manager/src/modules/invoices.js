@@ -133,10 +133,10 @@ function create(data) {
 
   const insert = db.prepare(`
     INSERT INTO invoices
-      (invoice_number, client_id, project_id, status, issue_date, due_date,
+      (invoice_number, client_id, project_id, status, issue_date, due_date, sale_date,
        currency, exchange_rate, subtotal, btw_rate, btw_amount, total, total_eur,
        notes, reference, btw_reverse_charge)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = insert.run(
@@ -146,6 +146,7 @@ function create(data) {
     data.status || 'draft',
     data.issue_date,
     data.due_date,
+    data.sale_date || null,
     data.currency || 'EUR',
     exchangeRate,
     subtotal,
@@ -197,14 +198,14 @@ function update(id, data) {
 
   db.prepare(`
     UPDATE invoices SET
-      client_id = ?, project_id = ?, status = ?, issue_date = ?, due_date = ?,
+      client_id = ?, project_id = ?, status = ?, issue_date = ?, due_date = ?, sale_date = ?,
       currency = ?, exchange_rate = ?, subtotal = ?, btw_rate = ?, btw_amount = ?,
       total = ?, total_eur = ?, notes = ?, reference = ?, btw_reverse_charge = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `).run(
     data.client_id || null, data.project_id || null, data.status || 'draft',
-    data.issue_date, data.due_date, data.currency || 'EUR', exchangeRate,
+    data.issue_date, data.due_date, data.sale_date || null, data.currency || 'EUR', exchangeRate,
     subtotal, btwRate, btwAmount, total, totalEur,
     data.notes || '', data.reference || '', data.btw_reverse_charge ? 1 : 0,
     id
@@ -361,9 +362,13 @@ async function exportPDF(id, win) {
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
   const stream = fs.createWriteStream(outputPath);
 
+  // QR EPC (SEPA) — skan w aplikacji bankowej wypełnia przelew.
+  // Tylko dla EUR, z IBAN-em i dodatnią kwotą; inaczej stopka bez QR.
+  const qrBuffer = await _buildEpcQrBuffer(invoice, profile);
+
   await new Promise((resolve, reject) => {
     doc.pipe(stream);
-    renderInvoicePDF(doc, invoice, profile);
+    renderInvoicePDF(doc, invoice, profile, qrBuffer);
     doc.end();
     stream.on('finish', resolve);
     stream.on('error', reject);
@@ -377,6 +382,43 @@ async function exportPDF(id, win) {
   }
 
   return outputPath;
+}
+
+// ── EPC QR (SEPA credit transfer) ───────────────────────────
+// Format EPC069-12 v002: skan kodu w aplikacji bankowej wypełnia
+// przelew (odbiorca, IBAN, kwota, tytuł). Działa tylko dla EUR.
+async function _buildEpcQrBuffer(invoice, profile) {
+  try {
+    const iban = String(profile.iban || '').replace(/\s+/g, '');
+    const name = String(profile.name || '').trim();
+    const amount = Number(invoice.total) || 0;
+    const currency = invoice.currency || 'EUR';
+    if (!iban || !name || amount <= 0 || currency !== 'EUR') return null;
+
+    const payload = [
+      'BCD',                                   // service tag
+      '002',                                   // wersja (BIC opcjonalny)
+      '1',                                     // kodowanie: UTF-8
+      'SCT',                                   // SEPA Credit Transfer
+      '',                                      // BIC (puste w v002)
+      name.slice(0, 70),                       // odbiorca
+      iban,                                    // IBAN
+      'EUR' + amount.toFixed(2),               // kwota
+      '',                                      // purpose
+      '',                                      // remittance (structured)
+      ('Factuur ' + invoice.invoice_number).slice(0, 140) // tytuł przelewu
+    ].join('\n');
+
+    const QRCode = require('qrcode');
+    return await QRCode.toBuffer(payload, {
+      errorCorrectionLevel: 'M',
+      type: 'png',
+      margin: 0,
+      width: 220
+    });
+  } catch {
+    return null; // brak QR nie blokuje eksportu PDF
+  }
 }
 
 // ── Dutch format helpers ────────────────────────────────────
@@ -397,7 +439,7 @@ function fmtAmt(amount) {
 }
 
 // ── PDF renderer (Dutch layout matching sample) ─────────────
-function renderInvoicePDF(doc, invoice, profile) {
+function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
   const M = 40, PW = 595, PH = 842, W = PW - M * 2;
   const DARK   = '#1A1A2A';
   const GRAY   = '#555555';
@@ -504,7 +546,7 @@ function renderInvoicePDF(doc, invoice, profile) {
   const DB_H = 38, DB_GAP = 5;
   const DB_W = Math.floor((dateW - DB_GAP * 2) / 3);
   const dateBoxes = [
-    { label: 'Leverdatum',   val: formatDateNL(invoice.issue_date) },
+    { label: 'Leverdatum',   val: formatDateNL(invoice.sale_date || invoice.issue_date) },
     { label: 'Factuurdatum', val: formatDateNL(invoice.issue_date) },
     { label: 'Vervaldatum',  val: formatDateNL(invoice.due_date)   }
   ];
@@ -613,14 +655,202 @@ function renderInvoicePDF(doc, invoice, profile) {
     ' van ' + (profile.name || '') +
     ' onder vermelding van het factuurnummer: ' + invoice.invoice_number;
 
+  // Tekst zajmuje lewą część; QR EPC (jeśli jest) — prawą
+  const textW = qrBuffer ? Math.floor(W * 0.55) : Math.floor(W * 0.70);
   doc.font('Helvetica').fontSize(8).fillColor(GRAY)
-    .text(payText, M, footY + 8, { width: Math.floor(W * 0.70), align: 'left' });
+    .text(payText, M, footY + 8, { width: textW, align: 'left' });
+
+  if (qrBuffer) {
+    const QR_S = 52;
+    const qrX = M + textW + 14;
+    try {
+      doc.image(qrBuffer, qrX, footY + 6, { width: QR_S, height: QR_S });
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(DARK)
+        .text('Betaal met QR-code', qrX + QR_S + 8, footY + 10, { width: PW - M - qrX - QR_S - 8, lineBreak: false });
+      doc.font('Helvetica').fontSize(6.5).fillColor(LGRAY)
+        .text('Scan met een bankieren-app om de overboeking te starten. Let op: niet alle banken ondersteunen de EPC QR.',
+          qrX + QR_S + 8, footY + 20, { width: PW - M - qrX - QR_S - 12 });
+    } catch { /* uszkodzony bufor QR nie blokuje PDF */ }
+  }
 
   doc.font('Helvetica').fontSize(8).fillColor(LGRAY)
     .text('Pagina 1 / 1', M, PH - 25, { width: W, align: 'center', lineBreak: false });
 }
 
+// ── UBL 2.1 / Peppol BIS 3.0 export ─────────────────────────
+// Lustrzane odbicie importera z efaktura-import.js — plik daje się
+// wczytać przez księgowego i systemy e-fakturowania.
+
+function _xml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function _amt(v) { return (Number(v) || 0).toFixed(2); }
+
+// Nazwa kraju (NL/EN/PL) → kod ISO 3166-1 alpha-2 dla UBL
+function _countryISO(name) {
+  const s = String(name || '').trim().toLowerCase();
+  if (!s) return 'NL';
+  if (/^[a-z]{2}$/.test(s)) return s.toUpperCase(); // już kod ISO
+  const map = {
+    'nederland': 'NL', 'netherlands': 'NL', 'holandia': 'NL', 'the netherlands': 'NL',
+    'ierland': 'IE', 'ireland': 'IE', 'irlandia': 'IE',
+    'duitsland': 'DE', 'germany': 'DE', 'niemcy': 'DE', 'deutschland': 'DE',
+    'belgië': 'BE', 'belgie': 'BE', 'belgium': 'BE', 'belgia': 'BE',
+    'polen': 'PL', 'poland': 'PL', 'polska': 'PL',
+    'frankrijk': 'FR', 'france': 'FR', 'francja': 'FR',
+    'spanje': 'ES', 'spain': 'ES', 'hiszpania': 'ES',
+    'italië': 'IT', 'italie': 'IT', 'italy': 'IT', 'włochy': 'IT',
+    'verenigd koninkrijk': 'GB', 'united kingdom': 'GB', 'uk': 'GB',
+    'verenigde staten': 'US', 'united states': 'US', 'usa': 'US'
+  };
+  return map[s] || 'NL';
+}
+
+function buildUBLXml(invoice, profile) {
+  const cur = invoice.currency || 'EUR';
+  const reverse = !!invoice.btw_reverse_charge;
+  const btwRate = Number(invoice.btw_rate) || 0;
+
+  // Kategoria podatkowa UBL: AE = reverse charge, Z = stawka 0, S = standardowa
+  const taxCat = reverse ? 'AE' : (btwRate === 0 ? 'Z' : 'S');
+  const items = invoice.items || [];
+
+  const lines = items.map((it, i) => `
+    <cac:InvoiceLine>
+      <cbc:ID>${i + 1}</cbc:ID>
+      <cbc:InvoicedQuantity unitCode="C62">${Number(it.quantity) || 1}</cbc:InvoicedQuantity>
+      <cbc:LineExtensionAmount currencyID="${cur}">${_amt(it.total)}</cbc:LineExtensionAmount>
+      <cac:Item>
+        <cbc:Name>${_xml(it.description || 'Pozycja ' + (i + 1))}</cbc:Name>
+        <cac:ClassifiedTaxCategory>
+          <cbc:ID>${taxCat}</cbc:ID>
+          <cbc:Percent>${reverse ? 0 : btwRate}</cbc:Percent>
+          <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+        </cac:ClassifiedTaxCategory>
+      </cac:Item>
+      <cac:Price>
+        <cbc:PriceAmount currencyID="${cur}">${_amt(it.unit_price)}</cbc:PriceAmount>
+      </cac:Price>
+    </cac:InvoiceLine>`).join('');
+
+  const supplierVat = profile.btw_number ? `
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>${_xml(profile.btw_number)}</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>` : '';
+
+  const customerVat = invoice.client_vat ? `
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>${_xml(invoice.client_vat)}</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>` : '';
+
+  const delivery = invoice.sale_date ? `
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>${invoice.sale_date}</cbc:ActualDeliveryDate>
+  </cac:Delivery>` : '';
+
+  const paymentMeans = profile.iban ? `
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>
+    <cbc:PaymentID>${_xml(invoice.invoice_number)}</cbc:PaymentID>
+    <cac:PayeeFinancialAccount>
+      <cbc:ID>${_xml(String(profile.iban).replace(/\s+/g, ''))}</cbc:ID>
+    </cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>` : '';
+
+  const exemptionReason = reverse
+    ? '<cbc:TaxExemptionReason>Reverse charge / BTW verlegd</cbc:TaxExemptionReason>'
+    : '';
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0</cbc:CustomizationID>
+  <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+  <cbc:ID>${_xml(invoice.invoice_number)}</cbc:ID>
+  <cbc:IssueDate>${invoice.issue_date}</cbc:IssueDate>
+  <cbc:DueDate>${invoice.due_date}</cbc:DueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  ${invoice.notes ? `<cbc:Note>${_xml(invoice.notes)}</cbc:Note>` : ''}
+  <cbc:DocumentCurrencyCode>${cur}</cbc:DocumentCurrencyCode>
+  ${invoice.reference ? `<cbc:BuyerReference>${_xml(invoice.reference)}</cbc:BuyerReference>` : ''}
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyName><cbc:Name>${_xml(profile.name || '')}</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>${_xml(profile.address || '')}</cbc:StreetName>
+        <cbc:CityName>${_xml(profile.city || '')}</cbc:CityName>
+        <cbc:PostalZone>${_xml(profile.postcode || '')}</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>${supplierVat}
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>${_xml(profile.name || '')}</cbc:RegistrationName>
+        ${profile.kvk_number ? `<cbc:CompanyID>${_xml(profile.kvk_number)}</cbc:CompanyID>` : ''}
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyName><cbc:Name>${_xml(invoice.company_name || invoice.client_name || '')}</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>${_xml(invoice.client_address || '')}</cbc:StreetName>
+        <cbc:CityName>${_xml(invoice.client_city || '')}</cbc:CityName>
+        <cbc:PostalZone>${_xml(invoice.client_postcode || '')}</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>${_countryISO(invoice.client_country)}</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>${customerVat}
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>${_xml(invoice.company_name || invoice.client_name || '')}</cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>${delivery}${paymentMeans}
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="${cur}">${_amt(invoice.btw_amount)}</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="${cur}">${_amt(invoice.subtotal)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="${cur}">${_amt(invoice.btw_amount)}</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>${taxCat}</cbc:ID>
+        <cbc:Percent>${reverse ? 0 : btwRate}</cbc:Percent>
+        ${exemptionReason}
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="${cur}">${_amt(invoice.subtotal)}</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="${cur}">${_amt(invoice.subtotal)}</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="${cur}">${_amt(invoice.total)}</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="${cur}">${_amt(invoice.total)}</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>${lines}
+</Invoice>
+`;
+}
+
+async function exportUBL(id, win) {
+  const invoice = getById(id);
+  if (!invoice) throw new Error('Factuur niet gevonden.');
+
+  const profile = require('./settings').getProfile();
+  const { dialog } = require('electron');
+
+  const invNum = invoice.invoice_number.replace(/\//g, '-');
+  const saveResult = await dialog.showSaveDialog(win, {
+    title: 'Zapisz fakturę jako UBL XML',
+    defaultPath: `Factuur_${invNum}.xml`,
+    filters: [{ name: 'UBL XML', extensions: ['xml'] }]
+  });
+  if (saveResult.canceled) return null;
+
+  fs.writeFileSync(saveResult.filePath, buildUBLXml(invoice, profile), 'utf-8');
+  return saveResult.filePath;
+}
+
 module.exports = {
   getAll, getById, getItems, getNextNumber,
-  create, update, delete: delete_, markPaid, duplicate, exportPDF
+  create, update, delete: delete_, markPaid, duplicate, exportPDF, exportUBL
 };
