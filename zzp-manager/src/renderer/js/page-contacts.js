@@ -451,8 +451,12 @@ const PageContacts = (() => {
     const setIf = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
     if (_viesData.name) setIf('nf-company', _viesData.name);
 
-    // Adres VIES to jeden wieloliniowy string; spróbuj wydzielić kod/miasto
-    const addr = String(_viesData.address || '').replace(/\r/g, '').trim();
+    // Adres VIES to jeden wieloliniowy string; spróbuj wydzielić kod/miasto.
+    // VIES zwraca numer domu z zerami wiodącymi (np. "WAGENMAKER 00115") —
+    // usuwamy je, żeby zostało "WAGENMAKER 115".
+    const addr = String(_viesData.address || '').replace(/\r/g, '')
+      .replace(/(\s)0+(\d)/g, '$1$2')
+      .trim();
     if (addr) {
       const lines = addr.split('\n').map(l => l.trim()).filter(Boolean);
       const last = lines[lines.length - 1] || '';

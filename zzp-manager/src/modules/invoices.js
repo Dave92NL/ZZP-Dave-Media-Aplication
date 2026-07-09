@@ -195,17 +195,34 @@ function update(id, data) {
   const total = subtotal + btwAmount;
   const exchangeRate = Number(data.exchange_rate) || 1;
   const totalEur = total / exchangeRate;
+  const status = data.status || 'draft';
+
+  // Stara faktura — do wyliczenia daty zapłaty i porządku w income_entries.
+  const old = db.prepare('SELECT issue_date, paid_date, invoice_number FROM invoices WHERE id = ?').get(id) || {};
+
+  // Data zapłaty:
+  //  - jeśli podano jawnie w formularzu → użyj jej
+  //  - jeśli stara paid_date == stara issue_date (były zsynchronizowane, typowe
+  //    dla importu) → podążaj za nową datą wystawienia (naprawia dashboard po
+  //    zmianie daty na fakturze)
+  //  - w przeciwnym razie zostaw starą paid_date
+  let paidDate = null;
+  if (status === 'paid') {
+    if (data.paid_date) paidDate = data.paid_date;
+    else if (old.paid_date && old.issue_date && old.paid_date === old.issue_date) paidDate = data.issue_date;
+    else paidDate = old.paid_date || data.issue_date;
+  }
 
   db.prepare(`
     UPDATE invoices SET
-      client_id = ?, project_id = ?, status = ?, issue_date = ?, due_date = ?, sale_date = ?,
+      client_id = ?, project_id = ?, status = ?, issue_date = ?, due_date = ?, sale_date = ?, paid_date = ?,
       currency = ?, exchange_rate = ?, subtotal = ?, btw_rate = ?, btw_amount = ?,
       total = ?, total_eur = ?, notes = ?, reference = ?, btw_reverse_charge = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `).run(
-    data.client_id || null, data.project_id || null, data.status || 'draft',
-    data.issue_date, data.due_date, data.sale_date || null, data.currency || 'EUR', exchangeRate,
+    data.client_id || null, data.project_id || null, status,
+    data.issue_date, data.due_date, data.sale_date || null, paidDate, data.currency || 'EUR', exchangeRate,
     subtotal, btwRate, btwAmount, total, totalEur,
     data.notes || '', data.reference || '', data.btw_reverse_charge ? 1 : 0,
     id
@@ -216,22 +233,26 @@ function update(id, data) {
     saveItems(id, data.items);
   }
 
-  // If updated to paid and no income entry exists yet, create one
-  if (data.status === 'paid' && total > 0) {
-    const existing = db.prepare('SELECT id FROM income_entries WHERE invoice_id = ?').get(id);
-    if (!existing) {
-      const inv = db.prepare('SELECT invoice_number, currency, paid_date, issue_date FROM invoices WHERE id = ?').get(id);
-      const paidDate = inv?.paid_date || inv?.issue_date || new Date().toISOString().split('T')[0];
-      const incomeSource = _sourceForClient(db, data.client_id);
+  // Synchronizuj wpis przychodu z fakturą (data = paid_date, kwota, źródło).
+  const incomeRow = db.prepare('SELECT id FROM income_entries WHERE invoice_id = ?').get(id);
+  if (status === 'paid' && total > 0) {
+    const incomeSource = _sourceForClient(db, data.client_id);
+    if (incomeRow) {
+      db.prepare(`
+        UPDATE income_entries SET source = ?, description = ?, amount = ?, currency = ?,
+          exchange_rate = ?, amount_eur = ?, date = ? WHERE id = ?
+      `).run(incomeSource, 'Factuur ' + (old.invoice_number || ''), total, data.currency || 'EUR',
+        exchangeRate, totalEur, paidDate, incomeRow.id);
+    } else {
       db.prepare(`
         INSERT INTO income_entries (source, description, amount, currency, exchange_rate, amount_eur, date, invoice_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        incomeSource, 'Factuur ' + (inv?.invoice_number || ''),
-        total, data.currency || 'EUR', exchangeRate,
-        totalEur, paidDate, id
-      );
+      `).run(incomeSource, 'Factuur ' + (old.invoice_number || ''), total, data.currency || 'EUR',
+        exchangeRate, totalEur, paidDate, id);
     }
+  } else if (incomeRow) {
+    // faktura już nie jest zapłacona → usuń wpis przychodu
+    db.prepare('DELETE FROM income_entries WHERE id = ?').run(incomeRow.id);
   }
 
   return { success: true };

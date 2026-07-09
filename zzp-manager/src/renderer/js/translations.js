@@ -55,6 +55,7 @@ const NAV_KEYS = {
   'nav.time':       { pl: 'Czas pracy',       en: 'Time Tracking',   nl: 'Tijdregistratie' },
   'nav.invoices':   { pl: 'Faktury',          en: 'Invoices',        nl: 'Facturen' },
   'nav.expenses':   { pl: 'Koszty',           en: 'Expenses',        nl: 'Kosten' },
+  'nav.mileage':    { pl: 'Kilometrówka',     en: 'Mileage',         nl: 'Kilometerregistratie' },
   'nav.tax':        { pl: 'Podatki',          en: 'Taxes',           nl: 'Belastingen' },
   'nav.reports':    { pl: 'Raporty',          en: 'Reports',         nl: 'Rapporten' },
   'nav.projects':   { pl: 'Projekty',         en: 'Projects',        nl: 'Projecten' },
@@ -684,6 +685,72 @@ const DOM_MAP = {
   'Numer konta':              { en: 'Account Number',          nl: 'Rekeningnummer' },
   'Strona www':               { en: 'Website',                 nl: 'Website' },
   'Hasło/PIN':                { en: 'Password/PIN',            nl: 'Wachtwoord/PIN' },
+
+  // ── Kilometrówka (mileage) ─────────────────────────────────
+  '🚗 Kilometrówka':          { en: '🚗 Mileage',              nl: '🚗 Kilometerregistratie' },
+  '+ Dodaj przejazd':         { en: '+ Add Trip',              nl: '+ Rit toevoegen' },
+  'Przejazdy':                { en: 'Trips',                   nl: 'Ritten' },
+  'Stawka':                   { en: 'Rate',                    nl: 'Tarief' },
+  'Trasa':                    { en: 'Route',                   nl: 'Route' },
+  'Cel':                      { en: 'Purpose',                 nl: 'Doel' },
+  'Klient / projekt':         { en: 'Client / project',        nl: 'Klant / project' },
+  'Odliczenie':               { en: 'Deduction',               nl: 'Aftrek' },
+  'Brak przejazdów w wybranym okresie.': { en: 'No trips in the selected period.', nl: 'Geen ritten in de geselecteerde periode.' },
+  'Nowy przejazd':            { en: 'New Trip',                nl: 'Nieuwe rit' },
+  'Edytuj przejazd':          { en: 'Edit Trip',               nl: 'Rit bewerken' },
+  'Dystans w jedną stronę (km) *': { en: 'One-way distance (km) *', nl: 'Enkele afstand (km) *' },
+  'Skąd':                     { en: 'From',                    nl: 'Vanaf' },
+  'Dokąd':                    { en: 'To',                      nl: 'Naar' },
+  'Tam i z powrotem (km ×2)': { en: 'Round trip (km ×2)',      nl: 'Retour (km ×2)' },
+  'Cel przejazdu':            { en: 'Trip purpose',            nl: 'Doel van de rit' },
+  'Klient (opcjonalnie)':     { en: 'Client (optional)',       nl: 'Klant (optioneel)' },
+  'Stawka €/km':              { en: 'Rate €/km',               nl: 'Tarief €/km' },
+  '🗑 Usuń przejazd':         { en: '🗑 Delete Trip',          nl: '🗑 Rit verwijderen' },
+  'Czy na pewno usunąć ten przejazd?': { en: 'Delete this trip?', nl: 'Deze rit verwijderen?' },
+  'Kilometry':                { en: 'Kilometres',              nl: 'Kilometers' },
+
+  // ── Katalog produktów ──────────────────────────────────────
+  '📦 Produkty':              { en: '📦 Products',             nl: '📦 Producten' },
+  '📦 Katalog produktów / usług': { en: '📦 Product / Service Catalogue', nl: '📦 Product- / dienstencatalogus' },
+  'Produkty pojawiają się jako lista przy dodawaniu pozycji faktury — jedno kliknięcie zamiast wpisywania.':
+    { en: 'Products appear as a list when adding invoice items — one click instead of typing.',
+      nl: 'Producten verschijnen als lijst bij het toevoegen van factuurregels — één klik in plaats van typen.' },
+  'Jedn.':                    { en: 'Unit',                    nl: 'Eenh.' },
+  'Nowy produkt':             { en: 'New Product',             nl: 'Nieuw product' },
+  'Nazwa *':                  { en: 'Name *',                  nl: 'Naam *' },
+  '💾 Dodaj':                 { en: '💾 Add',                  nl: '💾 Toevoegen' },
+  'BTW %':                    { en: 'VAT %',                   nl: 'BTW %' },
+  '📦 …lub wybierz z katalogu': { en: '📦 …or pick from catalogue', nl: '📦 …of kies uit catalogus' },
+  '⤵ Wstaw':                  { en: '⤵ Insert',               nl: '⤵ Invoegen' },
+  '(nieaktywny)':             { en: '(inactive)',              nl: '(inactief)' },
+
+  // ── Faktura — nowe pola/akcje ──────────────────────────────
+  'Data sprzedaży / dostawy (leverdatum)': { en: 'Sale / delivery date (leverdatum)', nl: 'Leverdatum' },
+  'Data zapłaty (dla zapłaconych)': { en: 'Payment date (for paid)', nl: 'Betaaldatum (voor betaald)' },
+
+  // ── Przypomnienia / wezwania do zapłaty ────────────────────
+  '✉️ Przypomnienie / wezwanie do zapłaty': { en: '✉️ Payment reminder / demand', nl: '✉️ Betalingsherinnering / aanmaning' },
+  'Rodzaj:':                  { en: 'Type:',                   nl: 'Type:' },
+  'Przypomnienie (uprzejme)': { en: 'Reminder (friendly)',     nl: 'Herinnering (vriendelijk)' },
+  'Wezwanie do zapłaty (stanowcze)': { en: 'Demand (firm)',    nl: 'Aanmaning (formeel)' },
+  'Język:':                   { en: 'Language:',               nl: 'Taal:' },
+  'Niderlandzki':             { en: 'Dutch',                   nl: 'Nederlands' },
+  'Angielski':                { en: 'English',                 nl: 'Engels' },
+  'Polski':                   { en: 'Polish',                  nl: 'Pools' },
+  'Do (e-mail klienta)':      { en: 'To (client e-mail)',      nl: 'Aan (e-mail klant)' },
+  '📋 Kopiuj treść':          { en: '📋 Copy text',            nl: '📋 Tekst kopiëren' },
+  '✉️ Otwórz w programie pocztowym': { en: '✉️ Open in mail app', nl: '✉️ Openen in e-mailprogramma' },
+
+  // ── Import godzinówki ──────────────────────────────────────
+  '📥 Import godzin':         { en: '📥 Import Hours',         nl: '📥 Uren importeren' },
+  '📥 Import godzinówki z efaktura.nl': { en: '📥 Import hours from efaktura.nl', nl: '📥 Uren importeren uit efaktura.nl' },
+  'Kategoria dla importu:':   { en: 'Category for import:',    nl: 'Categorie voor import:' },
+  'rozliczalne':              { en: 'billable',                nl: 'factureerbaar' },
+
+  // ── VIES ───────────────────────────────────────────────────
+  '⤵ Wypełnij dane z VIES':   { en: '⤵ Fill data from VIES',   nl: '⤵ Gegevens uit VIES invullen' },
+  'Wpisz numer VAT.':         { en: 'Enter a VAT number.',     nl: 'Voer een btw-nummer in.' },
+  '❌ Numer VAT nieważny lub nieznany w VIES': { en: '❌ VAT number invalid or unknown in VIES', nl: '❌ Btw-nummer ongeldig of onbekend in VIES' },
 };
 
 // ── Placeholder / title attribute map ─────────────────────────
@@ -703,6 +770,30 @@ const ATTR_MAP = {
   'np. 1h 30m':                  { en: 'e.g. 1h 30m',                 nl: 'bijv. 1u 30m' },
   'Edytuj':                      { en: 'Edit',                        nl: 'Bewerken' },
   'Usuń':                        { en: 'Delete',                      nl: 'Verwijderen' },
+
+  // ── Nowe funkcje: tytuły (tooltips) ────────────────────────
+  'Katalog produktów/usług do pozycji faktur': { en: 'Product/service catalogue for invoice items', nl: 'Product-/dienstencatalogus voor factuurregels' },
+  'Importuj faktury z efaktura.nl (XML/PDF)': { en: 'Import invoices from efaktura.nl (XML/PDF)', nl: 'Facturen importeren uit efaktura.nl (XML/PDF)' },
+  'Importuj godzinówkę z efaktura.nl (PDF/XML)': { en: 'Import hours from efaktura.nl (PDF/XML)', nl: 'Uren importeren uit efaktura.nl (PDF/XML)' },
+  'Sprawdź w bazie VIES (UE)':   { en: 'Check in VIES (EU)',           nl: 'Controleer in VIES (EU)' },
+  'Eksportuj UBL XML (e-faktura)': { en: 'Export UBL XML (e-invoice)', nl: 'UBL XML exporteren (e-factuur)' },
+  'Przypomnienie / wezwanie do zapłaty': { en: 'Payment reminder / demand', nl: 'Betalingsherinnering / aanmaning' },
+  'Puste = taka sama jak data wystawienia': { en: 'Empty = same as issue date', nl: 'Leeg = gelijk aan factuurdatum' },
+  'Decyduje w którym miesiącu przychód pojawia się w raportach i na dashboardzie. Puste = data wystawienia.':
+    { en: 'Determines which month the income appears in reports and on the dashboard. Empty = issue date.',
+      nl: 'Bepaalt in welke maand de inkomsten in rapporten en op het dashboard verschijnen. Leeg = factuurdatum.' },
+
+  // ── Nowe funkcje: placeholdery ─────────────────────────────
+  'np. Advertentieruimte YouTube': { en: 'e.g. YouTube ad space',     nl: 'bijv. YouTube-advertentieruimte' },
+  'np. Montaż — odcinek 12':     { en: 'e.g. Editing — episode 12',   nl: 'bijv. Montage — aflevering 12' },
+  'np. Alphen aan den Rijn':     { en: 'e.g. Alphen aan den Rijn',    nl: 'bijv. Alphen aan den Rijn' },
+  'np. Amsterdam':               { en: 'e.g. Amsterdam',              nl: 'bijv. Amsterdam' },
+  'np. nagranie materiału, spotkanie z klientem': { en: 'e.g. filming, client meeting', nl: 'bijv. opname, klantafspraak' },
+  'Co robiłeś?':                 { en: 'What did you do?',             nl: 'Wat heb je gedaan?' },
+  'np. 2.5':                     { en: 'e.g. 2.5',                    nl: 'bijv. 2.5' },
+  'np. IE6388047V':              { en: 'e.g. IE6388047V',             nl: 'bijv. IE6388047V' },
+  'brak e-maila w kontakcie':    { en: 'no e-mail in contact',        nl: 'geen e-mail in contact' },
+  'Imię i nazwisko lub firma':   { en: 'Name or company',             nl: 'Naam of bedrijf' },
 };
 
 // ── Pattern rules for dynamic strings ─────────────────────────
@@ -854,6 +945,34 @@ const PATTERN_RULES = [
     en: (m) => `${m[1]} entr${m[1]==='1'?'y':'ies'}`,
     nl: (m) => `${m[1]} invoer${m[1]==='1'?'':'en'}`
   },
+  // Kafelki kilometrówki: "Kilometry 2026" / "Odliczenie 2026"
+  {
+    re: /^Kilometry (\d{4})$/,
+    en: (m) => `Kilometres ${m[1]}`,
+    nl: (m) => `Kilometers ${m[1]}`
+  },
+  {
+    re: /^Odliczenie (\d{4})$/,
+    en: (m) => `Deduction ${m[1]}`,
+    nl: (m) => `Aftrek ${m[1]}`
+  },
+  // VIES: "✅ Ważny numer VAT — NAZWA FIRMY"
+  {
+    re: /^✅ Ważny numer VAT — (.+)$/,
+    en: (m) => `✅ Valid VAT number — ${m[1]}`,
+    nl: (m) => `✅ Geldig btw-nummer — ${m[1]}`
+  },
+  {
+    re: /^✅ Ważny numer VAT$/,
+    en: () => '✅ Valid VAT number',
+    nl: () => '✅ Geldig btw-nummer'
+  },
+  // VIES loading
+  {
+    re: /^⏳ Sprawdzam w bazie VIES…$/,
+    en: () => '⏳ Checking VIES…',
+    nl: () => '⏳ VIES controleren…'
+  },
 ];
 
 function _translateMonth(plMonth, lang) {
@@ -990,7 +1109,7 @@ function _updateNav() {
     expenses: 'nav.expenses', tax: 'nav.tax', reports: 'nav.reports',
     projects: 'nav.projects', contacts: 'nav.contacts', tasks: 'nav.tasks',
     notes: 'nav.notes', youtube: 'nav.youtube', reminders: 'nav.reminders',
-    settings: 'nav.settings',
+    settings: 'nav.settings', mileage: 'nav.mileage',
   };
 
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {

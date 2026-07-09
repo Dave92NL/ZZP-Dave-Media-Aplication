@@ -260,6 +260,10 @@ const PageInvoices = (() => {
           <label>Data sprzedaży / dostawy (leverdatum)</label>
           <input type="date" id="inv-sale-date" value="${inv.sale_date || ''}" title="Puste = taka sama jak data wystawienia">
         </div>
+        <div class="form-group">
+          <label>Data zapłaty (dla zapłaconych)</label>
+          <input type="date" id="inv-paid-date" value="${inv.paid_date || ''}" title="Decyduje w którym miesiącu przychód pojawia się w raportach i na dashboardzie. Puste = data wystawienia.">
+        </div>
       </div>
       <div class="form-group" style="margin-bottom:12px">
         <label>Klient *</label>
@@ -577,6 +581,7 @@ const PageInvoices = (() => {
       issue_date: document.getElementById('inv-issue-date')?.value,
       due_date: document.getElementById('inv-due-date')?.value,
       sale_date: document.getElementById('inv-sale-date')?.value || null,
+      paid_date: document.getElementById('inv-paid-date')?.value || null,
       currency: document.getElementById('inv-currency')?.value || 'EUR',
       exchange_rate: parseFloat(document.getElementById('inv-exchange')?.value) || 1,
       btw_rate: btwRate,
