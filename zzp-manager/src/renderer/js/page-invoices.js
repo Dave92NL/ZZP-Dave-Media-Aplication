@@ -52,10 +52,11 @@ const PageInvoices = (() => {
       </div>`;
 
     try {
+      // Produkty są opcjonalne — ich błąd nie może zablokować klientów/projektów
       [clients, projects, products] = await Promise.all([
         window.api.contacts.getAll(),
         window.api.projects.getAll(),
-        window.api.products.getAll({ activeOnly: true })
+        Promise.resolve().then(() => window.api.products.getAll({ activeOnly: true })).catch(() => [])
       ]);
       populateClientFilter();
       await refresh();
