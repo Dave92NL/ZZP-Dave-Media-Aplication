@@ -36,6 +36,14 @@ function createWindow() {
     }
   });
 
+  // Diagnostyka: przekaż błędy/ostrzeżenia konsoli renderera do stdout głównego procesu
+  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level >= 1) {
+      const src = (sourceId || '').split('/').pop();
+      console.log(`[renderer:${level}] ${message} (${src}:${line})`);
+    }
+  });
+
   // Block navigation away from local files
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith('file://')) {
@@ -57,7 +65,8 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "font-src 'self' https://fonts.gstatic.com data:; " +
           "img-src 'self' data: blob:; " +
-          "object-src 'self' data:; " +   // podgląd PDF załączników jako data: URL
+          "object-src 'self' data: blob:; " +   // podgląd PDF przez <embed> (blob: URL)
+          "frame-src 'self' blob: data:; " +    // wewnętrzna ramka viewera PDFium
           "connect-src 'none'"
         ]
       }

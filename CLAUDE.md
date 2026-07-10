@@ -157,10 +157,15 @@ Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturz
 - **Przychody w raportach/dashboardzie** liczą się z `invoices` po `status='paid'` i `paid_date`
   (nie po dacie wystawienia). Edytując faktury trzymać `income_entries` w zgodzie (robi to `invoices.update`).
 - **Nowy kanał IPC w mobile** nie istnieje — mobile nie ma IPC; dane przez `src/data/repo.js`.
-- **Podgląd PDF inline** (`<embed type="application/pdf" src="data:…">`) wymaga
-  `plugins: true` w `webPreferences` (main.js) — bez tego viewer jest pusty. CSP musi
-  mieć `object-src 'self' data:`. Pliki z dysku wczytywać przez IPC `util:readFileAsDataUrl`
-  (data: URL), nie `file://` (blokowane przez CSP + `webSecurity`).
+- **Podgląd PDF inline** (`<embed type="application/pdf">`) — komplet warunków:
+  1. `plugins: true` w `webPreferences` (main.js) — inaczej viewer pusty;
+  2. źródło jako **`blob:` URL**, nie `data:` (PDFium nie ładuje data: w embed) —
+     konwersja `UI.dataUrlToBlobUrl()` z data-URL zwróconego przez IPC `util:readFileAsDataUrl`;
+  3. CSP musi mieć **`object-src 'self' … blob:` ORAZ `frame-src 'self' blob:`**
+     (viewer PDFium renderuje się w wewnętrznej ramce).
+  ⚠️ CSP jest w **DWÓCH miejscach**: `<meta>` w `src/renderer/index.html` (to jest ta
+  restrykcyjna, stosowana) oraz nagłówek w `main.js` — zmieniać w obu.
+  Diagnostyka błędów renderera: `webContents.on('console-message')` loguje do stdout.
 - **Zawsze po skończonej czynności aktualizować ten `CLAUDE.md`** (życzenie właściciela).
 - Git na Windows ostrzega o LF→CRLF — to nieszkodliwe.
 - Reverse charge (Google Ireland): `btw_reverse_charge=1`, BTW=0, w UBL kategoria `AE`.

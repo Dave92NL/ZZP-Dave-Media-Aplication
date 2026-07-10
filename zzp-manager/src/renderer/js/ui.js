@@ -210,11 +210,28 @@ const UI = (() => {
     });
   }
 
+  // Konwersja data: URL → blob: URL. Wbudowany viewer PDF Chromium (PDFium)
+  // renderuje <embed> tylko z blob:/file:, nie z data: — dlatego zamieniamy.
+  function dataUrlToBlobUrl(dataUrl) {
+    try {
+      const comma = dataUrl.indexOf(',');
+      const meta = dataUrl.slice(0, comma);
+      const mime = (meta.match(/data:([^;]+)/) || [])[1] || 'application/octet-stream';
+      const bin = atob(dataUrl.slice(comma + 1));
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return URL.createObjectURL(new Blob([arr], { type: mime }));
+    } catch {
+      return dataUrl;
+    }
+  }
+
   return {
     toast, openModal, closeModal, confirm, prompt, _promptSubmit,
     today, addDays, formatDate, formatDateTime,
     formatAmount, formatHours, escHtml, esc: escHtml,
-    statusBadge, buildOptions, setLoading, daysUntil, makeSortable
+    statusBadge, buildOptions, setLoading, daysUntil, makeSortable,
+    dataUrlToBlobUrl
   };
 })();
 

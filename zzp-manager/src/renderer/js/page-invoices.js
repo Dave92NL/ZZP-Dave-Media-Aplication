@@ -585,7 +585,7 @@ const PageInvoices = (() => {
     try {
       const dataUrl = await window.api.invoices.renderPreviewPDF(data);
       if (seq !== _invPreviewSeq) return; // pojawiła się nowsza edycja
-      preview.innerHTML = `<embed src="${dataUrl}" type="application/pdf" class="doc-viewer-embed">`;
+      preview.innerHTML = `<embed src="${UI.dataUrlToBlobUrl(dataUrl)}" type="application/pdf" class="doc-viewer-embed">`;
     } catch (e) {
       if (seq !== _invPreviewSeq) return;
       preview.innerHTML = `<div class="doc-viewer-hint">Nie udało się wygenerować podglądu: ${UI.esc(e.message)}</div>`;
@@ -1232,7 +1232,7 @@ ${company}`
     const dataUrl = await window.api.util.readFileAsDataUrl(item.file);
     if (!dataUrl) { preview.innerHTML = '<div style="color:var(--text-muted)">Nie udało się wczytać pliku.</div>'; return; }
     if (ext === 'pdf') {
-      preview.innerHTML = `<embed src="${dataUrl}" type="application/pdf" width="100%" height="480px" />`;
+      preview.innerHTML = `<embed src="${UI.dataUrlToBlobUrl(dataUrl)}" type="application/pdf" width="100%" height="480px" />`;
     } else if (/^(png|jpe?g|gif)$/.test(ext)) {
       preview.innerHTML = `<img src="${dataUrl}" style="max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)" />`;
     } else {
