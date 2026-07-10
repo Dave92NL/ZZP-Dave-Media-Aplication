@@ -792,6 +792,23 @@ td {
 }
 #inv-preview .doc-viewer-embed { min-height: 60vh; }
 
+/* Strony PDF renderowane przez pdf.js do canvas */
+.pdf-canvas-wrap {
+  width: 100%;
+  max-height: 78vh;
+  overflow: auto;
+  padding: 8px;
+  text-align: center;
+  background: var(--bg-tertiary);
+}
+.pdf-page {
+  display: block;
+  margin: 0 auto 10px;
+  max-width: 100%;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+}
+
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 22px;

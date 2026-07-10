@@ -374,7 +374,7 @@ const PageExpenses = (() => {
     if (_expSelectedId !== id) return; // wybrano inny w międzyczasie
     if (!url) { viewer.innerHTML = '<div class="doc-viewer-hint">Nie udało się wczytać pliku.</div>'; return; }
     if (/\.pdf$/i.test(att.file_path)) {
-      viewer.innerHTML = `<embed src="${UI.dataUrlToBlobUrl(url)}" type="application/pdf" class="doc-viewer-embed">`;
+      await window.PdfViewer.render(viewer, url);
     } else {
       viewer.innerHTML = `<img src="${url}" class="doc-viewer-img" alt="${UI.esc(att.file_name)}">`;
     }

@@ -117,9 +117,10 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 - **Podgląd split-view** w formularzu faktury i kosztu oraz podgląd pliku w kreatorze importu
 - **Naprawy po przeglądzie (Opus):** brakujący eksport `showImportPreview`; podglądy plików przez **`data:` URL** (nowy IPC `util:readFileAsDataUrl`) zamiast `file://` blokowanego przez CSP; CSP rozszerzony o `object-src 'self' data:`; deduplikacja i scalenie parsera godzin (`parseHoursText`); `deleteAttachment`/`delete` kosztu sprzątają pliki z dysku; testy `tests/hours-import.test.js` (6/6). Prywatne PDF godzin w `.gitignore`.
 
-### Viewer dokumentu jak w efakturze (W TOKU)
-- **Faktura:** `invoices.renderPreviewPDF(data)` renderuje **żywy PDF** z danych formularza do bufora → `data:` URL, osadzany w viewerze (debounce ~0,6 s).
-- **Koszt:** viewer wgranego dokumentu z **miniaturami załączników** po lewej + duży `<embed>` PDF (natywne zoom/strony Chromium) / `<img>`, formularz po prawej.
+### Viewer dokumentu jak w efakturze (ZROBIONE)
+- **Faktura:** `invoices.renderPreviewPDF(data)` renderuje **żywy PDF** z danych formularza (debounce ~0,6 s), rysowany przez **pdf.js do canvas** w prawym panelu.
+- **Koszt:** viewer wgranego dokumentu z **miniaturami załączników** po lewej + duży podgląd (PDF przez pdf.js/canvas, obrazy jako `<img>`), formularz po prawej; dodawanie/usuwanie/przełączanie załączników.
+- **Klucz:** `<embed>`/`<iframe>` PDF dawały szare tło (PDFium) → użyto **pdf.js** (`src/renderer/js/pdfviewer.js`). Szczegóły w sekcji 7.
 
 ---
 
@@ -128,15 +129,15 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturze**.
 
 ### Do zaprogramowania (priorytet malejąco)
-1. **Viewer dokumentu jak w efakturze** (W TOKU) — żywy PDF faktury + miniatury/viewer załączników kosztu. Potem: nawigacja „Poprzedni/Następny" z autozapisem (odłożona), renderowane miniatury stron PDF.
-2. **Kredytnoty** (faktury korygujące) — akcja z poziomu faktury
-3. **Oferty (offertes)** + konwersja oferta→faktura
-4. **Język faktury per faktura** — szablon PDF w NL/EN/PL
-5. **Koszty 2.0 — reszta:** wiele stawek VAT w jednym dokumencie kosztu (samo „wiele załączników" + filtr + split-view już zrobione)
+1. **Kredytnoty** (faktury korygujące) — akcja z poziomu faktury
+2. **Oferty (offertes)** + konwersja oferta→faktura
+3. **Język faktury per faktura** — szablon PDF w NL/EN/PL
+4. **Koszty 2.0 — reszta:** wiele stawek VAT w jednym dokumencie kosztu (samo „wiele załączników" + filtr + split-view już zrobione)
+5. Viewer: nawigacja „Poprzedni/Następny" z autozapisem (odłożona); pasek zoom nad canvas pdf.js
 6. Kalendarzowy widok godzinówki + pole przerwy; wysyłka e-mail z aplikacji (SMTP/Gmail); AI-asysta opisów
 7. (opcjonalnie) Kilometrówka i produkty w mobile + sync
 
-**Zrobione już z dawnego backlogu:** kalibracja parsera godzin (testy 6/6), wiele załączników do kosztów, filtr „nieuzupełnione", podgląd split-view.
+**Zrobione już z dawnego backlogu:** kalibracja parsera godzin (testy 6/6), wiele załączników do kosztów, filtr „nieuzupełnione", **viewer dokumentu (pdf.js) w fakturach i kosztach**.
 
 ### Po stronie użytkownika
 - **Pełna migracja z efaktura.nl** — import ~20 pozycji (faktury PDF, koszty XML) przez „📥 Import XML/PDF", ręczna korekta klienta gdzie trzeba, potem „Wyślij" (sync)
@@ -157,15 +158,21 @@ Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturz
 - **Przychody w raportach/dashboardzie** liczą się z `invoices` po `status='paid'` i `paid_date`
   (nie po dacie wystawienia). Edytując faktury trzymać `income_entries` w zgodzie (robi to `invoices.update`).
 - **Nowy kanał IPC w mobile** nie istnieje — mobile nie ma IPC; dane przez `src/data/repo.js`.
-- **Podgląd PDF inline** (`<embed type="application/pdf">`) — komplet warunków:
-  1. `plugins: true` w `webPreferences` (main.js) — inaczej viewer pusty;
-  2. źródło jako **`blob:` URL**, nie `data:` (PDFium nie ładuje data: w embed) —
-     konwersja `UI.dataUrlToBlobUrl()` z data-URL zwróconego przez IPC `util:readFileAsDataUrl`;
-  3. CSP musi mieć **`object-src 'self' … blob:` ORAZ `frame-src 'self' blob:`**
-     (viewer PDFium renderuje się w wewnętrznej ramce).
-  ⚠️ CSP jest w **DWÓCH miejscach**: `<meta>` w `src/renderer/index.html` (to jest ta
-  restrykcyjna, stosowana) oraz nagłówek w `main.js` — zmieniać w obu.
-  Diagnostyka błędów renderera: `webContents.on('console-message')` loguje do stdout.
+- **Podgląd PDF renderujemy przez pdf.js do `<canvas>`** (`src/renderer/js/pdfviewer.js`,
+  `window.PdfViewer.render(container, dataUrl)`), NIE przez `<embed>`/`<iframe>`.
+  Wbudowany PDFium w tym Electronie renderował pustą (szarą) powierzchnię dla blob:/data:
+  PDF — niezależnie od `plugins:true` i CSP. pdf.js (UMD z CDN `cdn.jsdelivr.net`,
+  wersja 3.11.174) rysuje strony do canvas.
+  - Dane PDF przekazywać jako **bajty** (`getDocument({data})`) — bez fetch (zgodne z
+    `connect-src 'none'`). Bajty: z IPC `util:readFileAsDataUrl` (koszty) lub
+    `invoices:renderPreviewPDF` (faktura, żywy PDF).
+  - Worker pdf.js: cross-origin Worker blokowany → pdf.js spada do „fake worker"
+    (ładuje `pdf.worker.min.js` przez `<script>`, `script-src cdn.jsdelivr.net` OK).
+  - Obrazy załączników (png/jpg) nadal jako `<img src="data:…">` (img-src data:).
+  - `plugins:true` + CSP `object-src/frame-src blob:` zostały (nie szkodzą), ale to
+    pdf.js jest właściwym rozwiązaniem. CSP jest w DWÓCH plikach: `<meta>` w
+    `src/renderer/index.html` (restrykcyjny, stosowany) i nagłówek w `main.js`.
+  - Diagnostyka renderera: `webContents.on('console-message')` → stdout (main.js).
 - **Zawsze po skończonej czynności aktualizować ten `CLAUDE.md`** (życzenie właściciela).
 - Git na Windows ostrzega o LF→CRLF — to nieszkodliwe.
 - Reverse charge (Google Ireland): `btw_reverse_charge=1`, BTW=0, w UBL kategoria `AE`.
