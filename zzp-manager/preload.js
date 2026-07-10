@@ -10,7 +10,7 @@ const VALID_CHANNELS = new Set([
   'floating:getEnabled', 'floating:setEnabled',
   'invoices:getAll', 'invoices:getById', 'invoices:create', 'invoices:update',
   'invoices:delete', 'invoices:markPaid', 'invoices:duplicate', 'invoices:exportPDF',
-  'invoices:exportUBL', 'invoices:getNextNumber', 'invoiceItems:getByInvoice',
+  'invoices:exportUBL', 'invoices:renderPreviewPDF', 'invoices:getNextNumber', 'invoiceItems:getByInvoice',
   'products:getAll', 'products:create', 'products:update', 'products:delete',
   'mileage:getAll', 'mileage:create', 'mileage:update', 'mileage:delete', 'mileage:getSummary',
   'time:getAll', 'time:create', 'time:update', 'time:delete',
@@ -112,6 +112,7 @@ contextBridge.exposeInMainWorld('api', {
     duplicate: (id) => invoke('invoices:duplicate', id),
     exportPDF: (id) => invoke('invoices:exportPDF', id),
     exportUBL: (id) => invoke('invoices:exportUBL', id),
+    renderPreviewPDF: (data) => invoke('invoices:renderPreviewPDF', data),
     getNextNumber: () => invoke('invoices:getNextNumber'),
     getItems: (invoiceId) => invoke('invoiceItems:getByInvoice', invoiceId)
   },

@@ -209,7 +209,11 @@ const PageExpenses = (() => {
 
     UI.openModal(isEdit ? '✏️ Edytuj koszt' : '+ Dodaj koszt firmowy', `
       <div class="split-view">
-        <div class="split-panel">
+        <div class="split-panel doc-panel">
+          <div class="doc-thumbs" id="exp-thumbs"></div>
+          <div class="doc-viewer" id="exp-doc-viewer"></div>
+        </div>
+        <div class="split-panel form-panel">
         <div class="form-group">
           <label>Data *</label>
           <input type="date" id="ef-date" value="${exp?.date || today}">
@@ -273,13 +277,10 @@ const PageExpenses = (() => {
           <textarea id="ef-notes" rows="2">${UI.esc(exp?.notes || '')}</textarea>
         </div>
         </div>
-        <div class="split-panel">
-          <div class="split-preview" id="exp-preview"></div>
-        </div>
       </div>
       <div id="ef-err" class="error-msg hidden"></div>
     `, {
-      size: 'lg',
+      size: 'xl',
       footer: `
         <button class="btn btn-secondary" onclick="UI.closeModal()">Anuluj</button>
         <button class="btn btn-primary" onclick="PageExpenses.saveForm(${exp?.id || 'null'})">${isEdit ? '💾 Zapisz zmiany' : '+ Dodaj koszt'}</button>
@@ -287,23 +288,14 @@ const PageExpenses = (() => {
       onOpen: () => {
         bindFormCalc();
         recalc();
-        renderExpensePreview();
-        loadExpenseAttachmentPreview();
+        loadExpenseDocViewer();
       }
     });
   }
 
   function bindFormCalc() {
-    document.getElementById('ef-amount')?.addEventListener('input', () => { recalc(); renderExpensePreview(); });
-    document.querySelectorAll('input[name="ef-btw"]').forEach(r => r.addEventListener('change', () => { recalc(); renderExpensePreview(); }));
-    document.getElementById('ef-date')?.addEventListener('change', renderExpensePreview);
-    document.getElementById('ef-cat')?.addEventListener('change', renderExpensePreview);
-    document.getElementById('ef-desc')?.addEventListener('input', renderExpensePreview);
-    document.getElementById('ef-vendor')?.addEventListener('input', renderExpensePreview);
-    document.getElementById('ef-proj')?.addEventListener('change', renderExpensePreview);
-    document.getElementById('ef-deductible')?.addEventListener('change', renderExpensePreview);
-    document.getElementById('ef-btw-ded')?.addEventListener('change', renderExpensePreview);
-    document.getElementById('ef-notes')?.addEventListener('input', renderExpensePreview);
+    document.getElementById('ef-amount')?.addEventListener('input', recalc);
+    document.querySelectorAll('input[name="ef-btw"]').forEach(r => r.addEventListener('change', recalc));
   }
 
   function recalc() {
@@ -318,77 +310,91 @@ const PageExpenses = (() => {
     const netEl = document.getElementById('ef-net');
     if (btwEl) btwEl.value = btwRate > 0 ? fmt(btwAmt) : '—';
     if (netEl) netEl.value = fmt(net);
-    renderExpensePreview();
   }
 
-  // HTML podglądu załączników — liczony RAZ (przez data-URL) przy otwarciu formularza
-  // i po dodaniu/usunięciu, żeby nie odpytywać bazy przy każdym znaku.
-  let _expAttachHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Brak załączników.</div>';
+  // ── Viewer dokumentu kosztu (miniatury + duży podgląd), jak w efakturze ──
+  let _expAttachments = [];
+  let _expSelectedId = null;
 
-  async function loadExpenseAttachmentPreview() {
+  async function loadExpenseDocViewer() {
+    const thumbs = document.getElementById('exp-thumbs');
+    const viewer = document.getElementById('exp-doc-viewer');
+    if (!thumbs || !viewer) return;
+
     if (!editingExpenseId) {
-      _expAttachHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Załączniki dostępne po zapisaniu kosztu.</div>';
-      renderExpensePreview();
+      thumbs.innerHTML = '';
+      viewer.innerHTML = '<div class="doc-viewer-hint">Zapisz koszt, aby dodać i podglądać załączniki (paragon / faktura).</div>';
       return;
     }
-    const attachments = await window.api.expenses.getAttachments(editingExpenseId);
-    if (!attachments.length) {
-      _expAttachHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Brak załączników.</div>';
-      renderExpensePreview();
-      return;
+
+    _expAttachments = await window.api.expenses.getAttachments(editingExpenseId);
+    renderExpenseThumbs();
+
+    if (_expAttachments.length) {
+      const stillSelected = _expAttachments.some(a => a.id === _expSelectedId);
+      selectExpenseAttachment(stillSelected ? _expSelectedId : _expAttachments[0].id);
+    } else {
+      _expSelectedId = null;
+      viewer.innerHTML = '<div class="doc-viewer-hint">Brak załączników. Kliknij „+", aby dodać paragon lub fakturę.</div>';
     }
-    const first = attachments[0];
-    const isPdf = /\.pdf$/i.test(first.file_path);
-    const isImg = /\.(png|jpe?g|gif)$/i.test(first.file_path);
-    let embed = '';
-    if (isPdf || isImg) {
-      const dataUrl = await window.api.util.readFileAsDataUrl(first.file_path);
-      if (dataUrl && isPdf) embed = `<div style="margin-bottom:8px"><embed src="${dataUrl}" type="application/pdf" width="100%" height="360px"></div>`;
-      else if (dataUrl && isImg) embed = `<div style="margin-bottom:8px"><img src="${dataUrl}" style="max-width:100%;height:auto;border:1px solid var(--border);border-radius:8px"></div>`;
-    }
-    const table = `<table><thead><tr><th>Plik</th><th>Typ</th><th>Dodano</th></tr></thead><tbody>${attachments.map(a => `
-        <tr>
-          <td>${UI.esc(a.file_name)}</td>
-          <td>${UI.esc(a.mime_type || '—')}</td>
-          <td>${UI.formatDate(a.created_at)}</td>
-        </tr>`).join('')}</tbody></table>`;
-    _expAttachHTML = embed + table;
-    renderExpensePreview();
   }
 
-  function renderExpensePreview() {
-    const preview = document.getElementById('exp-preview');
-    if (!preview) return;
+  function renderExpenseThumbs() {
+    const thumbs = document.getElementById('exp-thumbs');
+    if (!thumbs) return;
+    const tiles = _expAttachments.map(a => {
+      const isImg = /\.(png|jpe?g|gif)$/i.test(a.file_path);
+      const active = a.id === _expSelectedId ? ' active' : '';
+      const inner = isImg ? `<img data-thumb="${a.id}" alt="">` : `<div class="thumb-pdf">PDF</div>`;
+      return `<div class="doc-thumb${active}" title="${UI.esc(a.file_name)}" onclick="PageExpenses.selectExpenseAttachment(${a.id})">
+          ${inner}
+          <button class="thumb-del" title="Usuń załącznik" onclick="event.stopPropagation();PageExpenses.deleteAttachmentFromViewer(${a.id})">✕</button>
+        </div>`;
+    }).join('');
+    thumbs.innerHTML = tiles + `<div class="doc-thumb doc-thumb-add" title="Dodaj załącznik" onclick="PageExpenses.addAttachmentToViewer()">＋</div>`;
 
-    const date = document.getElementById('ef-date')?.value || '—';
-    const category = document.getElementById('ef-cat')?.value || '—';
-    const description = document.getElementById('ef-desc')?.value || '—';
-    const vendor = document.getElementById('ef-vendor')?.value || '—';
-    const projectId = document.getElementById('ef-proj')?.value;
-    const projectName = allProjects.find(p => String(p.id) === String(projectId))?.name || '—';
-    const amount = parseFloat(document.getElementById('ef-amount')?.value) || 0;
-    const btwRate = parseInt(document.querySelector('input[name="ef-btw"]:checked')?.value ?? '21');
-    const btwAmt = btwRate > 0 ? amount * (btwRate / (100 + btwRate)) : 0;
-    const net = btwRate > 0 ? amount - btwAmt : amount;
-    const isDeductible = document.getElementById('ef-deductible')?.checked;
-    const btwDeductible = document.getElementById('ef-btw-ded')?.checked;
-    const notes = document.getElementById('ef-notes')?.value || '';
+    // Miniatury obrazów doładowujemy asynchronicznie jako data: URL
+    _expAttachments.forEach(async a => {
+      if (!/\.(png|jpe?g|gif)$/i.test(a.file_path)) return;
+      const url = await window.api.util.readFileAsDataUrl(a.file_path);
+      const img = thumbs.querySelector(`img[data-thumb="${a.id}"]`);
+      if (img && url) img.src = url;
+    });
+  }
 
-    preview.innerHTML = `
-      <h4>Podgląd dokumentu kosztu</h4>
-      <div class="preview-row"><span>Data</span><span>${UI.formatDate(date)}</span></div>
-      <div class="preview-row"><span>Kategoria</span><span>${UI.esc(category)}</span></div>
-      <div class="preview-row"><span>Opis</span><span>${UI.esc(description)}</span></div>
-      <div class="preview-row"><span>Dostawca</span><span>${UI.esc(vendor)}</span></div>
-      <div class="preview-row"><span>Projekt</span><span>${UI.esc(projectName)}</span></div>
-      <div class="preview-row"><span>Kwota brutto</span><span>${fmt(amount)}</span></div>
-      <div class="preview-row"><span>Kwota netto</span><span>${fmt(net)}</span></div>
-      <div class="preview-row"><span>BTW</span><span>${btwRate > 0 ? fmt(btwAmt) : '—'}</span></div>
-      <div class="preview-row"><span>Odliczalny podatkowo</span><span>${isDeductible ? 'Tak' : 'Nie'}</span></div>
-      <div class="preview-row"><span>BTW odliczalna</span><span>${btwDeductible ? 'Tak' : 'Nie'}</span></div>
-      <div style="margin-top:12px;font-size:13px;color:var(--text-muted)"><strong>Notatki</strong><div style="margin-top:6px;white-space:pre-wrap">${UI.esc(notes || 'Brak')}</div></div>
-      <div style="margin-top:18px"><div style="font-weight:600;margin-bottom:8px">Załączniki</div>${_expAttachHTML}</div>
-    `;
+  async function selectExpenseAttachment(id) {
+    _expSelectedId = id;
+    renderExpenseThumbs();
+    const viewer = document.getElementById('exp-doc-viewer');
+    if (!viewer) return;
+    const att = _expAttachments.find(a => a.id === id);
+    if (!att) return;
+    viewer.innerHTML = '<div class="doc-viewer-hint">Ładowanie…</div>';
+    const url = await window.api.util.readFileAsDataUrl(att.file_path);
+    if (_expSelectedId !== id) return; // wybrano inny w międzyczasie
+    if (!url) { viewer.innerHTML = '<div class="doc-viewer-hint">Nie udało się wczytać pliku.</div>'; return; }
+    if (/\.pdf$/i.test(att.file_path)) {
+      viewer.innerHTML = `<embed src="${url}" type="application/pdf" class="doc-viewer-embed">`;
+    } else {
+      viewer.innerHTML = `<img src="${url}" class="doc-viewer-img" alt="${UI.esc(att.file_name)}">`;
+    }
+  }
+
+  async function addAttachmentToViewer() {
+    if (!editingExpenseId) { UI.toast('Najpierw zapisz koszt, potem dodasz załączniki.', 'warning'); return; }
+    const added = await window.api.expenses.addAttachment(editingExpenseId);
+    if (added && added.length) _expSelectedId = added[0].id;
+    await loadExpenseDocViewer();
+    await refresh();
+  }
+
+  async function deleteAttachmentFromViewer(id) {
+    const ok = await UI.confirm('Czy na pewno usunąć ten załącznik?', 'Usuń załącznik');
+    if (!ok) return;
+    await window.api.expenses.deleteAttachment(id);
+    if (_expSelectedId === id) _expSelectedId = null;
+    await loadExpenseDocViewer();
+    await refresh();
   }
 
   async function saveForm(id) {
@@ -668,7 +674,7 @@ const PageExpenses = (() => {
     el.classList.remove('hidden');
   }
 
-  return { load, openCreate, openEdit, saveForm, deleteExpense, uploadReceipt, openReceipt, openAttachments, addAttachment, deleteAttachment, openImportWizard, doImport };
+  return { load, openCreate, openEdit, saveForm, deleteExpense, uploadReceipt, openReceipt, openAttachments, addAttachment, deleteAttachment, openImportWizard, doImport, selectExpenseAttachment, addAttachmentToViewer, deleteAttachmentFromViewer };
 })();
 
 window.PageExpenses = PageExpenses;

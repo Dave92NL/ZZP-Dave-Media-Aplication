@@ -10,6 +10,8 @@ const PageInvoices = (() => {
   let _importResults = []; // held in closure for import wizard
   let editingInvoiceId = null;
   let currentInvoicePdfPath = null;
+  let _invPreviewTimer = null;   // debounce regeneracji podglądu PDF
+  let _invPreviewSeq = 0;        // ochrona przed wyścigiem starych generacji
 
   // ── Entry point ──────────────────────────────────────────
   async function load() {
@@ -557,54 +559,37 @@ const PageInvoices = (() => {
     document.querySelectorAll('#inv-items-body input').forEach(input => input.addEventListener('input', renderInvoicePreview));
   }
 
+  // Żywy podgląd = prawdziwy PDF faktury generowany z danych formularza.
+  // Debounce, bo generacja PDF jest cięższa niż zwykły render HTML.
   function renderInvoicePreview() {
     const preview = document.getElementById('inv-preview');
     if (!preview) return;
-    // Zawsze pokazujemy żywy podgląd danych z formularza (zapisany PDF jest
-    // dostępny osobnym przyciskiem „Eksportuj/Otwórz PDF").
-    const invoiceNumber = document.getElementById('inv-number')?.value || '—';
-    const status = document.getElementById('inv-status')?.value || 'draft';
-    const issueDate = document.getElementById('inv-issue-date')?.value;
-    const dueDate = document.getElementById('inv-due-date')?.value;
-    const saleDate = document.getElementById('inv-sale-date')?.value;
-    const paidDate = document.getElementById('inv-paid-date')?.value;
-    const clientId = document.getElementById('inv-client')?.value;
-    const client = clients.find(c => String(c.id) === String(clientId));
-    const projectId = document.getElementById('inv-project')?.value;
-    const project = projects.find(p => String(p.id) === String(projectId));
-    const reference = document.getElementById('inv-reference')?.value || '—';
-    const notes = document.getElementById('inv-notes')?.value || 'Brak';
+    clearTimeout(_invPreviewTimer);
+    _invPreviewTimer = setTimeout(_generateInvoicePreview, 600);
+  }
 
-    const rows = document.querySelectorAll('#inv-items-body tr');
-    const itemsHtml = rows.length ? Array.from(rows).map(row => {
-      const desc = row.querySelector('.item-desc')?.value || '—';
-      const qty = parseFloat(row.querySelector('.item-qty')?.value) || 0;
-      const price = parseFloat(row.querySelector('.item-price')?.value) || 0;
-      const total = qty * price;
-      return `
-        <div class="preview-row">
-          <span>${UI.esc(desc)}</span>
-          <span>${qty}×${fmtAmount(price, 'EUR')} = ${fmtAmount(total, 'EUR')}</span>
-        </div>`;
-    }).join('') : '<div style="color:var(--text-muted);font-size:13px">Brak pozycji.</div>';
+  async function _generateInvoicePreview() {
+    const preview = document.getElementById('inv-preview');
+    if (!preview) return;
 
-    preview.innerHTML = `
-      <h4>Podgląd faktury</h4>
-      <div class="preview-row"><span>Nr faktury</span><span>${UI.esc(invoiceNumber)}</span></div>
-      <div class="preview-row"><span>Status</span><span>${UI.esc(status)}</span></div>
-      <div class="preview-row"><span>Data wystawienia</span><span>${UI.formatDate(issueDate)}</span></div>
-      <div class="preview-row"><span>Termin płatności</span><span>${UI.formatDate(dueDate)}</span></div>
-      <div class="preview-row"><span>Data sprzedaży</span><span>${UI.formatDate(saleDate)}</span></div>
-      <div class="preview-row"><span>Data zapłaty</span><span>${UI.formatDate(paidDate)}</span></div>
-      <div style="margin:14px 0 10px;font-weight:600">Klient</div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">${client ? clientPreviewHTML(client) : '—'}</div>
-      <div class="preview-row"><span>Projekt</span><span>${project ? UI.esc(project.name) : '—'}</span></div>
-      <div class="preview-row"><span>Referencja klienta</span><span>${UI.esc(reference)}</span></div>
-      <div style="margin-top:16px;font-weight:600">Pozycje</div>
-      ${itemsHtml}
-      <div style="margin-top:16px;font-weight:600">Notatki</div>
-      <div style="font-size:13px;color:var(--text-muted);white-space:pre-wrap">${UI.esc(notes)}</div>
-    `;
+    const data = collectFormData();
+    if (!data.client_id || !(data.items && data.items.length)) {
+      preview.innerHTML = '<div class="doc-viewer-hint">Wybierz klienta i dodaj pozycję, aby zobaczyć podgląd faktury.</div>';
+      return;
+    }
+
+    const seq = ++_invPreviewSeq;
+    if (!preview.querySelector('embed')) {
+      preview.innerHTML = '<div class="doc-viewer-hint">Generuję podgląd PDF…</div>';
+    }
+    try {
+      const dataUrl = await window.api.invoices.renderPreviewPDF(data);
+      if (seq !== _invPreviewSeq) return; // pojawiła się nowsza edycja
+      preview.innerHTML = `<embed src="${dataUrl}" type="application/pdf" class="doc-viewer-embed">`;
+    } catch (e) {
+      if (seq !== _invPreviewSeq) return;
+      preview.innerHTML = `<div class="doc-viewer-hint">Nie udało się wygenerować podglądu: ${UI.esc(e.message)}</div>`;
+    }
   }
 
   function onClientChange() {

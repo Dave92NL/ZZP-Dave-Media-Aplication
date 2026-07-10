@@ -110,6 +110,17 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
   - tłumaczenia NL/EN dla wszystkich nowych ekranów
   - import faktur PDF brał holenderskie miasto jako klienta (kotwica „Factuur voor:")
 
+### Koszty 2.0 (dokodowane lokalnie w VS Code + Qwen, potem przegląd i naprawy)
+- **Migracja SQLite v6:** tabela `expense_attachments` (wiele plików do jednego kosztu)
+- **Wiele załączników do kosztu:** `expenses.getAttachments/addAttachment/deleteAttachment`, IPC + preload; kolumna „Załączniki" z licznikiem
+- **Filtr „nieuzupełnione"** (koszty bez załącznika) na liście kosztów
+- **Podgląd split-view** w formularzu faktury i kosztu oraz podgląd pliku w kreatorze importu
+- **Naprawy po przeglądzie (Opus):** brakujący eksport `showImportPreview`; podglądy plików przez **`data:` URL** (nowy IPC `util:readFileAsDataUrl`) zamiast `file://` blokowanego przez CSP; CSP rozszerzony o `object-src 'self' data:`; deduplikacja i scalenie parsera godzin (`parseHoursText`); `deleteAttachment`/`delete` kosztu sprzątają pliki z dysku; testy `tests/hours-import.test.js` (6/6). Prywatne PDF godzin w `.gitignore`.
+
+### Viewer dokumentu jak w efakturze (W TOKU)
+- **Faktura:** `invoices.renderPreviewPDF(data)` renderuje **żywy PDF** z danych formularza do bufora → `data:` URL, osadzany w viewerze (debounce ~0,6 s).
+- **Koszt:** viewer wgranego dokumentu z **miniaturami załączników** po lewej + duży `<embed>` PDF (natywne zoom/strony Chromium) / `<img>`, formularz po prawej.
+
 ---
 
 ## 6. Kolejne kroki (backlog)
@@ -117,13 +128,15 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturze**.
 
 ### Do zaprogramowania (priorytet malejąco)
-1. **Kalibracja parsera godzin** — czeka na prawdziwy PDF „POBIERZ GODZINY" z efaktury (użytkownik miał wrzucić do folderu Google Drive ze zrzutami). Dostroić regexy w `hours-import.js`.
+1. **Viewer dokumentu jak w efakturze** (W TOKU) — żywy PDF faktury + miniatury/viewer załączników kosztu. Potem: nawigacja „Poprzedni/Następny" z autozapisem (odłożona), renderowane miniatury stron PDF.
 2. **Kredytnoty** (faktury korygujące) — akcja z poziomu faktury
 3. **Oferty (offertes)** + konwersja oferta→faktura
 4. **Język faktury per faktura** — szablon PDF w NL/EN/PL
-5. **Koszty 2.0** — wiele stawek VAT w dokumencie, wiele załączników, edytor split-view (dokument obok formularza), filtr „nieuzupełnione"
+5. **Koszty 2.0 — reszta:** wiele stawek VAT w jednym dokumencie kosztu (samo „wiele załączników" + filtr + split-view już zrobione)
 6. Kalendarzowy widok godzinówki + pole przerwy; wysyłka e-mail z aplikacji (SMTP/Gmail); AI-asysta opisów
 7. (opcjonalnie) Kilometrówka i produkty w mobile + sync
+
+**Zrobione już z dawnego backlogu:** kalibracja parsera godzin (testy 6/6), wiele załączników do kosztów, filtr „nieuzupełnione", podgląd split-view.
 
 ### Po stronie użytkownika
 - **Pełna migracja z efaktura.nl** — import ~20 pozycji (faktury PDF, koszty XML) przez „📥 Import XML/PDF", ręczna korekta klienta gdzie trzeba, potem „Wyślij" (sync)

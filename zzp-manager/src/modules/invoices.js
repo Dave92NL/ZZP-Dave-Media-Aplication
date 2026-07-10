@@ -871,7 +871,62 @@ async function exportUBL(id, win) {
   return saveResult.filePath;
 }
 
+// ── Podgląd na żywo: renderuje PDF z NIEZAPISANYCH danych formularza do bufora ──
+// Zwraca data: URL do osadzenia w viewerze (reużywa renderInvoicePDF + QR EPC).
+async function renderPreviewPDF(data) {
+  const db = getDb();
+  const profile = require('./settings').getProfile();
+
+  const items = (data.items || [])
+    .filter(it => it && (it.description || Number(it.unit_price) || Number(it.quantity)))
+    .map(it => ({
+      description: it.description || '',
+      quantity: Number(it.quantity) || 1,
+      unit: it.unit || 'szt',
+      unit_price: Number(it.unit_price) || 0,
+      total: (Number(it.quantity) || 1) * (Number(it.unit_price) || 0)
+    }));
+
+  const subtotal = calculateSubtotal(items);
+  const btwRate = Number(data.btw_rate) || 0;
+  const btwAmount = data.btw_reverse_charge ? 0 : subtotal * (btwRate / 100);
+  const total = subtotal + btwAmount;
+  const exchangeRate = Number(data.exchange_rate) || 1;
+
+  let client = {};
+  if (data.client_id) {
+    client = db.prepare(
+      'SELECT name, company_name, address, postcode, city, country, vat_number FROM clients WHERE id = ?'
+    ).get(data.client_id) || {};
+  }
+
+  const invoice = {
+    invoice_number: data.invoice_number || '—',
+    issue_date: data.issue_date, due_date: data.due_date, sale_date: data.sale_date || null,
+    currency: data.currency || 'EUR', exchange_rate: exchangeRate,
+    subtotal, btw_rate: btwRate, btw_amount: btwAmount, total, total_eur: total / exchangeRate,
+    btw_reverse_charge: data.btw_reverse_charge ? 1 : 0,
+    notes: data.notes || '', reference: data.reference || '',
+    items,
+    client_name: client.name || '', company_name: client.company_name || '',
+    client_address: client.address || '', client_postcode: client.postcode || '',
+    client_city: client.city || '', client_country: client.country || '',
+    client_vat: client.vat_number || ''
+  };
+
+  const qr = await _buildEpcQrBuffer(invoice, profile);
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  const chunks = [];
+  return await new Promise((resolve, reject) => {
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve('data:application/pdf;base64,' + Buffer.concat(chunks).toString('base64')));
+    doc.on('error', reject);
+    try { renderInvoicePDF(doc, invoice, profile, qr); doc.end(); } catch (e) { reject(e); }
+  });
+}
+
 module.exports = {
   getAll, getById, getItems, getNextNumber,
-  create, update, delete: delete_, markPaid, duplicate, exportPDF, exportUBL
+  create, update, delete: delete_, markPaid, duplicate, exportPDF, exportUBL, renderPreviewPDF
 };

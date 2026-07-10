@@ -409,6 +409,7 @@ function registerIpcHandlers() {
   ipcMain.handle('invoices:exportUBL', async (_, id) => {
     return invoices.exportUBL(id, mainWindow);
   });
+  ipcMain.handle('invoices:renderPreviewPDF', async (_, data) => invoices.renderPreviewPDF(data));
 
   // ── Invoice Items ─────────────────────────
   ipcMain.handle('invoiceItems:getByInvoice', (_, invoiceId) => invoices.getItems(invoiceId));

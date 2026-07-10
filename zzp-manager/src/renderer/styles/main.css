@@ -661,9 +661,9 @@ td {
 
 .split-view {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
-  min-height: 520px;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  min-height: 68vh;
 }
 
 .split-panel {
@@ -716,6 +716,81 @@ td {
   color: var(--text-secondary);
   font-weight: 600;
 }
+
+/* ── Viewer dokumentu (faktura/koszt) — jak w efakturze ── */
+.doc-panel { min-width: 0; }
+.form-panel { overflow-y: auto; max-height: 78vh; padding-right: 4px; }
+
+/* Formularz: pola pod sobą (panel jest węższy niż cały modal) */
+.form-panel .form-grid-2 { grid-template-columns: 1fr; }
+
+/* Pasek miniatur załączników */
+.doc-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  min-height: 0;
+}
+.doc-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 60px;
+  height: 76px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doc-thumb.active { border-color: var(--accent-green); box-shadow: 0 0 0 2px var(--accent-green); }
+.doc-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.doc-thumb .thumb-pdf {
+  font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em;
+}
+.doc-thumb .thumb-del {
+  position: absolute; top: 2px; right: 2px;
+  width: 18px; height: 18px; line-height: 16px; text-align: center;
+  border: none; border-radius: 50%;
+  background: rgba(0,0,0,0.55); color: #fff; font-size: 11px; cursor: pointer;
+  padding: 0; opacity: 0; transition: opacity .12s;
+}
+.doc-thumb:hover .thumb-del { opacity: 1; }
+.doc-thumb-add {
+  font-size: 24px; color: var(--text-muted); border-style: dashed;
+}
+.doc-thumb-add:hover { color: var(--accent-green); border-color: var(--accent-green); }
+
+/* Duży podgląd dokumentu */
+.doc-viewer {
+  flex: 1;
+  min-height: 60vh;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+.doc-viewer-embed { width: 100%; height: 100%; min-height: 60vh; border: none; }
+.doc-viewer-img { max-width: 100%; max-height: 78vh; object-fit: contain; margin: auto; }
+.doc-viewer-hint {
+  margin: auto; padding: 24px; text-align: center;
+  color: var(--text-muted); font-size: 13px; max-width: 320px;
+}
+
+/* Podgląd faktury (prawy panel) też jako viewer PDF */
+#inv-preview {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  min-height: 60vh;
+}
+#inv-preview .doc-viewer-embed { min-height: 60vh; }
 
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
