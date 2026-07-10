@@ -157,5 +157,10 @@ Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturz
 - **Przychody w raportach/dashboardzie** liczą się z `invoices` po `status='paid'` i `paid_date`
   (nie po dacie wystawienia). Edytując faktury trzymać `income_entries` w zgodzie (robi to `invoices.update`).
 - **Nowy kanał IPC w mobile** nie istnieje — mobile nie ma IPC; dane przez `src/data/repo.js`.
+- **Podgląd PDF inline** (`<embed type="application/pdf" src="data:…">`) wymaga
+  `plugins: true` w `webPreferences` (main.js) — bez tego viewer jest pusty. CSP musi
+  mieć `object-src 'self' data:`. Pliki z dysku wczytywać przez IPC `util:readFileAsDataUrl`
+  (data: URL), nie `file://` (blokowane przez CSP + `webSecurity`).
+- **Zawsze po skończonej czynności aktualizować ten `CLAUDE.md`** (życzenie właściciela).
 - Git na Windows ostrzega o LF→CRLF — to nieszkodliwe.
 - Reverse charge (Google Ireland): `btw_reverse_charge=1`, BTW=0, w UBL kategoria `AE`.

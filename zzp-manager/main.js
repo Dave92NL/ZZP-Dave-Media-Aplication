@@ -31,6 +31,7 @@ function createWindow() {
       webSecurity: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
+      plugins: true, // włącza wbudowany viewer PDF (PDFium) — podgląd faktur/kosztów przez <embed>
       preload: path.join(__dirname, 'preload.js')
     }
   });
