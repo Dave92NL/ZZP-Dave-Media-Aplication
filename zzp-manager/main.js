@@ -420,6 +420,7 @@ function registerIpcHandlers() {
     return invoices.exportUBL(id, mainWindow);
   });
   ipcMain.handle('invoices:renderPreviewPDF', async (_, data) => invoices.renderPreviewPDF(data));
+  ipcMain.handle('invoices:renderSavedPreviewPDF', async (_, id) => invoices.renderSavedPreviewPDF(id));
 
   // ── Invoice Items ─────────────────────────
   ipcMain.handle('invoiceItems:getByInvoice', (_, invoiceId) => invoices.getItems(invoiceId));

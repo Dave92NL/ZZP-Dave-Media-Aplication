@@ -121,6 +121,8 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 - **Faktura:** `invoices.renderPreviewPDF(data)` renderuje **żywy PDF** z danych formularza (debounce ~0,6 s), rysowany przez **pdf.js do canvas** w prawym panelu.
 - **Koszt:** viewer wgranego dokumentu z **miniaturami załączników** po lewej + duży podgląd (PDF przez pdf.js/canvas, obrazy jako `<img>`), formularz po prawej; dodawanie/usuwanie/przełączanie załączników.
 - **Klucz:** `<embed>`/`<iframe>` PDF dawały szare tło (PDFium) → użyto **pdf.js** (`src/renderer/js/pdfviewer.js`). Szczegóły w sekcji 7.
+- **Podgląd po kliknięciu wiersza (read-only):** faktura i koszt — klik w wiersz otwiera modal split-view (dane + dokument), bez wchodzenia w edycję. `invoices.renderSavedPreviewPDF(id)` renderuje PDF zapisanej faktury; koszt pokazuje pierwszy załącznik. Przyciski akcji w wierszu mają `event.stopPropagation()`.
+- **Presety opisu pozycji faktury (NL/EN/PL):** select w formularzu (`SERVICE_PRESETS` w `page-invoices.js`) wstawia pozycję z gotowym opisem usługi wg KvK (advertentieruimte YouTube, audiotracks, video's filmproducties, reparatie/onderhoud computers).
 
 ---
 

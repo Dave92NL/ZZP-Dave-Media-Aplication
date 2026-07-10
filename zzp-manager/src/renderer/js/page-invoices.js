@@ -308,6 +308,7 @@ const PageInvoices = (() => {
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
         <button class="btn btn-sm btn-secondary" onclick="PageInvoices.addItem()">+ Dodaj pozycję</button>
+        ${presetSelectHTML()}
         ${products.length ? `
           <select id="inv-product-pick" style="max-width:260px">
             <option value="">📦 …lub wybierz z katalogu</option>
@@ -401,6 +402,43 @@ const PageInvoices = (() => {
     if (!tbody) return;
     const i = tbody.querySelectorAll('tr').length;
     tbody.insertAdjacentHTML('beforeend', itemRowHTML(i));
+  }
+
+  // ── Presety opisu usług (KvK „Dave Media YT"), NL/EN/PL ──
+  const SERVICE_PRESETS = [
+    { nl: 'Beschikbaar stellen van advertentieruimte op YouTube-platform', en: 'Providing advertising space on the YouTube platform', pl: 'Udostępnianie powierzchni reklamowej na platformie YouTube' },
+    { nl: 'Het creëren en bewerken van audiotracks', en: 'Creating and editing audio tracks', pl: 'Tworzenie i edycja ścieżek audio' },
+    { nl: "Het maken van video's voor filmproducties", en: 'Creating videos for film productions', pl: 'Produkcja filmów na potrzeby produkcji filmowych' },
+    { nl: 'Het repareren en onderhouden van computers, laptops en aanverwante onderdelen', en: 'Repair and maintenance of computers, laptops and related components', pl: 'Naprawa i konserwacja komputerów, laptopów i podzespołów' }
+  ];
+
+  function presetSelectHTML() {
+    const langs = [['nl', 'Nederlands'], ['en', 'English'], ['pl', 'Polski']];
+    const groups = langs.map(([lang, label]) =>
+      `<optgroup label="${label}">${SERVICE_PRESETS.map((p, i) => `<option value="${i}|${lang}">${UI.esc(p[lang])}</option>`).join('')}</optgroup>`
+    ).join('');
+    return `<select id="inv-preset-pick" style="max-width:340px" onchange="PageInvoices.insertPresetItem()"><option value="">📝 …lub wstaw opis usługi</option>${groups}</select>`;
+  }
+
+  function insertPresetItem() {
+    const sel = document.getElementById('inv-preset-pick');
+    const tbody = document.getElementById('inv-items-body');
+    if (!sel || !tbody || !sel.value) return;
+    const [idx, lang] = sel.value.split('|');
+    const preset = SERVICE_PRESETS[Number(idx)];
+    if (!preset) return;
+    const desc = preset[lang];
+
+    const rows = tbody.querySelectorAll('tr');
+    const firstDesc = rows.length === 1 ? rows[0].querySelector('.item-desc') : null;
+    if (firstDesc && !firstDesc.value.trim()) {
+      firstDesc.value = desc;
+    } else {
+      const i = tbody.querySelectorAll('tr').length;
+      tbody.insertAdjacentHTML('beforeend', itemRowHTML(i, { description: desc, quantity: 1, unit: 'usługa', unit_price: 0, btw_rate: 0 }));
+    }
+    sel.value = '';
+    recalc();
   }
 
   // ── Katalog produktów ────────────────────────────────────
@@ -822,7 +860,27 @@ const PageInvoices = (() => {
           : `<button class="btn btn-primary" onclick="PageInvoices.exportPDF(${id})">📄 Eksportuj PDF</button>`}
       `;
 
-      UI.openModal(`Podgląd faktury`, body, { size: 'lg', footer });
+      const splitBody = `
+        <div class="split-view">
+          <div class="split-panel form-panel">${body}</div>
+          <div class="split-panel doc-panel"><div class="doc-viewer" id="view-pdf"></div></div>
+        </div>`;
+
+      UI.openModal(`Podgląd faktury ${UI.esc(inv.invoice_number)}`, splitBody, {
+        size: 'xl',
+        footer,
+        onOpen: async () => {
+          const el = document.getElementById('view-pdf');
+          if (!el) return;
+          el.innerHTML = '<div class="doc-viewer-hint">Generuję podgląd PDF…</div>';
+          try {
+            const dataUrl = await window.api.invoices.renderSavedPreviewPDF(id);
+            await window.PdfViewer.render(el, dataUrl);
+          } catch (e) {
+            el.innerHTML = `<div class="doc-viewer-hint">Nie udało się wygenerować podglądu: ${UI.esc(e.message)}</div>`;
+          }
+        }
+      });
     } catch (err) {
       UI.toast('Błąd: ' + err.message, 'error');
     }
@@ -1267,7 +1325,7 @@ ${company}`
     openImportWizard, doImport,
     addProductItem, openProducts, saveProduct, deleteProduct,
     openPaymentEmail, refreshPayEmail, copyPayEmail, openPayEmailInMail,
-    showImportPreview
+    showImportPreview, insertPresetItem
   };
 })();
 

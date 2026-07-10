@@ -170,18 +170,18 @@ const PageExpenses = (() => {
           </thead>
           <tbody>
             ${rows.map(e => `
-              <tr>
+              <tr onclick="PageExpenses.openView(${e.id})" style="cursor:pointer" title="Kliknij, aby zobaczyć podgląd">
                 <td class="mono">${UI.formatDate(e.date)}</td>
                 <td><span class="badge badge-muted">${UI.esc(e.category)}</span></td>
                 <td>${UI.esc(e.description)}</td>
                 <td class="text-right amount">${fmt(e.amount_eur)}</td>
                 <td class="text-right" style="color:var(--text-muted);font-size:12px">${e.btw_amount > 0 ? fmt(e.btw_amount) : '—'}</td>
                 <td style="font-size:12px;color:var(--text-secondary)">${UI.esc(e.vendor || '—')}</td>
-                <td style="text-align:center">
+                <td style="text-align:center" onclick="event.stopPropagation()">
                   <button class="btn btn-sm btn-secondary" onclick="PageExpenses.openAttachments(${e.id})">${e.attachment_count || 0} 📎</button>
                 </td>
                 <td style="font-size:12px;color:var(--text-secondary)">${UI.esc(e.project_name || '—')}</td>
-                <td class="table-actions">
+                <td class="table-actions" onclick="event.stopPropagation()">
                   <button class="btn btn-sm btn-secondary" onclick="PageExpenses.openEdit(${e.id})">✏️</button>
                   <button class="btn btn-sm btn-danger"    onclick="PageExpenses.deleteExpense(${e.id})">🗑</button>
                 </td>
@@ -200,6 +200,53 @@ const PageExpenses = (() => {
     const exp = allExpenses.find(e => e.id === id);
     if (!exp) return;
     openForm(exp);
+  }
+
+  // ── Podgląd kosztu (read-only): dane po lewej, dokument po prawej ──
+  async function openView(id) {
+    const exp = allExpenses.find(e => e.id === id);
+    if (!exp) return;
+    const projectName = allProjects.find(p => String(p.id) === String(exp.project_id))?.name || '—';
+    const row = (label, val) => `<div class="preview-row"><span>${label}</span><span>${val}</span></div>`;
+
+    const data = `
+      <h4>${UI.esc(exp.description || 'Koszt')}</h4>
+      ${row('Data', UI.formatDate(exp.date))}
+      ${row('Kategoria', UI.esc(exp.category || '—'))}
+      ${row('Dostawca', UI.esc(exp.vendor || '—'))}
+      ${row('Projekt', UI.esc(projectName))}
+      ${row('Kwota brutto', fmt(exp.amount))}
+      ${row('BTW', exp.btw_amount > 0 ? fmt(exp.btw_amount) + ` (${exp.btw_rate}%)` : '—')}
+      ${row('Kwota netto (EUR)', fmt(exp.amount_eur))}
+      ${row('Odliczalny podatkowo', exp.is_deductible ? 'Tak' : 'Nie')}
+      ${row('BTW odliczalna', exp.btw_deductible ? 'Tak' : 'Nie')}
+      ${exp.notes ? `<div style="margin-top:12px;font-size:13px;color:var(--text-muted)"><strong>Notatki</strong><div style="margin-top:6px;white-space:pre-wrap">${UI.esc(exp.notes)}</div></div>` : ''}
+    `;
+
+    const body = `
+      <div class="split-view">
+        <div class="split-panel doc-panel"><div class="doc-viewer" id="exp-view-doc"></div></div>
+        <div class="split-panel form-panel">${data}</div>
+      </div>`;
+
+    UI.openModal(`Podgląd kosztu`, body, {
+      size: 'xl',
+      footer: `
+        <button class="btn btn-secondary" onclick="UI.closeModal()">Zamknij</button>
+        <button class="btn btn-primary" onclick="UI.closeModal();PageExpenses.openEdit(${id})">✏️ Edytuj</button>`,
+      onOpen: async () => {
+        const el = document.getElementById('exp-view-doc');
+        if (!el) return;
+        el.innerHTML = '<div class="doc-viewer-hint">Ładowanie…</div>';
+        const atts = await window.api.expenses.getAttachments(id);
+        if (!atts.length) { el.innerHTML = '<div class="doc-viewer-hint">Brak załącznika.</div>'; return; }
+        const a = atts[0];
+        const url = await window.api.util.readFileAsDataUrl(a.file_path);
+        if (!url) { el.innerHTML = '<div class="doc-viewer-hint">Nie udało się wczytać pliku.</div>'; return; }
+        if (/\.pdf$/i.test(a.file_path)) await window.PdfViewer.render(el, url);
+        else el.innerHTML = `<img src="${url}" class="doc-viewer-img" alt="${UI.esc(a.file_name)}">`;
+      }
+    });
   }
 
   function openForm(exp = null) {
@@ -674,7 +721,7 @@ const PageExpenses = (() => {
     el.classList.remove('hidden');
   }
 
-  return { load, openCreate, openEdit, saveForm, deleteExpense, uploadReceipt, openReceipt, openAttachments, addAttachment, deleteAttachment, openImportWizard, doImport, selectExpenseAttachment, addAttachmentToViewer, deleteAttachmentFromViewer };
+  return { load, openCreate, openEdit, openView, saveForm, deleteExpense, uploadReceipt, openReceipt, openAttachments, addAttachment, deleteAttachment, openImportWizard, doImport, selectExpenseAttachment, addAttachmentToViewer, deleteAttachmentFromViewer };
 })();
 
 window.PageExpenses = PageExpenses;

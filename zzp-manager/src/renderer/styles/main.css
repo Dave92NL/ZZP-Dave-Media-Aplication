@@ -721,6 +721,18 @@ td {
 .doc-panel { min-width: 0; }
 .form-panel { overflow-y: auto; max-height: 78vh; padding-right: 4px; }
 
+/* Wiersz klucz-wartość w podglądzie read-only (poza .split-preview) */
+.form-panel .preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.form-panel .preview-row span:first-child { color: var(--text-secondary); }
+.form-panel .preview-row span:last-child { text-align: right; }
+.form-panel h4 { margin: 0 0 12px; font-size: 15px; }
+
 /* Formularz: pola pod sobą (panel jest węższy niż cały modal) */
 .form-panel .form-grid-2 { grid-template-columns: 1fr; }
 

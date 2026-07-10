@@ -926,7 +926,25 @@ async function renderPreviewPDF(data) {
   });
 }
 
+// Renderuje PDF ZAPISANEJ faktury (po id) do data: URL — do podglądu read-only.
+async function renderSavedPreviewPDF(id) {
+  const invoice = getById(id);
+  if (!invoice) throw new Error('Faktura nie znaleziona.');
+  const profile = require('./settings').getProfile();
+  const qr = await _buildEpcQrBuffer(invoice, profile);
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  const chunks = [];
+  return await new Promise((resolve, reject) => {
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve('data:application/pdf;base64,' + Buffer.concat(chunks).toString('base64')));
+    doc.on('error', reject);
+    try { renderInvoicePDF(doc, invoice, profile, qr); doc.end(); } catch (e) { reject(e); }
+  });
+}
+
 module.exports = {
   getAll, getById, getItems, getNextNumber,
-  create, update, delete: delete_, markPaid, duplicate, exportPDF, exportUBL, renderPreviewPDF
+  create, update, delete: delete_, markPaid, duplicate, exportPDF, exportUBL,
+  renderPreviewPDF, renderSavedPreviewPDF
 };
