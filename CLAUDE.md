@@ -101,6 +101,7 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 - **Kilometrówka:** moduł `mileage.js` (stawka €0,23/km, tam-i-z-powrotem, podsumowanie roczne) + strona `page-mileage.js` + nav
 - **Faktura:** pole „Data sprzedaży" (leverdatum) + **QR EPC** w PDF (pakiet `qrcode`) + **eksport UBL 2.1/Peppol XML**
 - **Import godzinówki z efaktura** (`hours-import.js`): parser PDF (priorytet, PL/NL) + XML, kreator z podglądem na stronie Czas pracy
+- **Kalibracja parsera godzin** — poprawione rozpoznawanie przerw `(00:45h)` i podsumowań `Aantal uren ...`, plus lepsze łączenie zawiniętych linii opisu.
 - **Przypomnienia/wezwania do zapłaty:** szablony NL/EN/PL, kopiuj + mailto (`util:openExternal`)
 - **Weryfikacja VIES** numeru VAT (handler `vies:check`, API UE) w formularzu kontaktu + „wypełnij dane z VIES"
 - **Poprawki po testach:**

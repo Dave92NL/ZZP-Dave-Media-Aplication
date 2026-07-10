@@ -12,3 +12,7 @@ ios/Pods/
 android/.gradle/
 android/app/build/
 *.keystore
+
+# Prywatne eksporty / próbki danych — NIE wrzucać do publicznego repo
+/*.pdf
+Urenregistratie_*.pdf

@@ -16,6 +16,7 @@ const VALID_CHANNELS = new Set([
   'time:getAll', 'time:create', 'time:update', 'time:delete',
   'time:getSummary', 'time:getYearTotal', 'time:exportPDF',
   'expenses:getAll', 'expenses:create', 'expenses:update', 'expenses:delete',
+  'expenses:getAttachments', 'expenses:addAttachment', 'expenses:deleteAttachment',
   'expenses:uploadReceipt', 'expenses:getSummary',
   'tax:getRates', 'tax:saveRates',
   'reports:monthly', 'reports:quarterly', 'reports:annual',
@@ -39,7 +40,7 @@ const VALID_CHANNELS = new Set([
   'income:analyzeCSV', 'income:importCSV',
   'dashboard:getData', 'dashboard:getKPIs', 'dashboard:getAlerts', 'dashboard:getChartData',
   'system:getIdleTime',
-  'util:openFile', 'util:showInFolder', 'util:openExternal', 'vies:check', 'tray:updateStats',
+  'util:openFile', 'util:showInFolder', 'util:openExternal', 'util:readFileAsDataUrl', 'vies:check', 'tray:updateStats',
   'efaktura:pickFiles', 'efaktura:analyze', 'efaktura:importInvoices', 'efaktura:importExpenses',
   'hours:pickFiles', 'hours:analyze', 'hours:import',
   'calendar:oauthConnect', 'calendar:getAuthStatus', 'calendar:disconnectAuth',
@@ -149,6 +150,9 @@ contextBridge.exposeInMainWorld('api', {
     create: (data) => invoke('expenses:create', data),
     update: (id, data) => invoke('expenses:update', id, data),
     delete: (id) => invoke('expenses:delete', id),
+    getAttachments: (expenseId) => invoke('expenses:getAttachments', expenseId),
+    addAttachment: (expenseId) => invoke('expenses:addAttachment', expenseId),
+    deleteAttachment: (attachmentId) => invoke('expenses:deleteAttachment', attachmentId),
     uploadReceipt: (expenseId) => invoke('expenses:uploadReceipt', expenseId),
     getSummary: (filters) => invoke('expenses:getSummary', filters)
   },
@@ -272,7 +276,8 @@ contextBridge.exposeInMainWorld('api', {
   util: {
     openFile: (path) => invoke('util:openFile', path),
     showInFolder: (path) => invoke('util:showInFolder', path),
-    openExternal: (url) => invoke('util:openExternal', url)
+    openExternal: (url) => invoke('util:openExternal', url),
+    readFileAsDataUrl: (p) => invoke('util:readFileAsDataUrl', p)
   },
 
   // ── VIES (weryfikacja VAT) ─────────────────

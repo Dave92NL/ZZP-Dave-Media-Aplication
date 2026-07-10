@@ -16,7 +16,8 @@ const PageExpenses = (() => {
 
   let allExpenses = [];
   let allProjects = [];
-  let currentFilters = { year: new Date().getFullYear(), month: '', category: '', project_id: '' };
+  let editingExpenseId = null;
+  let currentFilters = { year: new Date().getFullYear(), month: '', category: '', project_id: '', incomplete: false };
   let _importResults = []; // held in closure for import wizard
 
   // ── Entry point ──────────────────────────────────────────
@@ -79,6 +80,10 @@ const PageExpenses = (() => {
         <option value="">Wszystkie projekty</option>
         ${allProjects.map(p => `<option value="${p.id}">${UI.esc(p.name)}</option>`).join('')}
       </select>
+      <label class="filter-select" style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+        <input type="checkbox" id="exp-f-incomplete" ${currentFilters.incomplete ? 'checked' : ''}>
+        Pokaż tylko nieuzupełnione
+      </label>
       <input type="text" class="filter-select" id="exp-search" placeholder="🔍 Szukaj…" style="min-width:160px" value="">
     `;
 
@@ -86,6 +91,7 @@ const PageExpenses = (() => {
     document.getElementById('exp-f-month').addEventListener('change', e => { currentFilters.month = e.target.value; refresh(); });
     document.getElementById('exp-f-cat').addEventListener('change', e => { currentFilters.category = e.target.value; refresh(); });
     document.getElementById('exp-f-proj').addEventListener('change', e => { currentFilters.project_id = e.target.value; refresh(); });
+    document.getElementById('exp-f-incomplete').addEventListener('change', e => { currentFilters.incomplete = e.target.checked; refresh(); });
     document.getElementById('exp-search').addEventListener('input', e => { renderTable(filterLocal(e.target.value)); });
   }
 
@@ -96,6 +102,7 @@ const PageExpenses = (() => {
       if (currentFilters.month)      filters.month = currentFilters.month;
       if (currentFilters.category)   filters.category = currentFilters.category;
       if (currentFilters.project_id) filters.project_id = currentFilters.project_id;
+      if (currentFilters.incomplete) filters.incomplete = true;
 
       allExpenses = await window.api.expenses.getAll(filters);
       renderSummary();
@@ -156,7 +163,7 @@ const PageExpenses = (() => {
               <th class="text-right">Kwota</th>
               <th class="text-right">BTW</th>
               <th>Dostawca</th>
-              <th>Paragon</th>
+              <th style="text-align:center">Załączniki</th>
               <th>Projekt</th>
               <th>Akcje</th>
             </tr>
@@ -171,9 +178,7 @@ const PageExpenses = (() => {
                 <td class="text-right" style="color:var(--text-muted);font-size:12px">${e.btw_amount > 0 ? fmt(e.btw_amount) : '—'}</td>
                 <td style="font-size:12px;color:var(--text-secondary)">${UI.esc(e.vendor || '—')}</td>
                 <td style="text-align:center">
-                  ${e.receipt_path
-                    ? `<button class="btn btn-sm btn-secondary" title="Otwórz paragon" onclick="PageExpenses.openReceipt(${e.id},'${UI.esc(e.receipt_path)}')">📎</button>`
-                    : `<button class="btn btn-sm btn-secondary" title="Dodaj paragon" onclick="PageExpenses.uploadReceipt(${e.id})">⊕</button>`}
+                  <button class="btn btn-sm btn-secondary" onclick="PageExpenses.openAttachments(${e.id})">${e.attachment_count || 0} 📎</button>
                 </td>
                 <td style="font-size:12px;color:var(--text-secondary)">${UI.esc(e.project_name || '—')}</td>
                 <td class="table-actions">
@@ -199,10 +204,12 @@ const PageExpenses = (() => {
 
   function openForm(exp = null) {
     const isEdit = !!exp;
+    editingExpenseId = exp?.id || null;
     const today = new Date().toISOString().split('T')[0];
 
     UI.openModal(isEdit ? '✏️ Edytuj koszt' : '+ Dodaj koszt firmowy', `
-      <div class="form-grid-2">
+      <div class="split-view">
+        <div class="split-panel">
         <div class="form-group">
           <label>Data *</label>
           <input type="date" id="ef-date" value="${exp?.date || today}">
@@ -265,6 +272,10 @@ const PageExpenses = (() => {
           <label>Notatki</label>
           <textarea id="ef-notes" rows="2">${UI.esc(exp?.notes || '')}</textarea>
         </div>
+        </div>
+        <div class="split-panel">
+          <div class="split-preview" id="exp-preview"></div>
+        </div>
       </div>
       <div id="ef-err" class="error-msg hidden"></div>
     `, {
@@ -276,13 +287,23 @@ const PageExpenses = (() => {
       onOpen: () => {
         bindFormCalc();
         recalc();
+        renderExpensePreview();
+        loadExpenseAttachmentPreview();
       }
     });
   }
 
   function bindFormCalc() {
-    document.getElementById('ef-amount')?.addEventListener('input', recalc);
-    document.querySelectorAll('input[name="ef-btw"]').forEach(r => r.addEventListener('change', recalc));
+    document.getElementById('ef-amount')?.addEventListener('input', () => { recalc(); renderExpensePreview(); });
+    document.querySelectorAll('input[name="ef-btw"]').forEach(r => r.addEventListener('change', () => { recalc(); renderExpensePreview(); }));
+    document.getElementById('ef-date')?.addEventListener('change', renderExpensePreview);
+    document.getElementById('ef-cat')?.addEventListener('change', renderExpensePreview);
+    document.getElementById('ef-desc')?.addEventListener('input', renderExpensePreview);
+    document.getElementById('ef-vendor')?.addEventListener('input', renderExpensePreview);
+    document.getElementById('ef-proj')?.addEventListener('change', renderExpensePreview);
+    document.getElementById('ef-deductible')?.addEventListener('change', renderExpensePreview);
+    document.getElementById('ef-btw-ded')?.addEventListener('change', renderExpensePreview);
+    document.getElementById('ef-notes')?.addEventListener('input', renderExpensePreview);
   }
 
   function recalc() {
@@ -297,6 +318,77 @@ const PageExpenses = (() => {
     const netEl = document.getElementById('ef-net');
     if (btwEl) btwEl.value = btwRate > 0 ? fmt(btwAmt) : '—';
     if (netEl) netEl.value = fmt(net);
+    renderExpensePreview();
+  }
+
+  // HTML podglądu załączników — liczony RAZ (przez data-URL) przy otwarciu formularza
+  // i po dodaniu/usunięciu, żeby nie odpytywać bazy przy każdym znaku.
+  let _expAttachHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Brak załączników.</div>';
+
+  async function loadExpenseAttachmentPreview() {
+    if (!editingExpenseId) {
+      _expAttachHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Załączniki dostępne po zapisaniu kosztu.</div>';
+      renderExpensePreview();
+      return;
+    }
+    const attachments = await window.api.expenses.getAttachments(editingExpenseId);
+    if (!attachments.length) {
+      _expAttachHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Brak załączników.</div>';
+      renderExpensePreview();
+      return;
+    }
+    const first = attachments[0];
+    const isPdf = /\.pdf$/i.test(first.file_path);
+    const isImg = /\.(png|jpe?g|gif)$/i.test(first.file_path);
+    let embed = '';
+    if (isPdf || isImg) {
+      const dataUrl = await window.api.util.readFileAsDataUrl(first.file_path);
+      if (dataUrl && isPdf) embed = `<div style="margin-bottom:8px"><embed src="${dataUrl}" type="application/pdf" width="100%" height="360px"></div>`;
+      else if (dataUrl && isImg) embed = `<div style="margin-bottom:8px"><img src="${dataUrl}" style="max-width:100%;height:auto;border:1px solid var(--border);border-radius:8px"></div>`;
+    }
+    const table = `<table><thead><tr><th>Plik</th><th>Typ</th><th>Dodano</th></tr></thead><tbody>${attachments.map(a => `
+        <tr>
+          <td>${UI.esc(a.file_name)}</td>
+          <td>${UI.esc(a.mime_type || '—')}</td>
+          <td>${UI.formatDate(a.created_at)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    _expAttachHTML = embed + table;
+    renderExpensePreview();
+  }
+
+  function renderExpensePreview() {
+    const preview = document.getElementById('exp-preview');
+    if (!preview) return;
+
+    const date = document.getElementById('ef-date')?.value || '—';
+    const category = document.getElementById('ef-cat')?.value || '—';
+    const description = document.getElementById('ef-desc')?.value || '—';
+    const vendor = document.getElementById('ef-vendor')?.value || '—';
+    const projectId = document.getElementById('ef-proj')?.value;
+    const projectName = allProjects.find(p => String(p.id) === String(projectId))?.name || '—';
+    const amount = parseFloat(document.getElementById('ef-amount')?.value) || 0;
+    const btwRate = parseInt(document.querySelector('input[name="ef-btw"]:checked')?.value ?? '21');
+    const btwAmt = btwRate > 0 ? amount * (btwRate / (100 + btwRate)) : 0;
+    const net = btwRate > 0 ? amount - btwAmt : amount;
+    const isDeductible = document.getElementById('ef-deductible')?.checked;
+    const btwDeductible = document.getElementById('ef-btw-ded')?.checked;
+    const notes = document.getElementById('ef-notes')?.value || '';
+
+    preview.innerHTML = `
+      <h4>Podgląd dokumentu kosztu</h4>
+      <div class="preview-row"><span>Data</span><span>${UI.formatDate(date)}</span></div>
+      <div class="preview-row"><span>Kategoria</span><span>${UI.esc(category)}</span></div>
+      <div class="preview-row"><span>Opis</span><span>${UI.esc(description)}</span></div>
+      <div class="preview-row"><span>Dostawca</span><span>${UI.esc(vendor)}</span></div>
+      <div class="preview-row"><span>Projekt</span><span>${UI.esc(projectName)}</span></div>
+      <div class="preview-row"><span>Kwota brutto</span><span>${fmt(amount)}</span></div>
+      <div class="preview-row"><span>Kwota netto</span><span>${fmt(net)}</span></div>
+      <div class="preview-row"><span>BTW</span><span>${btwRate > 0 ? fmt(btwAmt) : '—'}</span></div>
+      <div class="preview-row"><span>Odliczalny podatkowo</span><span>${isDeductible ? 'Tak' : 'Nie'}</span></div>
+      <div class="preview-row"><span>BTW odliczalna</span><span>${btwDeductible ? 'Tak' : 'Nie'}</span></div>
+      <div style="margin-top:12px;font-size:13px;color:var(--text-muted)"><strong>Notatki</strong><div style="margin-top:6px;white-space:pre-wrap">${UI.esc(notes || 'Brak')}</div></div>
+      <div style="margin-top:18px"><div style="font-weight:600;margin-bottom:8px">Załączniki</div>${_expAttachHTML}</div>
+    `;
   }
 
   async function saveForm(id) {
@@ -370,6 +462,76 @@ const PageExpenses = (() => {
       await window.api.util.openFile(receiptPath);
     } catch (err) {
       UI.toast('Nie można otworzyć pliku.', 'error');
+    }
+  }
+
+  async function openAttachments(expenseId) {
+    try {
+      const attachments = await window.api.expenses.getAttachments(expenseId);
+      const rows = attachments.map(a => `
+        <tr>
+          <td style="padding:8px 10px">${UI.esc(a.file_name)}</td>
+          <td style="padding:8px 10px">${a.mime_type || '—'}</td>
+          <td style="padding:8px 10px">${UI.formatDate(a.created_at)}</td>
+          <td style="padding:8px 10px;text-align:right;white-space:nowrap">
+            <button class="btn btn-sm btn-secondary" onclick="PageExpenses.openReceipt(${expenseId},'${UI.esc(a.file_path)}')">Otwórz</button>
+            <button class="btn btn-sm btn-danger" onclick="PageExpenses.deleteAttachment(${a.id}, ${expenseId})">Usuń</button>
+          </td>
+        </tr>`).join('');
+
+      const html = `
+        <div class="modal-body" style="max-height:420px;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:14px;font-weight:600">Załączniki kosztu #${expenseId}</div>
+            <button class="btn btn-sm btn-primary" onclick="PageExpenses.addAttachment(${expenseId})">+ Dodaj załącznik</button>
+          </div>
+          <table style="width:100%;font-size:13px;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px">Plik</th>
+                <th style="text-align:left;padding:8px">Typ</th>
+                <th style="text-align:left;padding:8px">Dodano</th>
+                <th style="text-align:right;padding:8px">Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text-muted)">Brak załączników.</td></tr>`}
+            </tbody>
+          </table>
+        </div>`;
+
+      UI.openModal(`📎 Załączniki kosztu`, html, {
+        size: 'lg',
+        footer: `<button class="btn btn-secondary" onclick="UI.closeModal()">Zamknij</button>`
+      });
+    } catch (err) {
+      UI.toast('Błąd ładowania załączników: ' + err.message, 'error');
+    }
+  }
+
+  async function addAttachment(expenseId) {
+    try {
+      const added = await window.api.expenses.addAttachment(expenseId);
+      if (added && added.length) {
+        UI.toast(`Dodano ${added.length} załącznik(ów).`, 'success');
+      }
+      await openAttachments(expenseId);
+      await refresh();
+    } catch (err) {
+      UI.toast('Błąd dodawania załącznika: ' + err.message, 'error');
+    }
+  }
+
+  async function deleteAttachment(attachmentId, expenseId) {
+    const ok = await UI.confirm('Czy na pewno usunąć ten załącznik?', 'Usuń załącznik');
+    if (!ok) return;
+    try {
+      await window.api.expenses.deleteAttachment(attachmentId);
+      UI.toast('Załącznik usunięty.', 'success');
+      await openAttachments(expenseId);
+      await refresh();
+    } catch (err) {
+      UI.toast('Błąd usuwania załącznika: ' + err.message, 'error');
     }
   }
 
@@ -506,7 +668,7 @@ const PageExpenses = (() => {
     el.classList.remove('hidden');
   }
 
-  return { load, openCreate, openEdit, saveForm, deleteExpense, uploadReceipt, openReceipt, openImportWizard, doImport };
+  return { load, openCreate, openEdit, saveForm, deleteExpense, uploadReceipt, openReceipt, openAttachments, addAttachment, deleteAttachment, openImportWizard, doImport };
 })();
 
 window.PageExpenses = PageExpenses;

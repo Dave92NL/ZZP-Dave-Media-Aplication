@@ -56,6 +56,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "font-src 'self' https://fonts.gstatic.com data:; " +
           "img-src 'self' data: blob:; " +
+          "object-src 'self' data:; " +   // podgląd PDF załączników jako data: URL
           "connect-src 'none'"
         ]
       }
@@ -441,6 +442,21 @@ function registerIpcHandlers() {
   ipcMain.handle('expenses:create', (_, data) => expenses.create(data));
   ipcMain.handle('expenses:update', (_, id, data) => expenses.update(id, data));
   ipcMain.handle('expenses:delete', (_, id) => expenses.delete(id));
+  ipcMain.handle('expenses:getAttachments', (_, expenseId) => expenses.getAttachments(expenseId));
+  ipcMain.handle('expenses:addAttachment', async (_, expenseId) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Wybierz załącznik kosztu',
+      filters: [{ name: 'Obrazy i PDF', extensions: ['jpg', 'jpeg', 'png', 'pdf'] }],
+      properties: ['openFile', 'multiSelections']
+    });
+    if (result.canceled) return [];
+    const attachments = [];
+    for (const filePath of result.filePaths) {
+      attachments.push(expenses.saveReceipt(expenseId, filePath));
+    }
+    return attachments;
+  });
+  ipcMain.handle('expenses:deleteAttachment', (_, attachmentId) => expenses.deleteAttachment(attachmentId));
   ipcMain.handle('expenses:uploadReceipt', async (_, expenseId) => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Wybierz paragon',
@@ -740,6 +756,22 @@ function registerIpcHandlers() {
       return true;
     }
     return false;
+  });
+  // Wczytuje lokalny plik jako data: URL do podglądu inline (bez luzowania CSP na file://)
+  ipcMain.handle('util:readFileAsDataUrl', async (_, filePath) => {
+    try {
+      if (!filePath || !fs.existsSync(filePath)) return null;
+      const ext = path.extname(filePath).toLowerCase();
+      const mime = ext === '.pdf' ? 'application/pdf'
+        : ext === '.png' ? 'image/png'
+        : (ext === '.jpg' || ext === '.jpeg') ? 'image/jpeg'
+        : ext === '.gif' ? 'image/gif'
+        : 'application/octet-stream';
+      const buf = fs.readFileSync(filePath);
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch {
+      return null;
+    }
   });
   ipcMain.handle('util:openExternal', async (_, url) => {
     // Tylko bezpieczne schematy — mailto (wezwania) i http(s) (np. VIES)

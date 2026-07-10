@@ -8,6 +8,8 @@ const PageInvoices = (() => {
   let products = [];
   let filters = { year: new Date().getFullYear(), month: '', client_id: '', status: '', search: '' };
   let _importResults = []; // held in closure for import wizard
+  let editingInvoiceId = null;
+  let currentInvoicePdfPath = null;
 
   // ── Entry point ──────────────────────────────────────────
   async function load() {
@@ -225,6 +227,8 @@ const PageInvoices = (() => {
 
   function showInvoiceForm(id, inv) {
     const isEdit = !!id;
+    editingInvoiceId = id || null;
+    currentInvoicePdfPath = inv?.pdf_path || null;
     const clientOptions = clients.map(c =>
       `<option value="${c.id}" ${inv.client_id == c.id ? 'selected' : ''}>${UI.esc(c.name)}</option>`
     ).join('');
@@ -235,7 +239,9 @@ const PageInvoices = (() => {
     const itemsHTML = (inv.items || [{}]).map((item, i) => itemRowHTML(i, item)).join('');
 
     UI.openModal(isEdit ? `Edytuj fakturę ${inv.invoice_number}` : 'Nowa faktura',
-      `<div class="form-grid-2" style="margin-bottom:16px">
+      `<div class="split-view">
+        <div class="split-panel">
+          <div class="form-grid-2" style="margin-bottom:16px">
         <div class="form-group">
           <label>Nr faktury *</label>
           <input type="text" id="inv-number" value="${UI.esc(inv.invoice_number || '')}">
@@ -340,14 +346,19 @@ const PageInvoices = (() => {
 
       <div id="inv-totals" style="margin-top:12px;text-align:right;font-size:13px"></div>
 
-      <div class="form-grid-2" style="margin-top:12px">
-        <div class="form-group">
-          <label>Nr referencyjny klienta</label>
-          <input type="text" id="inv-reference" value="${UI.esc(inv.reference || '')}">
+          <div class="form-grid-2" style="margin-top:12px">
+            <div class="form-group">
+              <label>Nr referencyjny klienta</label>
+              <input type="text" id="inv-reference" value="${UI.esc(inv.reference || '')}">
+            </div>
+            <div class="form-group">
+              <label>Notatki</label>
+              <textarea id="inv-notes" rows="2">${UI.esc(inv.notes || '')}</textarea>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Notatki</label>
-          <textarea id="inv-notes" rows="2">${UI.esc(inv.notes || '')}</textarea>
+        <div class="split-panel">
+          <div class="split-preview" id="inv-preview"></div>
         </div>
       </div>`,
       {
@@ -362,6 +373,9 @@ const PageInvoices = (() => {
           const mode = inv.btw_reverse_charge ? 'reverse' : String(inv.btw_rate || 0);
           const radio = document.querySelector(`input[name="btw-mode"][value="${mode}"]`);
           if (radio) radio.checked = true;
+          // Ensure preview bindings and initial render
+          try { bindInvoicePreview(); } catch (e) { console.error('bindInvoicePreview error', e); }
+          try { renderInvoicePreview(); } catch (e) { console.error('renderInvoicePreview error', e); }
         }
       }
     );
@@ -519,6 +533,7 @@ const PageInvoices = (() => {
           ${isReverse ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">BTW verlegd — art. 44/196 BTW-richtlijn</div>` : ''}
         </div>`;
     }
+      renderInvoicePreview();
   }
 
   function onBtwModeChange() { recalc(); }
@@ -528,6 +543,68 @@ const PageInvoices = (() => {
     if (!issueDate) return;
     const profile = { default_payment_days: 30 }; // fallback; real value loaded async
     document.getElementById('inv-due-date').value = addDays(issueDate, 30);
+    renderInvoicePreview();
+  }
+
+  function bindInvoicePreview() {
+    const fieldIds = ['inv-number','inv-status','inv-issue-date','inv-due-date','inv-sale-date','inv-paid-date','inv-client','inv-project','inv-currency','inv-exchange','inv-reference','inv-notes'];
+    fieldIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', renderInvoicePreview);
+      el.addEventListener('change', renderInvoicePreview);
+    });
+    document.querySelectorAll('#inv-items-body input').forEach(input => input.addEventListener('input', renderInvoicePreview));
+  }
+
+  function renderInvoicePreview() {
+    const preview = document.getElementById('inv-preview');
+    if (!preview) return;
+    // Zawsze pokazujemy żywy podgląd danych z formularza (zapisany PDF jest
+    // dostępny osobnym przyciskiem „Eksportuj/Otwórz PDF").
+    const invoiceNumber = document.getElementById('inv-number')?.value || '—';
+    const status = document.getElementById('inv-status')?.value || 'draft';
+    const issueDate = document.getElementById('inv-issue-date')?.value;
+    const dueDate = document.getElementById('inv-due-date')?.value;
+    const saleDate = document.getElementById('inv-sale-date')?.value;
+    const paidDate = document.getElementById('inv-paid-date')?.value;
+    const clientId = document.getElementById('inv-client')?.value;
+    const client = clients.find(c => String(c.id) === String(clientId));
+    const projectId = document.getElementById('inv-project')?.value;
+    const project = projects.find(p => String(p.id) === String(projectId));
+    const reference = document.getElementById('inv-reference')?.value || '—';
+    const notes = document.getElementById('inv-notes')?.value || 'Brak';
+
+    const rows = document.querySelectorAll('#inv-items-body tr');
+    const itemsHtml = rows.length ? Array.from(rows).map(row => {
+      const desc = row.querySelector('.item-desc')?.value || '—';
+      const qty = parseFloat(row.querySelector('.item-qty')?.value) || 0;
+      const price = parseFloat(row.querySelector('.item-price')?.value) || 0;
+      const total = qty * price;
+      return `
+        <div class="preview-row">
+          <span>${UI.esc(desc)}</span>
+          <span>${qty}×${fmtAmount(price, 'EUR')} = ${fmtAmount(total, 'EUR')}</span>
+        </div>`;
+    }).join('') : '<div style="color:var(--text-muted);font-size:13px">Brak pozycji.</div>';
+
+    preview.innerHTML = `
+      <h4>Podgląd faktury</h4>
+      <div class="preview-row"><span>Nr faktury</span><span>${UI.esc(invoiceNumber)}</span></div>
+      <div class="preview-row"><span>Status</span><span>${UI.esc(status)}</span></div>
+      <div class="preview-row"><span>Data wystawienia</span><span>${UI.formatDate(issueDate)}</span></div>
+      <div class="preview-row"><span>Termin płatności</span><span>${UI.formatDate(dueDate)}</span></div>
+      <div class="preview-row"><span>Data sprzedaży</span><span>${UI.formatDate(saleDate)}</span></div>
+      <div class="preview-row"><span>Data zapłaty</span><span>${UI.formatDate(paidDate)}</span></div>
+      <div style="margin:14px 0 10px;font-weight:600">Klient</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">${client ? clientPreviewHTML(client) : '—'}</div>
+      <div class="preview-row"><span>Projekt</span><span>${project ? UI.esc(project.name) : '—'}</span></div>
+      <div class="preview-row"><span>Referencja klienta</span><span>${UI.esc(reference)}</span></div>
+      <div style="margin-top:16px;font-weight:600">Pozycje</div>
+      ${itemsHtml}
+      <div style="margin-top:16px;font-weight:600">Notatki</div>
+      <div style="font-size:13px;color:var(--text-muted);white-space:pre-wrap">${UI.esc(notes)}</div>
+    `;
   }
 
   function onClientChange() {
@@ -1059,7 +1136,7 @@ ${company}`
         disabled = ''; checked = 'checked'; rowClass = '';
       }
       return `
-        <tr class="${rowClass}" style="${r.status === 'skipped' ? 'opacity:0.45' : ''}">
+        <tr class="${rowClass}" style="${r.status === 'skipped' ? 'opacity:0.45' : ''}" onclick="PageInvoices.showImportPreview(${idx})">
           <td style="text-align:center"><input type="checkbox" class="imp-chk" data-idx="${idx}" ${checked} ${disabled}></td>
           <td title="${UI.escHtml(r.file || '')}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${UI.escHtml(r.basename || r.file || '')}</td>
           <td>${UI.escHtml(d.invoice_number || '—')}</td>
@@ -1089,21 +1166,29 @@ ${company}`
               <input type="checkbox" id="imp-mark-paid" checked style="width:15px;height:15px">
               <span>Importuj jako <strong>zapłacone</strong> (data wystawienia = data wpłaty) — <em>zalecane dla historycznych faktur</em></span>
             </label>
-            <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
-              <table class="data-table" style="width:100%;font-size:13px">
-                <thead>
-                  <tr>
-                    <th style="width:36px"><input type="checkbox" id="imp-chk-all" checked onchange="document.querySelectorAll('.imp-chk:not(:disabled)').forEach(c=>c.checked=this.checked)"></th>
-                    <th>Plik</th>
-                    <th>Numer</th>
-                    <th>Data</th>
-                    <th>Klient</th>
-                    <th style="text-align:right">Kwota</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
+            <div class="split-view" style="max-height:420px;">
+              <div style="flex:1;overflow:auto;padding-right:12px">
+                <table class="data-table" style="width:100%;font-size:13px">
+                  <thead>
+                    <tr>
+                      <th style="width:36px"><input type="checkbox" id="imp-chk-all" checked onchange="document.querySelectorAll('.imp-chk:not(:disabled)').forEach(c=>c.checked=this.checked)"></th>
+                      <th>Plik</th>
+                      <th>Numer</th>
+                      <th>Data</th>
+                      <th>Klient</th>
+                      <th style="text-align:right">Kwota</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+              <div style="width:46%;min-width:380px;">
+                <div style="font-weight:600;margin-bottom:8px">Podgląd pliku</div>
+                <div id="imp-preview" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px;min-height:300px;overflow:auto">
+                  <div style="color:var(--text-muted);font-size:13px">Wybierz wiersz, aby wyświetlić podgląd pliku PDF/obrazu.</div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px">
@@ -1151,6 +1236,25 @@ ${company}`
     }
   }
 
+  // Show preview for selected import row (index in _importResults)
+  async function showImportPreview(idx) {
+    const item = _importResults[idx];
+    if (!item) return;
+    const preview = document.getElementById('imp-preview');
+    if (!preview) return;
+    const ext = (item.file.split('.').pop() || '').toLowerCase();
+    preview.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Ładowanie podglądu…</div>';
+    const dataUrl = await window.api.util.readFileAsDataUrl(item.file);
+    if (!dataUrl) { preview.innerHTML = '<div style="color:var(--text-muted)">Nie udało się wczytać pliku.</div>'; return; }
+    if (ext === 'pdf') {
+      preview.innerHTML = `<embed src="${dataUrl}" type="application/pdf" width="100%" height="480px" />`;
+    } else if (/^(png|jpe?g|gif)$/.test(ext)) {
+      preview.innerHTML = `<img src="${dataUrl}" style="max-width:100%;height:auto;border-radius:6px;border:1px solid var(--border)" />`;
+    } else {
+      preview.innerHTML = `<div style="color:var(--text-muted)">Brak podglądu dla tego typu pliku.</div>`;
+    }
+  }
+
   function yearOptions() {
     const cur = new Date().getFullYear();
     return [cur+1, cur, cur-1, cur-2].map(y =>
@@ -1177,7 +1281,8 @@ ${company}`
     applyFilters, clearFilters,
     openImportWizard, doImport,
     addProductItem, openProducts, saveProduct, deleteProduct,
-    openPaymentEmail, refreshPayEmail, copyPayEmail, openPayEmailInMail
+    openPaymentEmail, refreshPayEmail, copyPayEmail, openPayEmailInMail,
+    showImportPreview
   };
 })();
 

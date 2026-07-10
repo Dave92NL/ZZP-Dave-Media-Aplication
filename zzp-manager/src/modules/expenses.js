@@ -28,11 +28,15 @@ function getAll(filters = {}) {
   if (filters.category) { where.push('e.category = ?'); params.push(filters.category); }
   if (filters.date_from) { where.push('e.date >= ?'); params.push(filters.date_from); }
   if (filters.date_to) { where.push('e.date <= ?'); params.push(filters.date_to); }
+  if (filters.incomplete) {
+    where.push('(SELECT COUNT(*) FROM expense_attachments ea WHERE ea.expense_id = e.id) = 0');
+  }
 
   const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
   return db.prepare(`
-    SELECT e.*, p.name as project_name
+    SELECT e.*, p.name as project_name,
+      COALESCE((SELECT COUNT(*) FROM expense_attachments ea WHERE ea.expense_id = e.id), 0) as attachment_count
     FROM expenses e
     LEFT JOIN projects p ON e.project_id = p.id
     ${whereStr}
@@ -123,7 +127,22 @@ function update(id, data) {
 
 function delete_(id) {
   const db = getDb();
+  // Zbierz pliki (załączniki + paragon) przed usunięciem — cascade zabierze
+  // wiersze z expense_attachments, ale nie pliki z dysku.
+  const files = new Set();
+  try {
+    for (const a of db.prepare('SELECT file_path FROM expense_attachments WHERE expense_id = ?').all(id)) {
+      if (a.file_path) files.add(a.file_path);
+    }
+  } catch { /* tabela mogła nie istnieć przed migracją v6 */ }
+  const exp = db.prepare('SELECT receipt_path FROM expenses WHERE id = ?').get(id);
+  if (exp?.receipt_path) files.add(exp.receipt_path);
+
   db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
+
+  for (const f of files) {
+    try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch { /* ignoruj błąd kasowania pliku */ }
+  }
   return { success: true };
 }
 
@@ -144,8 +163,53 @@ function saveReceipt(expenseId, sourcePath) {
   const destPath = path.join(receiptDir, filename);
   fs.copyFileSync(sourcePath, destPath);
 
+  const mimeType = ext.toLowerCase() === '.pdf' ? 'application/pdf'
+    : ext.toLowerCase() === '.png' ? 'image/png'
+    : ext.toLowerCase() === '.jpg' || ext.toLowerCase() === '.jpeg' ? 'image/jpeg'
+    : '';
+
   db.prepare('UPDATE expenses SET receipt_path = ? WHERE id = ?').run(destPath, expenseId);
-  return destPath;
+  const result = db.prepare(`
+    INSERT INTO expense_attachments (expense_id, file_path, file_name, mime_type)
+    VALUES (?, ?, ?, ?)
+  `).run(expenseId, destPath, path.basename(destPath), mimeType);
+
+  return db.prepare('SELECT * FROM expense_attachments WHERE id = ?').get(result.lastInsertRowid);
+}
+
+function getAttachments(expenseId) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT id, expense_id, file_path, file_name, mime_type, created_at
+    FROM expense_attachments
+    WHERE expense_id = ?
+    ORDER BY id DESC
+  `).all(expenseId);
+}
+
+function deleteAttachment(id) {
+  const db = getDb();
+  const attachment = db.prepare('SELECT expense_id, file_path FROM expense_attachments WHERE id = ?').get(id);
+  if (!attachment) return { success: false };
+
+  try {
+    if (attachment.file_path && fs.existsSync(attachment.file_path)) {
+      fs.unlinkSync(attachment.file_path);
+    }
+  } catch (err) {
+    // ignore file delete failures
+  }
+
+  db.prepare('DELETE FROM expense_attachments WHERE id = ?').run(id);
+
+  // Jeśli kasowany plik był głównym paragonem kosztu — podmień na inny załącznik
+  // (albo wyczyść), żeby receipt_path nie wskazywał na nieistniejący plik.
+  const exp = db.prepare('SELECT receipt_path FROM expenses WHERE id = ?').get(attachment.expense_id);
+  if (exp && exp.receipt_path === attachment.file_path) {
+    const next = db.prepare('SELECT file_path FROM expense_attachments WHERE expense_id = ? ORDER BY id DESC LIMIT 1').get(attachment.expense_id);
+    db.prepare('UPDATE expenses SET receipt_path = ? WHERE id = ?').run(next?.file_path || '', attachment.expense_id);
+  }
+  return { success: true };
 }
 
 function getSummary(filters = {}) {
@@ -177,4 +241,4 @@ function getSummary(filters = {}) {
   return { ...total, byCategory };
 }
 
-module.exports = { getAll, create, update, delete: delete_, saveReceipt, getSummary, CATEGORIES };
+module.exports = { getAll, create, update, delete: delete_, saveReceipt, getAttachments, deleteAttachment, getSummary, CATEGORIES };

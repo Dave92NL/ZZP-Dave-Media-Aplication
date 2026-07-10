@@ -168,6 +168,15 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS expense_attachments (
+  id INTEGER PRIMARY KEY,
+  expense_id INTEGER REFERENCES expenses(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime_type TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Income entries
 CREATE TABLE IF NOT EXISTS income_entries (
   id INTEGER PRIMARY KEY,

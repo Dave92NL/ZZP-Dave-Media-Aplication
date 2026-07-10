@@ -82,35 +82,7 @@ async function _parsePDF(filePath) {
   } catch (_) { /* skan / brak warstwy tekstu */ }
 
   if (!text.trim()) return []; // brak tekstu — nic nie zwracamy (plik → error)
-  return _parseHoursText(text);
-}
-
-/**
- * Dzieli tekst na bloki wg wykrytych dat i z każdego wyciąga jeden wpis.
- * Wspiera daty: 29-06-2026 / 2026-06-29 oraz "29 czerwca 2026" / "29 juni".
- */
-function _parseHoursText(text) {
-  // Rok kontekstowy z nagłówka typu "Lipiec 2026" / "juli 2026"
-  const yearHeader = text.match(/\b(20\d{2})\b/);
-  const fallbackYear = yearHeader ? Number(yearHeader[1]) : new Date().getFullYear();
-
-  // Znajdź wszystkie pozycje dat w tekście
-  const dateRx = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})|(\d{1,2})\s+([a-ząćęłńóśźżäöü]+)(?:\s+(20\d{2}))?/gi;
-  const anchors = [];
-  let m;
-  while ((m = dateRx.exec(text)) !== null) {
-    const iso = _matchToDate(m, fallbackYear);
-    if (iso) anchors.push({ index: m.index, date: iso });
-  }
-  if (!anchors.length) return [];
-
-  const entries = [];
-  for (let i = 0; i < anchors.length; i++) {
-    const block = text.slice(anchors[i].index, anchors[i + 1] ? anchors[i + 1].index : undefined);
-    const entry = _parseBlock(block, anchors[i].date);
-    if (entry) entries.push(entry);
-  }
-  return entries;
+  return parseHoursText(text);
 }
 
 function _matchToDate(m, fallbackYear) {
@@ -129,19 +101,34 @@ function _matchToDate(m, fallbackYear) {
 }
 
 function _parseBlock(block, date) {
-  // Zakres czasu: "08:00 - 14:15" / "08:00 tot 14:15" / "08:00 do 14:15"
-  const range = block.match(/(\d{1,2}):(\d{2})\s*(?:-|–|tot|do)\s*(\d{1,2}):(\d{2})/);
-  // Przerwa: "(00:45 przerwy)" / "(00:45 pauze)"
-  const breakM = block.match(/\(?\s*(\d{1,2}):(\d{2})\s*(?:przerw\w*|pauze?)\s*\)?/i);
-  // Czas netto: "05:30 godzin" / "05:30 uur" — z negatywnym lookbehind na przerwę
-  const net = block.match(/(\d{1,2}):(\d{2})\s*(?:godzin\w*|uur|u\.)/i);
+  // Zakres czasu: "08:00 - 14:15" / "08:00 tot 14:15" / "08:00 do 14:15" / "13:00–18:00"
+  const range = block.match(/(\d{1,2}):(\d{2})\s*(?:-|–|to|tot|do|t\/m)\s*(\d{1,2}):(\d{2})/i);
+  // Przerwa: "(00:45 przerwy)" / "(00:45 pauze)" / "(00:45h)"
+  const breakM = block.match(/\(\s*(\d{1,2}):(\d{2})(?:h|m)?(?:\s*(?:przerw\w*|pauze?))?\s*\)/i);
+  // Czas netto — kolejność priorytetu:
+  //  1. z jednostką: "05:30 uur" / "05:30 godzin" / "5,5 uur" / "5 hrs"
+  //  2. "HH:MM h" (efaktura, np. "02:15h") — bierzemy OSTATNie takie w bloku (netto po zakresie)
+  //  3. "Nh Nm"
+  // (?<!\() pomija wartości w nawiasach, np. przerwę "(00:45h)".
+  const netByUnit = block.match(/(?<!\()\b(\d{1,2}(?::\d{2}|[.,]\d{1,2})?)\s*(?:godzin\w*|uur|u\.|hours?|hrs?)\b/i);
+  const colonHmatches = [...block.matchAll(/(?<!\()\b(\d{1,2}):(\d{2})\s*h\b/gi)];
+  const netByHM = block.match(/(?:^|[\s\n])(\d+)\s*h(?:ours?)?(?:\s*(\d+)\s*m(?:in(?:utes?)?)?)?/i);
 
   const breakMin = breakM ? (Number(breakM[1]) * 60 + Number(breakM[2])) : 0;
 
   let durationMin = 0;
   let startTime = null, endTime = null;
-  if (net) {
-    durationMin = Number(net[1]) * 60 + Number(net[2]);
+  let netValue = null;
+  if (netByUnit) netValue = netByUnit[1];
+  else if (colonHmatches.length) {
+    const last = colonHmatches[colonHmatches.length - 1];
+    netValue = `${last[1]}:${last[2]}`;
+  } else if (netByHM) {
+    netValue = `${netByHM[1]}h${netByHM[2] ? `${netByHM[2]}m` : ''}`;
+  }
+
+  if (netValue !== null) {
+    durationMin = _parseDurationValue(netValue);
   } else if (range) {
     const startMin = Number(range[1]) * 60 + Number(range[2]);
     const endMin = Number(range[3]) * 60 + Number(range[4]);
@@ -155,14 +142,20 @@ function _parseBlock(block, date) {
   // Opis + klient: linie tekstowe (bez samych liczb/godzin/dni tygodnia)
   const WEEKDAYS = /^(poniedzia\w+|wtorek|środa|sroda|czwartek|piątek|piatek|sobota|niedziela|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)\b/i;
   const lines = block.split('\n').map(l => l.trim()).filter(Boolean)
-    .filter(l => !/^\d/.test(l) && !WEEKDAYS.test(l) && !/godzin|uur|przerw|pauze/i.test(l));
-  // pierwsza sensowna linia = klient/nazwa, reszta = opis
-  const clientName = lines[0] || '';
-  const description = (lines.slice(1).join(' ') || lines[0] || '').slice(0, 300);
+    .filter(l => !/^\d/.test(l) && !WEEKDAYS.test(l) && !/godzin|uur|przerw|pauze|^\d{1,2}:\d{2}h$/i.test(l));
+
+  const SUMMARY_LINE = /^(?:aantal uren|total(?:e|a)? uren|liczba godzin|suma|razem|sum|total hours|hours total)\b/i;
+  const cleanedLines = lines
+    .map(l => l.replace(/[|•\-–—]+/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .filter(l => l.length > 2 && !SUMMARY_LINE.test(l) && !/^(op(?:\s|$)|tot(?:\s|$)|van(?:\s|$)|do(?:\s|$)|t\/m(?:\s|$))/i.test(l));
+
+  const description = cleanedLines.join(' ').slice(0, 300) || 'Import godzin';
+  const clientName = cleanedLines[0] || '';
 
   return {
     date,
-    description: description || clientName || 'Import godzin',
+    description,
     duration_minutes: durationMin,
     break_minutes: breakMin,
     start_time: startTime,
@@ -279,4 +272,46 @@ async function importHours(items, options = {}) {
   return { imported, skipped, errors };
 }
 
-module.exports = { parseFiles, importHours };
+/**
+ * Dzieli tekst na bloki wg wykrytych dat i z każdego wyciąga jeden wpis.
+ * Wspiera daty: 29-06-2026 / 2026-06-29 oraz "29 czerwca 2026" / "29 juni".
+ * Rok bez jawnej daty bierze z parametru albo z nagłówka typu "Lipiec 2026".
+ */
+function parseHoursText(text, fallbackYear = null) {
+  const yearHeader = text.match(/\b(20\d{2})\b/);
+  const year = fallbackYear || (yearHeader ? Number(yearHeader[1]) : new Date().getFullYear());
+  const dateRx = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})|(\d{1,2})\s+([a-ząćęłńóśźżäöü]+)(?:\s+(20\d{2}))?/gi;
+  const anchors = [];
+  let m;
+  while ((m = dateRx.exec(text)) !== null) {
+    const iso = _matchToDate(m, year);
+    if (iso) anchors.push({ index: m.index, date: iso });
+  }
+  if (!anchors.length) return [];
+
+  const entries = [];
+  for (let i = 0; i < anchors.length; i++) {
+    const block = text.slice(anchors[i].index, anchors[i + 1] ? anchors[i + 1].index : undefined);
+    const entry = _parseBlock(block, anchors[i].date);
+    if (entry) entries.push(entry);
+  }
+  return entries;
+}
+
+function _parseDurationValue(value) {
+  const raw = String(value || '').trim().replace(/\s+/g, '');
+  if (!raw) return 0;
+  const normalized = raw.replace(',', '.');
+  if (/^\d+(?:\.\d+)?$/.test(normalized)) {
+    return Math.round(Number(normalized) * 60);
+  }
+  const hm = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (hm) return Number(hm[1]) * 60 + Number(hm[2]);
+  const hmText = raw.match(/^(\d+)h(?:ours?)?(?:(\d+)m(?:in(?:utes?)?)?)?$/i);
+  if (hmText) {
+    return Number(hmText[1]) * 60 + Number(hmText[2] || 0);
+  }
+  return 0;
+}
+
+module.exports = { parseFiles, parseHoursText, importHours };

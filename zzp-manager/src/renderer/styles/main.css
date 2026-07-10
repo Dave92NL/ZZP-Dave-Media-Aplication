@@ -659,6 +659,64 @@ td {
 .modal.modal-xl { width: 1000px; }
 .modal.modal-sm { width: 420px; }
 
+.split-view {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  min-height: 520px;
+}
+
+.split-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.split-preview {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  overflow: auto;
+  min-height: 300px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.split-preview h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+}
+
+.split-preview .preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.split-preview .preview-row span:last-child {
+  text-align: right;
+}
+
+.split-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.split-preview table th,
+.split-preview table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.split-preview table th {
+  text-align: left;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 22px;

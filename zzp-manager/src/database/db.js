@@ -386,6 +386,19 @@ function getMigrations() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
       `CREATE INDEX IF NOT EXISTS idx_mileage_date ON mileage_entries(date)`
+    ]],
+
+    // Migration 6 — multi-attachment expenses
+    [6, [
+      `CREATE TABLE IF NOT EXISTS expense_attachments (
+        id INTEGER PRIMARY KEY,
+        expense_id INTEGER REFERENCES expenses(id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        mime_type TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_expense_attachments_expense_id ON expense_attachments(expense_id)`
     ]]
   ];
 }
