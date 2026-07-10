@@ -7,10 +7,11 @@
 //  - meta (keyPath 'key'): stan pomocniczy (np. działający licznik czasu, znaczniki sync).
 
 const DB_NAME = 'zzp-mobile';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const CACHE_STORES = [
-  'clients', 'projects', 'invoices', 'invoice_items', 'expenses', 'time_entries'
+  'clients', 'projects', 'invoices', 'invoice_items', 'expenses', 'time_entries',
+  'mileage_entries'
 ];
 
 let _dbPromise = null;

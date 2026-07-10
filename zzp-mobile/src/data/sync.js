@@ -47,6 +47,13 @@ export async function flushOutbox() {
           invoice_id: _remap(e.payload.invoice_id, idMap)
         };
         await repo.pushTimeEntry(payload);
+      } else if (e.type === 'insert-mileage') {
+        const payload = {
+          ...e.payload,
+          project_id: _remap(e.payload.project_id, idMap),
+          client_id: _remap(e.payload.client_id, idMap)
+        };
+        await repo.pushMileage(payload);
       } else {
         throw new Error('Nieznany typ operacji: ' + e.type);
       }

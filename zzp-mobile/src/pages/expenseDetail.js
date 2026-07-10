@@ -1,6 +1,11 @@
 import { currentParam, navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
 import * as repo from '../data/repo.js';
+import { renderPdf, fetchArrayBuffer } from '../lib/pdfPreview.js';
+
+function _isPdf(path) {
+  return /\.pdf(\?|$)/i.test(String(path || ''));
+}
 
 export async function load() {
   const el = document.getElementById('page-content');
@@ -21,24 +26,30 @@ export async function load() {
     const exp = await repo.getExpense(id);
     if (!exp) throw new Error('Nie znaleziono kosztu (offline — brak w pamięci podręcznej).');
 
+    // Podgląd dokumentu paragonu: obraz → <img>, PDF → render pdf.js (po wstawieniu DOM).
     let photoHtml = '';
+    let pdfToRender = null; // { url } — dorysowany po ustawieniu innerHTML
     if (exp._pending && exp._receiptBlob) {
       const localUrl = URL.createObjectURL(exp._receiptBlob);
       photoHtml = `
-        <h3 class="section-title">Zdjęcie paragonu</h3>
-        <div class="detail-block">
-          <img src="${localUrl}" alt="Paragon" class="receipt-full-photo">
-        </div>`;
+        <h3 class="section-title">Dokument paragonu</h3>
+        <div class="detail-block"><img src="${localUrl}" alt="Paragon" class="receipt-full-photo"></div>`;
     } else if (exp.receipt_storage_path) {
       const signedUrl = await repo.getReceiptUrl(exp.receipt_storage_path);
-      if (signedUrl) {
+      if (signedUrl && _isPdf(exp.receipt_storage_path)) {
+        pdfToRender = { url: signedUrl };
         photoHtml = `
-          <h3 class="section-title">Zdjęcie paragonu</h3>
+          <h3 class="section-title">Dokument paragonu</h3>
           <div class="detail-block">
-            <img src="${signedUrl}" alt="Paragon" class="receipt-full-photo">
+            <div id="exp-pdf-view" class="pdf-view"></div>
+            <a href="${signedUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm btn-block" style="margin-top:8px">↗ Otwórz PDF w nowej karcie</a>
           </div>`;
+      } else if (signedUrl) {
+        photoHtml = `
+          <h3 class="section-title">Dokument paragonu</h3>
+          <div class="detail-block"><img src="${signedUrl}" alt="Paragon" class="receipt-full-photo"></div>`;
       } else {
-        photoHtml = `<p class="text-muted">⚠️ Nie udało się wczytać zdjęcia paragonu (offline?).</p>`;
+        photoHtml = `<p class="text-muted">⚠️ Nie udało się wczytać dokumentu paragonu (offline?).</p>`;
       }
     }
 
@@ -74,6 +85,16 @@ export async function load() {
 
       <div class="detail-origin text-muted">Źródło: ${exp.origin === 'phone' ? '📱 Telefon' : '💻 Desktop'}</div>
     `;
+
+    if (pdfToRender) {
+      const cont = document.getElementById('exp-pdf-view');
+      try {
+        const buf = await fetchArrayBuffer(pdfToRender.url);
+        await renderPdf(cont, buf);
+      } catch (e) {
+        if (cont) cont.innerHTML = `<p class="text-muted">⚠️ Nie udało się wczytać PDF: ${escHtml(e.message)}. Użyj przycisku poniżej.</p>`;
+      }
+    }
   } catch (err) {
     wrap.innerHTML = `<p class="error-msg">Błąd wczytywania kosztu: ${escHtml(err.message)}</p>`;
   }

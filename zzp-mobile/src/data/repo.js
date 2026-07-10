@@ -94,6 +94,13 @@ export async function pushClient(payload) {
   return data;
 }
 
+export async function pushMileage(payload) {
+  const { data, error } = await supabase.from('mileage_entries').insert(payload).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('mileage_entries', data);
+  return data;
+}
+
 // ── Zapis wywoływany ze stron (decyduje online vs offline) ────────────────────
 
 export async function createExpense(payload, photoFile) {
@@ -150,6 +157,16 @@ export async function createClient(payload) {
     return { synced: true, row: data };
   }
   const entry = await outbox.enqueue({ table: 'clients', type: 'insert-client', payload: row });
+  return { synced: false, row: outbox.toDisplayRow(entry) };
+}
+
+export async function createMileage(payload) {
+  const row = { ...payload, origin: 'phone' };
+  if (isOnline()) {
+    const data = await pushMileage(row);
+    return { synced: true, row: data };
+  }
+  const entry = await outbox.enqueue({ table: 'mileage_entries', type: 'insert-mileage', payload: row });
   return { synced: false, row: outbox.toDisplayRow(entry) };
 }
 
@@ -320,6 +337,31 @@ export async function listTimeEntries(limit = 100) {
   return rows;
 }
 
+export async function listMileage(limit = 100) {
+  let server;
+  try {
+    const { data, error } = await supabase.from('mileage_entries').select('*')
+      .order('date', { ascending: false }).limit(limit);
+    if (error) throw error;
+    server = data || [];
+    await idb.replaceAll('mileage_entries', server);
+  } catch {
+    server = (await idb.getAll('mileage_entries'))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  }
+  const pending = (await outbox.forTable('mileage_entries')).map(outbox.toDisplayRow);
+  const rows = [...pending, ...server];
+  // dopnij nazwę projektu/klienta z cache
+  const projById = {};
+  for (const p of await idb.getAll('projects')) projById[p.id] = p;
+  const clientById = await _clientsById();
+  for (const r of rows) {
+    r.project_name = r.project_id ? (projById[r.project_id]?.name || null) : null;
+    r.client_name = r.client_id ? (clientById[r.client_id]?.name || null) : null;
+  }
+  return rows;
+}
+
 // ── Stan działającego licznika czasu (przeżywa zamknięcie aplikacji) ──────────
 const TIMER_KEY = 'runningTimer';
 
@@ -334,6 +376,17 @@ export async function setRunningTimer(timer) {
 
 export async function clearRunningTimer() {
   await idb.del('meta', TIMER_KEY);
+}
+
+// Oznaczenie faktury jako zapłaconej (status + data zapłaty).
+// Tylko online — desktop liczy przychód po paid_date, więc wymaga zapisu w chmurze.
+export async function markInvoicePaid(id, paidDate) {
+  if (!isOnline()) throw new Error('Oznaczenie jako zapłacona wymaga połączenia z internetem.');
+  const { data, error } = await supabase.from('invoices')
+    .update({ status: 'paid', paid_date: paidDate }).eq('id', id).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('invoices', data);
+  return data;
 }
 
 export async function getReceiptUrl(storagePath) {

@@ -18,6 +18,7 @@ drop table if exists public.invoice_items cascade;
 drop table if exists public.invoices cascade;
 drop table if exists public.expenses cascade;
 drop table if exists public.time_entries cascade;
+drop table if exists public.mileage_entries cascade;
 drop table if exists public.projects cascade;
 drop table if exists public.clients cascade;
 drop table if exists public.push_subscriptions cascade;
@@ -69,6 +70,7 @@ create table public.invoices (
   issue_date date not null,
   due_date date not null,
   paid_date date,
+  sale_date date,
   currency text default 'EUR',
   exchange_rate numeric default 1.0,
   subtotal numeric default 0,
@@ -135,6 +137,22 @@ create table public.time_entries (
   updated_at timestamptz default now()
 );
 
+create table public.mileage_entries (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  from_location text default '',
+  to_location text default '',
+  distance_km numeric not null default 0,
+  is_return boolean default false,
+  purpose text default '',
+  client_id uuid references public.clients(id),
+  project_id uuid references public.projects(id),
+  rate_per_km numeric default 0.23,
+  origin text not null default 'desktop',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- Subskrypcje Web Push (telefon) — używane w Fazie D do powiadomień o terminach
 create table public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -148,6 +166,7 @@ create table public.push_subscriptions (
 alter table public.clients enable row level security;
 alter table public.projects enable row level security;
 alter table public.time_entries enable row level security;
+alter table public.mileage_entries enable row level security;
 alter table public.push_subscriptions enable row level security;
 alter table public.invoices enable row level security;
 alter table public.invoice_items enable row level security;
@@ -161,6 +180,7 @@ create policy "authenticated_all" on public.invoices for all using (auth.role() 
 create policy "authenticated_all" on public.invoice_items for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.expenses for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.time_entries for all using (auth.role() = 'authenticated');
+create policy "authenticated_all" on public.mileage_entries for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.push_subscriptions for all using (auth.role() = 'authenticated');
 
 -- ── Storage (bucket "receipts") — OSOBNY system RLS, niezależny od tabel powyżej ──

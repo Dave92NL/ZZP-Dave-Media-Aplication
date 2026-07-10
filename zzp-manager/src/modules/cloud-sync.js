@@ -124,13 +124,16 @@ function getStatus() {
   const pendingTimeEntries = db.prepare(
     `SELECT COUNT(*) c FROM time_entries WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
   ).get().c;
+  const pendingMileage = db.prepare(
+    `SELECT COUNT(*) c FROM mileage_entries WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
+  ).get().c;
 
   return {
     configured,
     email: settings.get('supabase_email') || '',
     lastPush: settings.get('sync_last_push') || null,
     lastPull: settings.get('sync_last_pull') || null,
-    pendingLocalCount: pendingClients + pendingProjects + pendingInvoices + pendingExpenses + pendingTimeEntries
+    pendingLocalCount: pendingClients + pendingProjects + pendingInvoices + pendingExpenses + pendingTimeEntries + pendingMileage
   };
 }
 
@@ -153,7 +156,7 @@ async function pushLocalChanges() {
   const client = _getClient();
   await _ensureSession(client);
 
-  let pushedClients = 0, pushedProjects = 0, pushedInvoices = 0, pushedExpenses = 0, pushedTimeEntries = 0;
+  let pushedClients = 0, pushedProjects = 0, pushedInvoices = 0, pushedExpenses = 0, pushedTimeEntries = 0, pushedMileage = 0;
   const errors = [];
 
   // Helpers for mapping local FK → cloud UUID
@@ -229,7 +232,7 @@ async function pushLocalChanges() {
       const clientCloudId = _clientCloud(inv.client_id);
       const payload = {
         invoice_number: inv.invoice_number, client_id: clientCloudId, project_id: _projectCloud(inv.project_id), status: inv.status,
-        issue_date: inv.issue_date, due_date: inv.due_date, paid_date: inv.paid_date,
+        issue_date: inv.issue_date, due_date: inv.due_date, paid_date: inv.paid_date, sale_date: inv.sale_date,
         currency: inv.currency, exchange_rate: inv.exchange_rate, subtotal: inv.subtotal,
         btw_rate: inv.btw_rate, btw_amount: inv.btw_amount, total: inv.total, total_eur: inv.total_eur,
         notes: inv.notes, reference: inv.reference, btw_reverse_charge: !!inv.btw_reverse_charge,
@@ -334,11 +337,39 @@ async function pushLocalChanges() {
     }
   }
 
-  const totalPushed = pushedClients + pushedProjects + pushedInvoices + pushedExpenses + pushedTimeEntries;
+  // 6. Mileage (kilometrówka) — after projects so project_id/client_id can be mapped
+  const pendingMileage = db.prepare(
+    `SELECT * FROM mileage_entries WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
+  ).all();
+  for (const m of pendingMileage) {
+    try {
+      const payload = {
+        date: m.date, from_location: m.from_location, to_location: m.to_location,
+        distance_km: m.distance_km, is_return: !!m.is_return, purpose: m.purpose,
+        client_id: _clientCloud(m.client_id), project_id: _projectCloud(m.project_id),
+        rate_per_km: m.rate_per_km, origin: 'desktop'
+      };
+      let cloudId = m.cloud_id;
+      if (cloudId) {
+        const { error } = await client.from('mileage_entries').update(payload).eq('id', cloudId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await client.from('mileage_entries').insert(payload).select('id').single();
+        if (error) throw error;
+        cloudId = data.id;
+      }
+      db.prepare(`UPDATE mileage_entries SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cloudId, m.id);
+      pushedMileage++;
+    } catch (err) {
+      errors.push(`Przejazd #${m.id} (${m.date}): ${err.message}`);
+    }
+  }
+
+  const totalPushed = pushedClients + pushedProjects + pushedInvoices + pushedExpenses + pushedTimeEntries + pushedMileage;
   _recordHistory(db, 'push', totalPushed, 0, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_push', String(Date.now()));
 
-  return { pushedClients, pushedProjects, pushedInvoices, pushedExpenses, pushedTimeEntries, errors };
+  return { pushedClients, pushedProjects, pushedInvoices, pushedExpenses, pushedTimeEntries, pushedMileage, errors };
 }
 
 // ── Pull: cloud → local ─────────────────────────────────────────────────────
@@ -353,8 +384,9 @@ async function pullCloudChanges() {
   const invoicesModule = require('./invoices');
   const expensesModule = require('./expenses');
   const timeModule = require('./time-tracking');
+  const mileageModule = require('./mileage');
 
-  let pulledClients = 0, pulledProjects = 0, pulledInvoices = 0, pulledExpenses = 0, pulledTimeEntries = 0;
+  let pulledClients = 0, pulledProjects = 0, pulledInvoices = 0, pulledExpenses = 0, pulledTimeEntries = 0, pulledMileage = 0;
   const errors = [];
 
   // Map a cloud UUID FK back to the local integer id
@@ -429,6 +461,7 @@ async function pullCloudChanges() {
         invoice_number: ci.invoice_number, client_id: _localClientId(ci.client_id),
         project_id: _localProjectId(ci.project_id), status: ci.status,
         issue_date: ci.issue_date, due_date: ci.due_date, paid_date: ci.paid_date,
+        sale_date: ci.sale_date,
         currency: ci.currency, exchange_rate: ci.exchange_rate, btw_rate: ci.btw_rate,
         btw_reverse_charge: ci.btw_reverse_charge, notes: ci.notes, reference: ci.reference,
         items
@@ -503,11 +536,34 @@ async function pullCloudChanges() {
     }
   }
 
-  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries;
+  // 6. Mileage (kilometrówka)
+  const localMileageCloudIds = new Set(
+    db.prepare(`SELECT cloud_id FROM mileage_entries WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
+  );
+  const { data: cloudMileage, error: miErr } = await client.from('mileage_entries').select('*');
+  if (miErr) throw new Error('Pobieranie kilometrówki z chmury nieudane: ' + miErr.message);
+
+  for (const cm of cloudMileage || []) {
+    if (localMileageCloudIds.has(cm.id)) continue;
+    try {
+      const result = mileageModule.create({
+        date: cm.date, from_location: cm.from_location, to_location: cm.to_location,
+        distance_km: cm.distance_km, is_return: cm.is_return, purpose: cm.purpose,
+        client_id: _localClientId(cm.client_id), project_id: _localProjectId(cm.project_id),
+        rate_per_km: cm.rate_per_km
+      });
+      db.prepare(`UPDATE mileage_entries SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cm.id, result.id);
+      pulledMileage++;
+    } catch (err) {
+      errors.push(`Przejazd z chmury ${cm.date || cm.id}: ${err.message}`);
+    }
+  }
+
+  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage;
   _recordHistory(db, 'pull', 0, totalPulled, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_pull', String(Date.now()));
 
-  return { pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, errors };
+  return { pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, pulledMileage, errors };
 }
 
 module.exports = {

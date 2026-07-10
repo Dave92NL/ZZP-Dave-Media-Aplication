@@ -124,6 +124,17 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 - **Podgląd po kliknięciu wiersza (read-only):** faktura i koszt — klik w wiersz otwiera modal split-view (dane + dokument), bez wchodzenia w edycję. `invoices.renderSavedPreviewPDF(id)` renderuje PDF zapisanej faktury; koszt pokazuje pierwszy załącznik. Przyciski akcji w wierszu mają `event.stopPropagation()`.
 - **Presety opisu pozycji faktury (NL/EN/PL):** select w formularzu (`SERVICE_PRESETS` w `page-invoices.js`) wstawia pozycję z gotowym opisem usługi wg KvK (advertentieruimte YouTube, audiotracks, video's filmproducties, reparatie/onderhoud computers).
 
+### Parytet mobilny — pakiet 1+2 + podgląd dokumentu (ZROBIONE)
+Wyrównanie telefonu do desktopu: kilometrówka, data sprzedaży/zapłaty na fakturze, podgląd dokumentów.
+- **Chmura:** `docs/supabase-migration-mobile-pakiet.sql` (addytywnie: `invoices.sale_date` + tabela `mileage_entries` z RLS). Uruchomić w Supabase SQL Editor. Schemat wzorcowy `docs/supabase-schema.sql` też zaktualizowany.
+- **Desktop sync:** migracja SQLite **v7** (`cloud_id/synced_at/updated_at` w `mileage_entries`); `cloud-sync.js` pushuje/pobiera `mileage_entries` (mapowanie FK `client_id`/`project_id`) oraz `sale_date` na fakturach; `getStatus()` liczy oczekujące przejazdy.
+- **Mobile kilometrówka:** nowy store IndexedDB `mileage_entries` (`idb.js`, **DB_VERSION 2**), `repo.pushMileage/createMileage/listMileage`, typ outboxa `insert-mileage` z remapem FK w `sync.js`, strona `pages/mileage.js` (formularz + lista + podsumowanie km/odliczenie), trasa w `main.js`, pozycja w menu „Więcej", `mileage` w `MORE_PAGES`.
+- **Mobile faktura:** pole „Data sprzedaży (Leverdatum)" + dropdown presetów opisu (`SERVICE_PRESETS`, te same NL/EN/PL co desktop) w `newInvoice.js`; `sale_date` w nagłówku; w `invoiceDetail.js` pokazywana Leverdatum + przycisk **„Oznacz jako zapłaconą"** (`repo.markInvoicePaid`, online-only, ustawia `status='paid'`+`paid_date` — desktop liczy przychód po `paid_date`).
+- **Mobile podgląd dokumentu:**
+  - Koszt: paragon-obraz → `<img>`, paragon-**PDF** → render **pdf.js do canvas** (`src/lib/pdfPreview.js`, worker bundlowany przez Vite `?url`) + link „otwórz w nowej karcie". pdfjs-dist@3.11.174 dodany do `zzp-mobile`.
+  - Faktura: **stylizowany podgląd dokumentu HTML** (wygląd papierowej faktury na białym tle) w `invoiceDetail.js` z danych zsynchronizowanych. Dane sprzedawcy w `src/lib/companyProfile.js` (`COMPANY`) — **do uzupełnienia przez użytkownika** (KvK/IBAN/BTW/adres nie są synchronizowane z desktopu; puste pola są pomijane, nic nie jest zmyślane).
+- **Build:** `npm run build` w `zzp-mobile` przechodzi; ostrzeżenie `eval` z pdf.js to fallback fake-workera — nieistotne, bo realny worker jest emitowany jako osobny asset.
+
 ---
 
 ## 6. Kolejne kroki (backlog)
@@ -137,9 +148,9 @@ Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturz
 4. **Koszty 2.0 — reszta:** wiele stawek VAT w jednym dokumencie kosztu (samo „wiele załączników" + filtr + split-view już zrobione)
 5. Viewer: nawigacja „Poprzedni/Następny" z autozapisem (odłożona); pasek zoom nad canvas pdf.js
 6. Kalendarzowy widok godzinówki + pole przerwy; wysyłka e-mail z aplikacji (SMTP/Gmail); AI-asysta opisów
-7. (opcjonalnie) Kilometrówka i produkty w mobile + sync
+7. **Katalog produktów w mobile** (kilometrówka mobilna już zrobiona) + ewentualny mobilny edytor pozycji katalogu
 
-**Zrobione już z dawnego backlogu:** kalibracja parsera godzin (testy 6/6), wiele załączników do kosztów, filtr „nieuzupełnione", **viewer dokumentu (pdf.js) w fakturach i kosztach**.
+**Zrobione już z dawnego backlogu:** kalibracja parsera godzin (testy 6/6), wiele załączników do kosztów, filtr „nieuzupełnione", **viewer dokumentu (pdf.js) w fakturach i kosztach**, **kilometrówka w mobile + sync**, **data sprzedaży/zapłaty + presety opisu w mobile**, **podgląd dokumentu (PDF paragonu / faktura HTML) w mobile**.
 
 ### Po stronie użytkownika
 - **Pełna migracja z efaktura.nl** — import ~20 pozycji (faktury PDF, koszty XML) przez „📥 Import XML/PDF", ręczna korekta klienta gdzie trzeba, potem „Wyślij" (sync)
@@ -162,6 +173,13 @@ Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturz
 - **Nowy kanał IPC w mobile** nie istnieje — mobile nie ma IPC; dane przez `src/data/repo.js`.
 - **Podgląd PDF renderujemy przez pdf.js do `<canvas>`** (`src/renderer/js/pdfviewer.js`,
   `window.PdfViewer.render(container, dataUrl)`), NIE przez `<embed>`/`<iframe>`.
+- **Mobile — nowy store IndexedDB** = dopisz nazwę do `CACHE_STORES` w `idb.js` **oraz podnieś `DB_VERSION`**
+  (inaczej `onupgradeneeded` nie utworzy magazynu i `getAll` rzuci). Nowa encja synchronizowana offline
+  wymaga też: `repo.push*/create*/list*`, typu w `outbox.js`, gałęzi w `sync.js flushOutbox` (z remapem FK).
+- **Mobile pdf.js** = `src/lib/pdfPreview.js` (`renderPdf`), pdfjs-dist@3.11.174, worker importowany jako
+  `pdfjs-dist/build/pdf.worker.min.js?url` (Vite emituje osobny asset). Obraz → `<img>`, PDF → canvas.
+- **Dane sprzedawcy w mobile** (podgląd faktury) są w `src/lib/companyProfile.js` (`COMPANY`) — desktop
+  NIE synchronizuje ich do chmury, więc to osobna, ręcznie uzupełniana kopia; puste pola pomijamy.
   Wbudowany PDFium w tym Electronie renderował pustą (szarą) powierzchnię dla blob:/data:
   PDF — niezależnie od `plugins:true` i CSP. pdf.js (UMD z CDN `cdn.jsdelivr.net`,
   wersja 3.11.174) rysuje strony do canvas.

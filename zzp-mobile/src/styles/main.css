@@ -490,3 +490,71 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
   z-index: 999;
 }
+
+/* ── Podgląd dokumentu faktury (wygląd papierowej faktury na jasnym tle) ──── */
+.invoice-doc {
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+.invoice-doc-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 2px solid #1a1a1a;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+.invoice-doc-seller-name { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+.invoice-doc-title { text-align: right; }
+.invoice-doc-word { font-weight: 800; font-size: 18px; letter-spacing: 1px; }
+.invoice-doc-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.invoice-doc-label { font-weight: 700; margin-bottom: 2px; }
+.invoice-doc-dates > div { display: flex; justify-content: space-between; gap: 16px; }
+.invoice-doc-dates span:first-child { color: #555; }
+.invoice-doc-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.invoice-doc-table th {
+  text-align: left;
+  border-bottom: 1px solid #1a1a1a;
+  padding: 6px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.invoice-doc-table td { padding: 6px 4px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+.invoice-doc-table .num { text-align: right; white-space: nowrap; }
+.invoice-doc-totals { margin-left: auto; max-width: 260px; }
+.invoice-doc-totals > div { display: flex; justify-content: space-between; padding: 3px 0; }
+.invoice-doc-total {
+  font-weight: 800;
+  border-top: 2px solid #1a1a1a;
+  margin-top: 4px;
+  padding-top: 6px !important;
+}
+.invoice-doc-note {
+  margin-top: 10px;
+  padding: 8px;
+  background: #f4f4f4;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #333;
+}
+
+/* ── Podgląd PDF paragonu (canvas z pdf.js) ──────────────────────────────── */
+.pdf-view { display: flex; flex-direction: column; gap: 8px; }
+.pdf-page-canvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}

@@ -399,6 +399,13 @@ function getMigrations() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
       `CREATE INDEX IF NOT EXISTS idx_expense_attachments_expense_id ON expense_attachments(expense_id)`
+    ]],
+
+    // Migration 7 — sync kilometrówki z chmurą (kompan mobilny)
+    [7, [
+      `ALTER TABLE mileage_entries ADD COLUMN cloud_id TEXT`,
+      `ALTER TABLE mileage_entries ADD COLUMN synced_at DATETIME`,
+      `ALTER TABLE mileage_entries ADD COLUMN updated_at DATETIME`
     ]]
   ];
 }

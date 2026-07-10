@@ -5,6 +5,7 @@ import { enablePush, pushSupported } from '../push.js';
 const ITEMS = [
   { page: 'projects', icon: '📁', label: 'Projekty' },
   { page: 'clients', icon: '👤', label: 'Klienci' },
+  { page: 'mileage', icon: '🚗', label: 'Kilometrówka' },
   { page: 'add-expense', icon: '📷', label: 'Dodaj koszt' },
   { page: 'new-invoice', icon: '🧾', label: 'Nowa faktura' }
 ];

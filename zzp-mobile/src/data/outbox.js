@@ -2,8 +2,8 @@
 // synchronizację z Supabase. Każdy wpis:
 //   { localId, table, type, payload, items?, receiptBlob?, createdAt, error? }
 // gdzie:
-//   table   — której listy dotyczy (do nakładki „oczekujące": 'expenses' | 'invoices' | 'time_entries')
-//   type    — 'insert-expense' | 'insert-invoice' | 'insert-time-entry'
+//   table   — której listy dotyczy (do nakładki „oczekujące": 'expenses' | 'invoices' | 'time_entries' | 'mileage_entries')
+//   type    — 'insert-expense' | 'insert-invoice' | 'insert-time-entry' | 'insert-mileage' | 'insert-project' | 'insert-client'
 //   payload — pola rekordu (bez serwerowego id)
 //   items   — pozycje faktury (tylko dla 'insert-invoice')
 //   receiptBlob — skompresowane zdjęcie paragonu (tylko dla 'insert-expense', opcjonalnie)

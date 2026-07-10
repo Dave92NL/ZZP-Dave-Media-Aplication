@@ -9,7 +9,7 @@ const TABS = [
 ];
 
 // Podstrony docierane z menu „Więcej" — podświetlają zakładkę „Więcej".
-const MORE_PAGES = new Set(['projects', 'clients', 'add-expense', 'new-invoice', 'more']);
+const MORE_PAGES = new Set(['projects', 'clients', 'mileage', 'add-expense', 'new-invoice', 'more']);
 
 export function renderNav(currentPage, hidden) {
   const el = document.getElementById('bottom-nav');

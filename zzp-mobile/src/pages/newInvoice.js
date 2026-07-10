@@ -6,6 +6,22 @@ import * as repo from '../data/repo.js';
 let _clientsMap = {};
 let _itemRowCount = 0;
 
+// Gotowe opisy usług (KvK Dave Media YT) — identyczne z desktopem, w 3 językach.
+const SERVICE_PRESETS = [
+  { nl: 'Beschikbaar stellen van advertentieruimte op YouTube-platform', en: 'Providing advertising space on the YouTube platform', pl: 'Udostępnianie powierzchni reklamowej na platformie YouTube' },
+  { nl: 'Het creëren en bewerken van audiotracks', en: 'Creating and editing audio tracks', pl: 'Tworzenie i edycja ścieżek audio' },
+  { nl: "Het maken van video's voor filmproducties", en: 'Creating videos for film productions', pl: 'Produkcja filmów na potrzeby produkcji filmowych' },
+  { nl: 'Het repareren en onderhouden van computers, laptops en aanverwante onderdelen', en: 'Repair and maintenance of computers, laptops and related components', pl: 'Naprawa i konserwacja komputerów, laptopów i podzespołów' }
+];
+
+function _presetSelectHTML() {
+  const langs = [['nl', 'Nederlands'], ['en', 'English'], ['pl', 'Polski']];
+  const groups = langs.map(([lang, label]) =>
+    `<optgroup label="${label}">${SERVICE_PRESETS.map((p, i) => `<option value="${i}|${lang}">${escHtml(p[lang])}</option>`).join('')}</optgroup>`
+  ).join('');
+  return `<select id="inv-preset-pick"><option value="">📝 …wstaw gotowy opis usługi</option>${groups}</select>`;
+}
+
 export async function load() {
   const el = document.getElementById('page-content');
   el.innerHTML = `
@@ -45,7 +61,13 @@ export async function load() {
         </div>
       </div>
 
+      <div class="form-group">
+        <label>Data sprzedaży / dostawy (Leverdatum)</label>
+        <input type="date" id="inv-sale-date" value="${todayStr()}">
+      </div>
+
       <h3 class="section-title">Pozycje faktury</h3>
+      <div class="form-group">${_presetSelectHTML()}</div>
       <div id="inv-items"></div>
       <button class="btn btn-secondary btn-sm" id="inv-add-item-btn">+ Dodaj pozycję</button>
 
@@ -68,6 +90,7 @@ export async function load() {
   _addItemRow();
 
   document.getElementById('inv-add-item-btn').addEventListener('click', _addItemRow);
+  document.getElementById('inv-preset-pick').addEventListener('change', _insertPreset);
   document.getElementById('inv-items').addEventListener('input', _recalc);
   document.querySelectorAll('input[name="inv-btw"]').forEach(r => r.addEventListener('change', _recalc));
 
@@ -116,6 +139,23 @@ function _addItemRow() {
   container.appendChild(row);
 }
 
+function _insertPreset(ev) {
+  const raw = ev.target.value;
+  ev.target.value = '';
+  if (!raw) return;
+  const [idx, lang] = raw.split('|');
+  const preset = SERVICE_PRESETS[Number(idx)];
+  if (!preset) return;
+  const desc = preset[lang];
+
+  // Wpisz opis do pierwszej pustej pozycji; jeśli brak — dodaj nową.
+  const rows = Array.from(document.querySelectorAll('#inv-items .item-row'));
+  let target = rows.find(r => !r.querySelector('.item-desc').value.trim());
+  if (!target) { _addItemRow(); target = document.querySelector('#inv-items .item-row:last-child'); }
+  target.querySelector('.item-desc').value = desc;
+  _recalc();
+}
+
 function _readItems() {
   return Array.from(document.querySelectorAll('#inv-items .item-row')).map(row => ({
     description: row.querySelector('.item-desc').value.trim(),
@@ -144,6 +184,7 @@ async function _save(status) {
   const clientId = document.getElementById('inv-client').value;
   const issueDate = document.getElementById('inv-issue-date').value;
   const dueDate = document.getElementById('inv-due-date').value;
+  const saleDate = document.getElementById('inv-sale-date').value || null;
   const items = _readItems().filter(i => i.description);
   const { btwRate, btwReverseCharge } = _readBtwMode();
   const errorEl = document.getElementById('inv-error');
@@ -164,7 +205,7 @@ async function _save(status) {
   const { subtotal, btwAmount, total, totalEur } = calculateTotals(items, { btwRate, btwReverseCharge });
 
   const header = {
-    client_id: clientId, issue_date: issueDate, due_date: dueDate,
+    client_id: clientId, issue_date: issueDate, due_date: dueDate, sale_date: saleDate,
     subtotal, btw_rate: btwRate, btw_amount: btwAmount, total, total_eur: totalEur,
     btw_reverse_charge: btwReverseCharge
   };
