@@ -1730,3 +1730,21 @@ td > .tr-widget .tr-btn { padding: 3px 5px; font-size: 13px; }
   resize: vertical;
   line-height: 1.5;
 }
+
+/* Przyciski tłumaczenia (zawsze widoczne NL/EN — bez rozwijanego menu) */
+.tr-widget { display: inline-flex; gap: 4px; align-items: center; flex: 0 0 auto; }
+.inv-item-desc .tr-widget { flex-direction: column; }
+.tr-lang {
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+.tr-lang:hover { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--accent-blue); }
+.tr-lang:disabled { opacity: .6; cursor: default; }

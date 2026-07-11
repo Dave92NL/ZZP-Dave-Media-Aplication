@@ -622,3 +622,20 @@ input:focus, select:focus, textarea:focus {
   white-space: nowrap;
 }
 .tr-menu button:active { background: var(--bg-tertiary); }
+
+/* Przyciski tłumaczenia (zawsze widoczne NL/EN — bez rozwijanego menu) */
+.tr-widget { display: inline-flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.tr-lang {
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 9px 10px;
+  white-space: nowrap;
+}
+.tr-lang:active { background: var(--bg-secondary); }
+.tr-lang:disabled { opacity: .6; }
