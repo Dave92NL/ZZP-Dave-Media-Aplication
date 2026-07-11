@@ -4,6 +4,11 @@
 // klik rozwija wybór języka, po którym treść pola zostaje zastąpiona tłumaczeniem.
 // Silnik (DeepL/MyMemory) obsługuje proces główny przez window.api.translate.text.
 (function () {
+  function notify(msg, type) {
+    if (window.UI && typeof window.UI.toast === 'function') window.UI.toast(msg, type);
+    else alert(msg);
+  }
+
   function closeMenus(except) {
     document.querySelectorAll('.tr-menu').forEach(m => { if (m !== except) m.classList.add('hidden'); });
   }
@@ -23,6 +28,7 @@
     const trigger = e.target.closest('.tr-btn');
     if (trigger) {
       e.preventDefault();
+      console.log('[tr] klik ikonki — otwieram menu');
       const menu = trigger.parentElement.querySelector('.tr-menu');
       const willOpen = menu.classList.contains('hidden');
       closeMenus();
@@ -42,13 +48,15 @@
     const langBtn = e.target.closest('.tr-menu [data-lang]');
     if (langBtn) {
       e.preventDefault();
+      console.log('[tr] wybrano jezyk:', langBtn.dataset.lang);
       const widget = langBtn.closest('.tr-widget');
       const menu = widget.querySelector('.tr-menu');
       menu.classList.add('hidden');
       const input = resolveInput(widget);
-      if (!input) return;
+      if (!input) { console.warn('[tr] nie znaleziono pola opisu'); notify('Nie znaleziono pola opisu do tłumaczenia.', 'error'); return; }
       const text = (input.value || '').trim();
-      if (!text) { window.UI?.toast?.('Najpierw wpisz opis do przetłumaczenia.', 'warning'); return; }
+      console.log('[tr] tekst do tlumaczenia:', JSON.stringify(text.slice(0, 40)));
+      if (!text) { notify('Najpierw wpisz opis do przetłumaczenia.', 'warning'); return; }
 
       const btn = widget.querySelector('.tr-btn');
       const prev = btn.textContent;
@@ -57,7 +65,9 @@
         if (!window.api || !window.api.translate || typeof window.api.translate.text !== 'function') {
           throw new Error('Brak mostu do tłumacza — zamknij aplikację CAŁKOWICIE i uruchom ponownie (npm start), nie tylko odśwież.');
         }
+        console.log('[tr] wywoluje window.api.translate.text...');
         const res = await window.api.translate.text(text, langBtn.dataset.lang);
+        console.log('[tr] odpowiedz:', JSON.stringify(res));
         const out = res && res.text ? res.text : (typeof res === 'string' ? res : '');
         if (!out) throw new Error('pusta odpowiedź tłumaczenia');
         input.value = out;
