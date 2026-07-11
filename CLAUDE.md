@@ -196,6 +196,7 @@ Zrezygnowano (decyzja użytkownika): **proformy**, **zniżka/zaliczka na fakturz
 - **Nowy kanał IPC w mobile** nie istnieje — mobile nie ma IPC; dane przez `src/data/repo.js`.
 - **Podgląd PDF renderujemy przez pdf.js do `<canvas>`** (`src/renderer/js/pdfviewer.js`,
   `window.PdfViewer.render(container, dataUrl)`), NIE przez `<embed>`/`<iframe>`.
+- **Budowanie instalatora Windows** = `npm run build` w `zzp-manager` (electron-builder, config w `package.json` → pole `build`; NSIS, ikona `src/assets/icon.ico`, output `release/`). **Pułapka:** rozpakowanie `winCodeSign` tworzy symlinki macOS, które Windows blokuje bez Trybu dewelopera → build pada („Cannot create symbolic link"). Obejście (bez uprawnień admina): rozpakować `winCodeSign-2.6.0.7z` do `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0` **z pominięciem folderu `darwin`** (`7za x ... -xr!darwin`) — builder użyje gotowego cache. Po jednorazowym przygotowaniu cache kolejne buildy działają. Instalator jest **niepodpisany** → SmartScreen pokaże ostrzeżenie („Więcej informacji → Uruchom mimo to").
 - **Mobile — nowy store IndexedDB** = dopisz nazwę do `CACHE_STORES` w `idb.js` **oraz podnieś `DB_VERSION`**
   (inaczej `onupgradeneeded` nie utworzy magazynu i `getAll` rzuci). Nowa encja synchronizowana offline
   wymaga też: `repo.push*/create*/list*`, typu w `outbox.js`, gałęzi w `sync.js flushOutbox` (z remapem FK).
