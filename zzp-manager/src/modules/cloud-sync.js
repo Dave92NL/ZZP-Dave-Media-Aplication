@@ -151,6 +151,21 @@ function _recordHistory(db, direction, pushedCount, pulledCount, status, errorMe
   `).run(direction, pushedCount, pulledCount, status, errorMessage || '');
 }
 
+// Typ MIME pliku paragonu po rozszerzeniu — bez tego supabase-js wysyła Buffer jako
+// text/plain, a bucket „receipts" (dozwolone tylko obrazy/PDF) odrzuca upload.
+function _mimeForExt(ext) {
+  switch (String(ext || '').toLowerCase()) {
+    case '.pdf':  return 'application/pdf';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.png':  return 'image/png';
+    case '.webp': return 'image/webp';
+    case '.gif':  return 'image/gif';
+    case '.heic': return 'image/heic';
+    default:      return 'application/octet-stream';
+  }
+}
+
 // ── Push: local → cloud ────────────────────────────────────────────────────
 
 async function pushLocalChanges() {
@@ -309,7 +324,9 @@ async function pushLocalChanges() {
         const d = new Date(e.date);
         const objectPath = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/receipt_${e.id}_${Date.now()}${ext}`;
         const fileBuffer = fs.readFileSync(e.receipt_path);
-        const { error: upErr } = await client.storage.from('receipts').upload(objectPath, fileBuffer, { upsert: true });
+        const { error: upErr } = await client.storage.from('receipts').upload(objectPath, fileBuffer, {
+          upsert: true, contentType: _mimeForExt(ext)
+        });
         if (upErr) throw upErr;
         receiptStoragePath = objectPath;
       }
