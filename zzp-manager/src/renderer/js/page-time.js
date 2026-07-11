@@ -109,7 +109,10 @@ const PageTime = (() => {
       </div>
       <div class="form-group" style="margin-bottom:14px">
         <label>Opis</label>
-        <input type="text" id="timer-desc" placeholder="Nad czym pracujesz?">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="text" id="timer-desc" placeholder="Nad czym pracujesz?" style="flex:1">
+          ${window.Translator ? Translator.widgetHTML('timer-desc') : ''}
+        </div>
       </div>
 
       <div style="text-align:center;margin-bottom:12px">
@@ -179,7 +182,10 @@ const PageTime = (() => {
         </div>
         <div class="form-group full">
           <label>Opis</label>
-          <input type="text" id="m-desc" placeholder="Opis zadania…">
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="text" id="m-desc" placeholder="Opis zadania…" style="flex:1">
+            ${window.Translator ? Translator.widgetHTML('m-desc') : ''}
+          </div>
         </div>
         <div class="form-group" style="flex-direction:row;align-items:center;gap:8px">
           <label style="margin:0">Billable</label>
@@ -615,7 +621,7 @@ const PageTime = (() => {
         <div class="form-group"><label>Czas trwania (min)</label><input type="number" id="e-duration" value="${entry.duration_minutes}" min="1"></div>
         <div class="form-group"><label>Projekt</label><select id="e-project">${projOpts}</select></div>
         <div class="form-group"><label>Kategoria</label><select id="e-category">${catOpts}</select></div>
-        <div class="form-group full"><label>Opis</label><input type="text" id="e-desc" value="${UI.esc(entry.description || '')}"></div>
+        <div class="form-group full"><label>Opis</label><div style="display:flex;align-items:center;gap:6px"><input type="text" id="e-desc" value="${UI.esc(entry.description || '')}" style="flex:1">${window.Translator ? Translator.widgetHTML('e-desc') : ''}</div></div>
         <div class="form-group" style="flex-direction:row;align-items:center;gap:8px">
           <label>Billable</label>
           <input type="checkbox" id="e-billable" ${entry.is_billable ? 'checked' : ''} style="width:auto">

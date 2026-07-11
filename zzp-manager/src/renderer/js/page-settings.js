@@ -15,6 +15,7 @@ window.PageSettings = (() => {
     { id: 'security',  icon: '🔒', label: 'Bezpieczeństwo' },
     { id: 'data',      icon: '📦', label: 'Dane' },
     { id: 'youtube',   icon: '🎬', label: 'YouTube API' },
+    { id: 'translate', icon: '🌐', label: 'Tłumaczenia' },
     { id: 'sync',      icon: '📱', label: 'Synchronizacja / Telefon' }
   ];
 
@@ -66,6 +67,7 @@ window.PageSettings = (() => {
       case 'security':  el.innerHTML = _tplSecurity();  break;
       case 'data':      el.innerHTML = _tplData();      break;
       case 'youtube':   el.innerHTML = await _tplYouTube(); break;
+      case 'translate': el.innerHTML = _tplTranslate();  break;
       case 'sync':      el.innerHTML = await _tplSync();    break;
     }
     _bindTabEvents(tab);
@@ -566,7 +568,37 @@ window.PageSettings = (() => {
   }
 
   // ── Bind tab events ───────────────────────────────────────
+  // ── Tłumaczenia tab ──────────────────────────────────────
+  function _tplTranslate() {
+    const key = _settings.deepl_api_key || '';
+    return `
+<div class="card">
+  <h3 class="section-title">Tłumaczenie opisów na żywo</h3>
+  <div style="background:rgba(88,166,255,0.07);border:1px solid var(--accent-blue);border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--text-secondary);line-height:1.7">
+    <strong style="color:var(--accent-blue)">ℹ️ Jak to działa:</strong><br>
+    Obok pól opisu (pozycje faktury oraz godzinówka) jest ikonka <strong>🌐</strong>. Wpisujesz opis po polsku,
+    klikasz ikonkę i wybierasz język (🇳🇱 Niderlandzki / 🇬🇧 Angielski) — treść pola zostaje zastąpiona tłumaczeniem.<br><br>
+    Bez klucza działa darmowy silnik <strong>MyMemory</strong>. Aby uzyskać lepszą jakość (zwłaszcza niderlandzki),
+    wklej darmowy klucz <strong>DeepL API</strong> poniżej — wtedy tłumaczenia idą przez DeepL, a MyMemory zostaje jako zapas.
+  </div>
+  <div class="form-group">
+    <label>Klucz DeepL API (opcjonalny)</label>
+    <input type="password" id="tr-deepl-key" value="${UI.esc(key)}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx" autocomplete="off" style="max-width:520px">
+    <small style="display:block;margin-top:6px;color:var(--text-muted)">Darmowy plan DeepL: 500 000 znaków/mies. Klucz założysz na deepl.com/pro-api. Klucze „free" kończą się na „:fx".</small>
+  </div>
+  <button class="btn btn-primary" id="tr-save-btn">💾 Zapisz klucz</button>
+</div>`;
+  }
+
   function _bindTabEvents(tab) {
+    if (tab === 'translate') {
+      document.getElementById('tr-save-btn')?.addEventListener('click', async () => {
+        const key = document.getElementById('tr-deepl-key')?.value.trim() || '';
+        await window.api.settings.set('deepl_api_key', key);
+        _settings.deepl_api_key = key;
+        UI.toast(key ? 'Klucz DeepL zapisany — tłumaczenia będą szły przez DeepL.' : 'Klucz usunięty — tłumaczenia przez darmowe MyMemory.', 'success');
+      });
+    }
     if (tab === 'profile') {
       document.getElementById('sp-save-btn')?.addEventListener('click', _saveProfile);
       document.getElementById('sp-logo-btn')?.addEventListener('click', async () => {

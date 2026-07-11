@@ -23,7 +23,7 @@ let isQuitting = false;
 const FLOATING_WIDGET_SIZE = 64;
 
 // Import modules (loaded after app ready)
-let db, auth, invoices, timeTracking, expenses, taxCalc, reports, projects, contacts, tasks, notes, youtube, youtubeApi, notifications, backup, exportModule, settings, incomeImport, efakturaImport, googleCalendar, cloudSync, products, mileage, hoursImport;
+let db, auth, invoices, timeTracking, expenses, taxCalc, reports, projects, contacts, tasks, notes, youtube, youtubeApi, notifications, backup, exportModule, settings, incomeImport, efakturaImport, googleCalendar, cloudSync, products, mileage, hoursImport, translate;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -281,6 +281,7 @@ app.whenReady().then(() => {
   products = require('./src/modules/products');
   mileage = require('./src/modules/mileage');
   hoursImport = require('./src/modules/hours-import');
+  translate = require('./src/modules/translate');
 
   // Init database
   db.init();
@@ -367,6 +368,7 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:get', (_, key) => settings.get(key));
   ipcMain.handle('settings:set', (_, key, value) => settings.set(key, value));
   ipcMain.handle('settings:getAll', () => settings.getAll());
+  ipcMain.handle('translate:text', (_, text, target) => translate.translate(text, target));
 
   // ── Floating widget ───────────────────────
   ipcMain.handle('floating:getEnabled', () => settings.get('floating_widget_enabled') !== 'false');

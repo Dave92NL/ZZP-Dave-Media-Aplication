@@ -7,6 +7,7 @@ const VALID_CHANNELS = new Set([
   'auth:isSetup', 'auth:setup', 'auth:verify', 'auth:changePin', 'auth:resetPin',
   'profile:get', 'profile:save', 'profile:uploadLogo',
   'settings:get', 'settings:set', 'settings:getAll', 'settings:factoryReset',
+  'translate:text',
   'floating:getEnabled', 'floating:setEnabled',
   'invoices:getAll', 'invoices:getById', 'invoices:create', 'invoices:update',
   'invoices:delete', 'invoices:markPaid', 'invoices:duplicate', 'invoices:exportPDF',
@@ -94,6 +95,11 @@ contextBridge.exposeInMainWorld('api', {
     set: (key, value) => invoke('settings:set', key, value),
     getAll: () => invoke('settings:getAll'),
     factoryReset: () => invoke('settings:factoryReset')
+  },
+
+  // ── Tłumaczenie opisów (PL → NL/EN) ───────
+  translate: {
+    text: (text, target) => invoke('translate:text', text, target)
   },
 
   // ── Floating widget ────────────────────────

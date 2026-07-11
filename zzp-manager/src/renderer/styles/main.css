@@ -1632,3 +1632,45 @@ td {
   color: var(--accent-blue);
   border: 1px solid var(--accent-blue);
 }
+
+/* ── Widget tłumaczenia opisu (PL → NL/EN) ────────────────────────────────── */
+.tr-widget { position: relative; display: inline-flex; flex: 0 0 auto; }
+.tr-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 5px 7px;
+}
+.tr-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.tr-btn:disabled { opacity: .6; cursor: default; }
+.tr-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  padding: 4px;
+  min-width: 150px;
+}
+.tr-menu.hidden { display: none; }
+.tr-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.tr-menu button:hover { background: var(--bg-tertiary); }
