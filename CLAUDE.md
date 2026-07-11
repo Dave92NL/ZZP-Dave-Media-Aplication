@@ -143,6 +143,12 @@ Usunięcie faktury/kosztu na jednym urządzeniu znika też na drugim; zmiany syn
 - **Mobile:** `repo.deleteInvoice/deleteExpense` (online → kasuje w Supabase + Storage; offline → outbox `delete-invoice`/`delete-expense`; rekord jeszcze niewysłany → tylko usunięcie wpisu z outboxa). `sync.js flushOutbox` obsługuje delete-opy. Listy filtrują nakładkę „oczekujące" do `insert-*` (delete-opy nie renderują się jako wiersze). Przyciski „Usuń" w `invoiceDetail`/`expenseDetail`. Auto-odświeżanie: `sync.js` heartbeat `syncNow` co 15 s wykrywa zmianę stanu chmury lekką **sygnaturą** (`repo.remoteChangeSignature` = id+updated_at faktur, kosztów, godzinówki i kilometrówki) i dopiero wtedy emituje `zzp-synced`, a `main.js` re-renderuje bieżący widok. Kluczowe: **nie odświeżamy bezwarunkowo co cykl** (to powodowało „mruganie") — tylko gdy dane faktycznie się zmieniły. Odczyt mobilny i tak lustrzano odbija chmurę (`idb.replaceAll`), więc usunięcia z desktopu znikają przy odświeżeniu.
 - **Model „immediate":** push natychmiast (~1,5 s po zmianie), pull/propagacja na drugie urządzenie do ~15 s. (Realtime/websocket odrzucone jako cięższe.)
 
+### Poprawka wysyłki kosztów (paragony) do chmury (ZROBIONE)
+Push kosztów kończył się błędem `mime type text/plain;charset=UTF-8 is not supported` — koszty z paragonem nie trafiały na telefon (9 zaległych).
+- **Przyczyna 1 (kod):** `cloud-sync.js` upload paragonu do Storage bez `contentType` → supabase-js wysyłał Buffer jako `text/plain`, bucket odrzucał. Fix: `_mimeForExt(ext)` dobiera typ (image/jpeg, image/png, application/pdf…), przekazany w `upload(..., { contentType })`.
+- **Przyczyna 2 (chmura):** bucket `receipts` miał `allowed_mime_types` tylko obrazy. Dodano **`application/pdf`** (paragony PDF z importu efaktury). Zmiana przez Management API, zachowane typy obrazów.
+- Diagnoza: błąd czytany z tabeli `sync_history.error_message` (bo UI pokazuje tylko „Wysłano: 0 rekordów"). Po restarcie desktopu + „Wyślij zmiany" koszty się wysyłają.
+
 ### Wybór roku na listach mobilnych (ZROBIONE)
 Listy faktur i kosztów na telefonie dostały **filtr roku** (jak na desktopie): `expenseList.js`/`invoiceList.js` budują listę lat z danych (`date` / `issue_date`), select „Rok" + opcja „Wszystkie lata", domyślnie bieżący rok (albo najnowszy z danymi), podsumowanie (liczba + suma, faktury też „opłacone"). Wybór roku trzymany w zmiennej modułu — przeżywa auto-odświeżanie. Styl `.list-filter-bar` w `main.css`.
 
