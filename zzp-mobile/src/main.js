@@ -46,6 +46,9 @@ initSync();
 
 // Po udanej synchronizacji odśwież bieżący widok, by pokazać zaktualizowane dane.
 // Nie przeładowujemy ekranów-formularzy, żeby nie skasować wpisywanych danych.
+// Odśwież bieżący widok po synchronizacji — ale tylko gdy silnik sync zgłosił
+// realną zmianę (wysłano z kolejki albo zmienił się stan chmury). Dzięki temu
+// widok nie „mruga" co cykl, tylko faktycznie się aktualizuje po zmianie danych.
 const FORM_PAGES = new Set(['login', 'add-expense', 'new-invoice']);
 window.addEventListener('zzp-synced', () => {
   const page = currentPage();
@@ -53,16 +56,6 @@ window.addEventListener('zzp-synced', () => {
   const param = currentParam();
   navigate(param ? `${page}/${param}` : page);
 });
-
-// Auto-odświeżanie widoków list co 15 s — pokazuje zmiany z drugiego urządzenia
-// (np. fakturę/koszt usunięty na desktopie). Strony szczegółów i formularze pomijamy,
-// żeby nie przerywać czytania/edycji.
-const AUTO_REFRESH_PAGES = new Set(['dashboard', 'invoices', 'expenses', 'projects', 'clients', 'time', 'mileage']);
-setInterval(() => {
-  if (document.hidden || navigator.onLine === false) return;
-  const page = currentPage();
-  if (AUTO_REFRESH_PAGES.has(page)) navigate(page);
-}, 15000);
 
 const initialHash = location.hash.replace('#', '');
 navigate(initialHash || 'dashboard');

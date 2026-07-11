@@ -430,6 +430,24 @@ export async function markInvoicePaid(id, paidDate) {
   return data;
 }
 
+// Lekka sygnatura stanu chmury (faktury + koszty) do wykrywania zmian z drugiego
+// urządzenia bez pobierania całych rekordów. Zmienia się przy dodaniu (nowe id),
+// usunięciu (brak id) i edycji (nowy updated_at). Zwraca null przy błędzie/offline.
+export async function remoteChangeSignature() {
+  if (!isOnline()) return null;
+  try {
+    const [inv, exp] = await Promise.all([
+      supabase.from('invoices').select('id, updated_at'),
+      supabase.from('expenses').select('id, updated_at')
+    ]);
+    if (inv.error || exp.error) return null;
+    const sig = (rows) => (rows || []).map(r => `${r.id}:${r.updated_at || ''}`).sort().join('|');
+    return 'I' + sig(inv.data) + '#E' + sig(exp.data);
+  } catch {
+    return null;
+  }
+}
+
 export async function getReceiptUrl(storagePath) {
   if (!storagePath) return null;
   try {

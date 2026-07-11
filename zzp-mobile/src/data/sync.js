@@ -7,6 +7,7 @@ import * as outbox from './outbox.js';
 import { updateStatusBar, initStatusBar } from './status.js';
 
 let _syncing = false;
+let _lastRemoteSig = null;
 
 // Mapa lokalny_localId → serwerowe UUID dla encji utworzonych offline w tej sesji
 // flush. Pozwala powiązać np. fakturę (klient utworzony offline) po wysłaniu klienta.
@@ -78,8 +79,16 @@ export async function syncNow() {
     await repo.refreshCoreCaches();
     const res = await flushOutbox();
     await updateStatusBar();
-    if (res.flushed > 0) {
-      window.dispatchEvent(new CustomEvent('zzp-synced', { detail: res }));
+
+    // Odśwież widok tylko gdy coś realnie się zmieniło: po wysłaniu z kolejki
+    // albo gdy zmienił się stan chmury (zmiana z drugiego urządzenia, np. usunięcie
+    // na desktopie). Bez tego okresowe odświeżanie mrugałoby przy każdym cyklu.
+    const sig = await repo.remoteChangeSignature();
+    const remoteChanged = sig !== null && _lastRemoteSig !== null && sig !== _lastRemoteSig;
+    if (sig !== null) _lastRemoteSig = sig;
+
+    if (res.flushed > 0 || remoteChanged) {
+      window.dispatchEvent(new CustomEvent('zzp-synced', { detail: { ...res, remoteChanged } }));
     }
   } catch {
     // brak sieci / przejściowy błąd — spróbujemy przy kolejnym wyzwalaczu
