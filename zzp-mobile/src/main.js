@@ -3,6 +3,7 @@ import { registerRoutes, navigate, initRouter, currentPage, currentParam } from 
 import { onAuthStateChange } from './auth.js';
 import { initSync } from './data/sync.js';
 import { ensurePushSubscription } from './push.js';
+import { initTranslateWidget } from './lib/translateWidget.js';
 
 import * as loginPage from './pages/login.js';
 import * as dashboardPage from './pages/dashboard.js';
@@ -43,6 +44,9 @@ onAuthStateChange((session) => {
 
 // Synchronizacja offline↔chmura: opróżnianie kolejki, odświeżanie cache.
 initSync();
+
+// Tłumaczenie opisów (ikonka 🌐 przy polach opisu) — jeden delegowany listener.
+initTranslateWidget();
 
 // Po udanej synchronizacji odśwież bieżący widok, by pokazać zaktualizowane dane.
 // Nie przeładowujemy ekranów-formularzy, żeby nie skasować wpisywanych danych.

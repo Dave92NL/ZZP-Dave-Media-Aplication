@@ -1,6 +1,7 @@
 import { todayStr, fmtDateNL, escHtml } from '../lib/format.js';
 import { navigate } from '../router.js';
 import * as repo from '../data/repo.js';
+import { translateWidgetHTML } from '../lib/translateWidget.js';
 
 const CATEGORIES = [
   'YouTube/Archiwum Zła', 'Edycja wideo', 'Research/Scenariusz',
@@ -45,7 +46,7 @@ export async function load() {
             <div class="form-group"><label>Data</label><input type="date" id="tm-date" value="${todayStr()}"></div>
             <div class="form-group"><label>Godziny</label><input type="number" id="tm-hours" step="0.25" min="0" placeholder="np. 2.5" inputmode="decimal"></div>
           </div>
-          <div class="form-group"><label>Opis</label><input type="text" id="tm-desc" placeholder="Co robiłeś?"></div>
+          <div class="form-group"><label>Opis</label><div class="tr-field" style="display:flex;align-items:center;gap:6px"><input type="text" id="tm-desc" placeholder="Co robiłeś?" style="flex:1">${translateWidgetHTML('tm-desc')}</div></div>
           <label class="check-row"><input type="checkbox" id="tm-billable" checked> Rozliczalne (do faktury)</label>
           <div id="tm-error" class="error-msg hidden"></div>
           <button class="btn btn-secondary btn-block" id="tm-save-btn">💾 Zapisz wpis</button>
@@ -100,7 +101,7 @@ async function _renderTimer() {
       <div class="timer-idle card-form">
         <div class="form-group"><label>Kategoria</label><select id="tk-category">${catOptions('Edycja wideo')}</select></div>
         <div class="form-group"><label>Projekt</label><select id="tk-project"><option value="">— brak —</option></select></div>
-        <div class="form-group"><label>Opis</label><input type="text" id="tk-desc" placeholder="Nad czym pracujesz?"></div>
+        <div class="form-group"><label>Opis</label><div class="tr-field" style="display:flex;align-items:center;gap:6px"><input type="text" id="tk-desc" placeholder="Nad czym pracujesz?" style="flex:1">${translateWidgetHTML('tk-desc')}</div></div>
         <label class="check-row"><input type="checkbox" id="tk-billable" checked> Rozliczalne (do faktury)</label>
         <button class="btn btn-primary btn-block" id="timer-start-btn">▶ Start licznika</button>
       </div>

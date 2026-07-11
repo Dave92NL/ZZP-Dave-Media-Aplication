@@ -2,6 +2,7 @@ import { calculateTotals } from '../lib/invoiceMath.js';
 import { todayStr, addDays, fmtEur, escHtml } from '../lib/format.js';
 import { navigate } from '../router.js';
 import * as repo from '../data/repo.js';
+import { translateWidgetHTML } from '../lib/translateWidget.js';
 
 let _clientsMap = {};
 let _itemRowCount = 0;
@@ -124,7 +125,10 @@ function _addItemRow() {
   row.className = 'item-row';
   row.dataset.idx = idx;
   row.innerHTML = `
-    <input type="text" class="item-desc" placeholder="Opis pozycji" style="flex:2">
+    <span class="tr-field" style="flex:2;display:flex;align-items:center;gap:4px">
+      <input type="text" class="item-desc" placeholder="Opis pozycji" style="flex:1;min-width:0">
+      ${translateWidgetHTML()}
+    </span>
     <input type="number" class="item-qty" value="1" min="0" step="0.01" style="width:60px" placeholder="Ilość">
     <input type="text" class="item-unit" value="szt" style="width:50px">
     <input type="number" class="item-price" value="0" min="0" step="0.01" style="width:80px" placeholder="Cena">

@@ -580,3 +580,45 @@ input:focus, select:focus, textarea:focus {
   border-radius: 8px;
   font-size: 14px;
 }
+
+/* ── Widget tłumaczenia opisu (PL → NL/EN) ────────────────────────────────── */
+.tr-widget { position: relative; display: inline-flex; flex: 0 0 auto; }
+.tr-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 8px 10px;
+}
+.tr-btn:active { background: var(--bg-secondary); }
+.tr-btn:disabled { opacity: .6; }
+.tr-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 60;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+  padding: 4px;
+  min-width: 170px;
+}
+.tr-menu.hidden { display: none; }
+.tr-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.tr-menu button:active { background: var(--bg-tertiary); }

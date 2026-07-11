@@ -148,6 +148,7 @@ Obok pól opisu (pozycje faktury + godzinówka: `timer-desc`/`m-desc`/`e-desc`) 
 - **Backend:** `src/modules/translate.js` — `translate(text, 'nl'|'en')` w procesie głównym (omija CSP). Silnik: **DeepL** jeśli w Ustawieniach jest `deepl_api_key` (host `api-free`/`api` po sufiksie `:fx`), inaczej/przy błędzie **fallback na MyMemory** (darmowe, bez klucza). IPC `translate:text` + whitelist w `preload.js` + `window.api.translate.text`.
 - **UI:** globalny widget `src/renderer/js/translator.js` (`window.Translator.widgetHTML(id?)`, delegowany click, resolver pola po id lub sąsiedztwie), wpięty w `index.html` przed `page-*`. Style `.tr-widget/.tr-btn/.tr-menu` w `main.css`. Klucz DeepL w Ustawieniach → zakładka „🌐 Tłumaczenia" (`page-settings.js`, `deepl_api_key` przez generyczne settings).
 - Weryfikacja: MyMemory realnie tłumaczy PL→NL/EN. Zmiana wymaga restartu desktopu (nowy skrypt w index.html).
+- **Mobile (to samo):** `zzp-mobile/src/lib/translate.js` (MyMemory wprost z przeglądarki — CORS `*`, bez klucza; DeepL blokuje CORS, więc na mobile pominięty — ewentualnie proxy przez Edge Function w przyszłości) + `translateWidget.js` (`translateWidgetHTML(id?)` + `initTranslateWidget()` wołane raz w `main.js`). Ikonki w `newInvoice.js` (pozycje) i `timeTracking.js` (`tm-desc`/`tk-desc`). Style `.tr-*` w mobilnym `main.css`.
 
 ### Poprawka wysyłki kosztów (paragony) do chmury (ZROBIONE)
 Push kosztów kończył się błędem `mime type text/plain;charset=UTF-8 is not supported` — koszty z paragonem nie trafiały na telefon (9 zaległych).
