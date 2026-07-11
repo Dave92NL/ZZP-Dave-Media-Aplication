@@ -1,5 +1,15 @@
 'use strict';
 
+// Wycisz kosmetyczne ostrzeżenie @supabase/supabase-js o „Node.js 20 and below".
+// Electron 29 ma wbudowany Node 20 — aplikacja działa poprawnie; ostrzeżenie dotyczy
+// przyszłych wersji biblioteki. Musi być PRZED pierwszym require supabase. Pozostałe
+// ostrzeżenia przechodzą bez zmian.
+const _origConsoleWarn = console.warn.bind(console);
+console.warn = (...args) => {
+  if (typeof args[0] === 'string' && args[0].includes('Node.js 20 and below are deprecated')) return;
+  _origConsoleWarn(...args);
+};
+
 const { app, BrowserWindow, ipcMain, session, Tray, Menu, Notification, dialog, shell, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
