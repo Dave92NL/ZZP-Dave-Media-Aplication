@@ -54,6 +54,10 @@ export async function flushOutbox() {
           client_id: _remap(e.payload.client_id, idMap)
         };
         await repo.pushMileage(payload);
+      } else if (e.type === 'delete-expense') {
+        await repo.pushDeleteExpense(_remap(e.payload.id, idMap));
+      } else if (e.type === 'delete-invoice') {
+        await repo.pushDeleteInvoice(_remap(e.payload.id, idMap));
       } else {
         throw new Error('Nieznany typ operacji: ' + e.type);
       }
@@ -88,5 +92,7 @@ export function initSync() {
   initStatusBar();
   window.addEventListener('online', syncNow);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+  // Heartbeat co 15 s: opróżnia outbox i (pośrednio) utrzymuje świeży cache.
+  setInterval(() => { if (!document.hidden) syncNow(); }, 15000);
   syncNow();
 }

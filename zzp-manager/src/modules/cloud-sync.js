@@ -127,13 +127,15 @@ function getStatus() {
   const pendingMileage = db.prepare(
     `SELECT COUNT(*) c FROM mileage_entries WHERE cloud_id IS NULL OR (updated_at IS NOT NULL AND updated_at > synced_at)`
   ).get().c;
+  let pendingDeletions = 0;
+  try { pendingDeletions = db.prepare('SELECT COUNT(*) c FROM sync_deletions').get().c; } catch { pendingDeletions = 0; }
 
   return {
     configured,
     email: settings.get('supabase_email') || '',
     lastPush: settings.get('sync_last_push') || null,
     lastPull: settings.get('sync_last_pull') || null,
-    pendingLocalCount: pendingClients + pendingProjects + pendingInvoices + pendingExpenses + pendingTimeEntries + pendingMileage
+    pendingLocalCount: pendingClients + pendingProjects + pendingInvoices + pendingExpenses + pendingTimeEntries + pendingMileage + pendingDeletions
   };
 }
 
@@ -156,8 +158,34 @@ async function pushLocalChanges() {
   const client = _getClient();
   await _ensureSession(client);
 
-  let pushedClients = 0, pushedProjects = 0, pushedInvoices = 0, pushedExpenses = 0, pushedTimeEntries = 0, pushedMileage = 0;
+  let pushedClients = 0, pushedProjects = 0, pushedInvoices = 0, pushedExpenses = 0, pushedTimeEntries = 0, pushedMileage = 0, pushedDeletions = 0;
   const errors = [];
+
+  // 0. Nagrobki usunięć — najpierw kasujemy w chmurze rekordy usunięte lokalnie,
+  //    żeby drugie urządzenie je zdjęło (a nasz pull ich nie odtworzył).
+  let pendingDeletions = [];
+  try { pendingDeletions = db.prepare('SELECT * FROM sync_deletions').all(); } catch { pendingDeletions = []; }
+  for (const d of pendingDeletions) {
+    try {
+      if (d.table_name === 'expenses') {
+        // Najpierw sprzątnij plik paragonu w Storage, potem skasuj wiersz.
+        const { data: row } = await client.from('expenses').select('receipt_storage_path').eq('id', d.cloud_id).maybeSingle();
+        if (row && row.receipt_storage_path) {
+          try { await client.storage.from('receipts').remove([row.receipt_storage_path]); } catch { /* brak pliku — pomiń */ }
+        }
+        const { error } = await client.from('expenses').delete().eq('id', d.cloud_id);
+        if (error) throw error;
+      } else if (d.table_name === 'invoices') {
+        // invoice_items w chmurze mają ON DELETE CASCADE.
+        const { error } = await client.from('invoices').delete().eq('id', d.cloud_id);
+        if (error) throw error;
+      }
+      db.prepare('DELETE FROM sync_deletions WHERE id = ?').run(d.id);
+      pushedDeletions++;
+    } catch (err) {
+      errors.push(`Usunięcie ${d.table_name} #${d.cloud_id}: ${err.message}`);
+    }
+  }
 
   // Helpers for mapping local FK → cloud UUID
   const _clientCloud = (localId) =>
@@ -365,11 +393,11 @@ async function pushLocalChanges() {
     }
   }
 
-  const totalPushed = pushedClients + pushedProjects + pushedInvoices + pushedExpenses + pushedTimeEntries + pushedMileage;
+  const totalPushed = pushedClients + pushedProjects + pushedInvoices + pushedExpenses + pushedTimeEntries + pushedMileage + pushedDeletions;
   _recordHistory(db, 'push', totalPushed, 0, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_push', String(Date.now()));
 
-  return { pushedClients, pushedProjects, pushedInvoices, pushedExpenses, pushedTimeEntries, pushedMileage, errors };
+  return { pushedClients, pushedProjects, pushedInvoices, pushedExpenses, pushedTimeEntries, pushedMileage, pushedDeletions, errors };
 }
 
 // ── Pull: cloud → local ─────────────────────────────────────────────────────
@@ -387,6 +415,7 @@ async function pullCloudChanges() {
   const mileageModule = require('./mileage');
 
   let pulledClients = 0, pulledProjects = 0, pulledInvoices = 0, pulledExpenses = 0, pulledTimeEntries = 0, pulledMileage = 0;
+  let deletedInvoices = 0, deletedExpenses = 0;
   const errors = [];
 
   // Map a cloud UUID FK back to the local integer id
@@ -473,6 +502,20 @@ async function pullCloudChanges() {
     }
   }
 
+  // Rekoncyliacja usunięć: lokalne faktury z cloud_id, których już nie ma w chmurze
+  // (skasowane na drugim urządzeniu) → usuń lokalnie. Bezpieczne: fetch się powiódł
+  // (inaczej byłby throw wyżej), kasujemy tylko rekordy wcześniej zsynchronizowane.
+  {
+    const cloudIdSet = new Set((cloudInvoices || []).map(r => r.id));
+    const localSynced = db.prepare('SELECT id, cloud_id FROM invoices WHERE cloud_id IS NOT NULL').all();
+    for (const row of localSynced) {
+      if (!cloudIdSet.has(row.cloud_id)) {
+        try { invoicesModule.delete(row.id, { fromCloudSync: true }); deletedInvoices++; }
+        catch (err) { errors.push(`Lokalne usunięcie faktury #${row.id}: ${err.message}`); }
+      }
+    }
+  }
+
   // 4. Expenses (+ receipt photo download from Storage)
   const localExpenseCloudIds = new Set(
     db.prepare(`SELECT cloud_id FROM expenses WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
@@ -510,6 +553,18 @@ async function pullCloudChanges() {
       pulledExpenses++;
     } catch (err) {
       errors.push(`Koszt z chmury "${ce.description}": ${err.message}`);
+    }
+  }
+
+  // Rekoncyliacja usunięć kosztów (analogicznie do faktur).
+  {
+    const cloudIdSet = new Set((cloudExpenses || []).map(r => r.id));
+    const localSynced = db.prepare('SELECT id, cloud_id FROM expenses WHERE cloud_id IS NOT NULL').all();
+    for (const row of localSynced) {
+      if (!cloudIdSet.has(row.cloud_id)) {
+        try { expensesModule.delete(row.id, { fromCloudSync: true }); deletedExpenses++; }
+        catch (err) { errors.push(`Lokalne usunięcie kosztu #${row.id}: ${err.message}`); }
+      }
     }
   }
 
@@ -559,11 +614,11 @@ async function pullCloudChanges() {
     }
   }
 
-  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage;
+  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage + deletedInvoices + deletedExpenses;
   _recordHistory(db, 'pull', 0, totalPulled, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_pull', String(Date.now()));
 
-  return { pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, pulledMileage, errors };
+  return { pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, pulledMileage, deletedInvoices, deletedExpenses, errors };
 }
 
 module.exports = {

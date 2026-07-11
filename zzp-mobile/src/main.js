@@ -54,5 +54,15 @@ window.addEventListener('zzp-synced', () => {
   navigate(param ? `${page}/${param}` : page);
 });
 
+// Auto-odświeżanie widoków list co 15 s — pokazuje zmiany z drugiego urządzenia
+// (np. fakturę/koszt usunięty na desktopie). Strony szczegółów i formularze pomijamy,
+// żeby nie przerywać czytania/edycji.
+const AUTO_REFRESH_PAGES = new Set(['dashboard', 'invoices', 'expenses', 'projects', 'clients', 'time', 'mileage']);
+setInterval(() => {
+  if (document.hidden || navigator.onLine === false) return;
+  const page = currentPage();
+  if (AUTO_REFRESH_PAGES.has(page)) navigate(page);
+}, 15000);
+
 const initialHash = location.hash.replace('#', '');
 navigate(initialHash || 'dashboard');

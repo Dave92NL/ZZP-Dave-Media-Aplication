@@ -125,7 +125,7 @@ function update(id, data) {
   return { success: true };
 }
 
-function delete_(id) {
+function delete_(id, opts = {}) {
   const db = getDb();
   // Zbierz pliki (załączniki + paragon) przed usunięciem — cascade zabierze
   // wiersze z expense_attachments, ale nie pliki z dysku.
@@ -135,8 +135,14 @@ function delete_(id) {
       if (a.file_path) files.add(a.file_path);
     }
   } catch { /* tabela mogła nie istnieć przed migracją v6 */ }
-  const exp = db.prepare('SELECT receipt_path FROM expenses WHERE id = ?').get(id);
+  const exp = db.prepare('SELECT receipt_path, cloud_id FROM expenses WHERE id = ?').get(id);
   if (exp?.receipt_path) files.add(exp.receipt_path);
+
+  // Nagrobek do propagacji usunięcia w chmurze (chyba że usunięcie pochodzi z sync).
+  if (!opts.fromCloudSync && exp?.cloud_id) {
+    try { db.prepare('INSERT INTO sync_deletions (table_name, cloud_id) VALUES (?, ?)').run('expenses', exp.cloud_id); }
+    catch { /* tabela nagrobków mogła nie istnieć przed migracją v8 */ }
+  }
 
   db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
 

@@ -258,9 +258,16 @@ function update(id, data) {
   return { success: true };
 }
 
-function delete_(id) {
+function delete_(id, opts = {}) {
   const db = getDb();
   db.transaction(() => {
+    // Nagrobek do propagacji usunięcia w chmurze (chyba że usunięcie pochodzi z sync).
+    if (!opts.fromCloudSync) {
+      const row = db.prepare('SELECT cloud_id FROM invoices WHERE id = ?').get(id);
+      if (row && row.cloud_id) {
+        db.prepare('INSERT INTO sync_deletions (table_name, cloud_id) VALUES (?, ?)').run('invoices', row.cloud_id);
+      }
+    }
     // Remove linked income entries (FK constraint, no CASCADE)
     db.prepare('DELETE FROM income_entries WHERE invoice_id = ?').run(id);
     // Unlink time entries (don't delete — just detach)

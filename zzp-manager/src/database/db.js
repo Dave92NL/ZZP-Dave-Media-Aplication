@@ -406,6 +406,16 @@ function getMigrations() {
       `ALTER TABLE mileage_entries ADD COLUMN cloud_id TEXT`,
       `ALTER TABLE mileage_entries ADD COLUMN synced_at DATETIME`,
       `ALTER TABLE mileage_entries ADD COLUMN updated_at DATETIME`
+    ]],
+
+    // Migration 8 — nagrobki usunięć (propagacja delete do chmury i drugiego urządzenia)
+    [8, [
+      `CREATE TABLE IF NOT EXISTS sync_deletions (
+        id INTEGER PRIMARY KEY,
+        table_name TEXT NOT NULL,
+        cloud_id TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`
     ]]
   ];
 }

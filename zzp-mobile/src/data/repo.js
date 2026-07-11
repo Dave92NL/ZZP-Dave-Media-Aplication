@@ -170,6 +170,47 @@ export async function createMileage(payload) {
   return { synced: false, row: outbox.toDisplayRow(entry) };
 }
 
+// ── Usuwanie (propagowane do chmury lub kolejkowane offline) ──────────────────
+
+export async function pushDeleteExpense(cloudId) {
+  // Sprzątnij plik paragonu w Storage, potem skasuj wiersz.
+  try {
+    const { data } = await supabase.from('expenses').select('receipt_storage_path').eq('id', cloudId).maybeSingle();
+    if (data && data.receipt_storage_path) {
+      try { await supabase.storage.from('receipts').remove([data.receipt_storage_path]); } catch { /* brak pliku */ }
+    }
+  } catch { /* brak dostępu do rekordu — i tak próbujemy skasować */ }
+  const { error } = await supabase.from('expenses').delete().eq('id', cloudId);
+  if (error) throw new Error(error.message);
+  await idb.del('expenses', cloudId);
+}
+
+export async function pushDeleteInvoice(cloudId) {
+  // invoice_items w chmurze mają ON DELETE CASCADE.
+  const { error } = await supabase.from('invoices').delete().eq('id', cloudId);
+  if (error) throw new Error(error.message);
+  await idb.del('invoices', cloudId);
+}
+
+export async function deleteExpense(id) {
+  // Rekord utworzony offline i jeszcze niewysłany → usuń tylko wpis z outboxa.
+  const pending = await idb.get('outbox', id);
+  if (pending) { await outbox.remove(id); await idb.del('expenses', id); return { synced: false, removedPending: true }; }
+  if (isOnline()) { await pushDeleteExpense(id); return { synced: true }; }
+  await outbox.enqueue({ table: 'expenses', type: 'delete-expense', payload: { id } });
+  await idb.del('expenses', id); // optymistycznie znika z widoku
+  return { synced: false };
+}
+
+export async function deleteInvoice(id) {
+  const pending = await idb.get('outbox', id);
+  if (pending) { await outbox.remove(id); await idb.del('invoices', id); return { synced: false, removedPending: true }; }
+  if (isOnline()) { await pushDeleteInvoice(id); return { synced: true }; }
+  await outbox.enqueue({ table: 'invoices', type: 'delete-invoice', payload: { id } });
+  await idb.del('invoices', id);
+  return { synced: false };
+}
+
 // ── Odczyt (write-through cache + nakładka oczekujących) ───────────────────────
 
 export async function refreshCoreCaches() {
@@ -196,7 +237,7 @@ export async function listExpenses() {
   } catch {
     server = (await idb.getAll('expenses')).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   }
-  const pending = (await outbox.forTable('expenses')).map(outbox.toDisplayRow);
+  const pending = (await outbox.forTable('expenses')).filter(e => e.type === 'insert-expense').map(outbox.toDisplayRow);
   return [...pending, ...server];
 }
 
@@ -230,7 +271,7 @@ export async function listInvoices() {
     server = (await idb.getAll('invoices')).sort((a, b) => String(b.issue_date || '').localeCompare(String(a.issue_date || '')));
   }
   const clientsById = await _clientsById();
-  const pending = (await outbox.forTable('invoices')).map(e => {
+  const pending = (await outbox.forTable('invoices')).filter(e => e.type === 'insert-invoice').map(e => {
     const row = outbox.toDisplayRow(e);
     row.clients = clientsById[row.client_id] || null;
     return row;

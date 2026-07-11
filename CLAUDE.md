@@ -135,6 +135,14 @@ Wyrównanie telefonu do desktopu: kilometrówka, data sprzedaży/zapłaty na fak
   - Faktura: **stylizowany podgląd dokumentu HTML** (wygląd papierowej faktury na białym tle) w `invoiceDetail.js` z danych zsynchronizowanych. Dane sprzedawcy w `src/lib/companyProfile.js` (`COMPANY`) — **do uzupełnienia przez użytkownika** (KvK/IBAN/BTW/adres nie są synchronizowane z desktopu; puste pola są pomijane, nic nie jest zmyślane).
 - **Build:** `npm run build` w `zzp-mobile` przechodzi; ostrzeżenie `eval` z pdf.js to fallback fake-workera — nieistotne, bo realny worker jest emitowany jako osobny asset.
 
+### Synchronizacja usunięć + auto-sync w obie strony (ZROBIONE)
+Usunięcie faktury/kosztu na jednym urządzeniu znika też na drugim; zmiany synchronizują się automatycznie.
+- **Desktop — nagrobki usunięć:** migracja SQLite **v8** tabela `sync_deletions (table_name, cloud_id)`. `invoices.delete`/`expenses.delete` przy usuwaniu zsynchronizowanego rekordu (ma `cloud_id`) zapisują nagrobek; przyjmują `opts.fromCloudSync` by pominąć nagrobek przy usunięciu pochodzącym z sync (uniknięcie pętli).
+- **Desktop — cloud-sync:** push najpierw przetwarza nagrobki (kasuje w Supabase: faktury z kaskadą `invoice_items`, koszty + plik paragonu ze Storage), potem inserty. Pull po pobraniu faktur/kosztów **rekoncyliuje usunięcia**: lokalny rekord z `cloud_id` nieobecny w chmurze → usuń lokalnie (`fromCloudSync:true`). Bezpieczne: tylko po udanym fetchu, tylko rekordy wcześniej zsynchronizowane. `getStatus` liczy nagrobki jako oczekujące.
+- **Desktop — auto-sync (main.js):** wrapper `mut()` na kanałach mutujących (invoices/expenses/projects/contacts/time/mileage create/update/delete) planuje push+pull ~1,5 s po zmianie; heartbeat `setInterval` co 15 s robi pull (zmiany z telefonu). Po auto-syncu `mainWindow.webContents.send('sync:autoSynced', {changed})`; renderer (`app.js`) odświeża bieżącą listę tylko gdy `changed` i nie ma otwartego modala (`#modal-overlay`). Kanał w `preload.js` `VALID_PUSH_CHANNELS`.
+- **Mobile:** `repo.deleteInvoice/deleteExpense` (online → kasuje w Supabase + Storage; offline → outbox `delete-invoice`/`delete-expense`; rekord jeszcze niewysłany → tylko usunięcie wpisu z outboxa). `sync.js flushOutbox` obsługuje delete-opy. Listy filtrują nakładkę „oczekujące" do `insert-*` (delete-opy nie renderują się jako wiersze). Przyciski „Usuń" w `invoiceDetail`/`expenseDetail`. Auto-odświeżanie: `sync.js` heartbeat `syncNow` co 15 s + `main.js` re-render bieżącej **listy** co 15 s (strony szczegółów/formularze pomijane). Odczyt mobilny i tak lustrzano odbija chmurę (`idb.replaceAll`), więc usunięcia z desktopu znikają przy odświeżeniu.
+- **Model „immediate":** push natychmiast (~1,5 s po zmianie), pull/propagacja na drugie urządzenie do ~15 s. (Realtime/websocket odrzucone jako cięższe.)
+
 ---
 
 ## 6. Kolejne kroki (backlog)

@@ -60,7 +60,8 @@ function invoke(channel, ...args) {
 const VALID_PUSH_CHANNELS = new Set([
   'tray:toggle-timer', 'tray:quick-expense', 'tray:quick-task',
   'notification:reminder',
-  'youtube:autoSynced'
+  'youtube:autoSynced',
+  'sync:autoSynced'
 ]);
 
 function on(channel, callback) {

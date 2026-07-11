@@ -159,8 +159,26 @@ export async function load() {
         <button class="btn btn-primary btn-block" id="inv-mark-paid-btn" style="margin-top:16px">✅ Oznacz jako zapłaconą</button>
         <div id="inv-paid-msg" class="error-msg hidden" style="margin-top:8px"></div>` : ''}
 
+      <button class="btn btn-danger btn-block" id="inv-delete-btn" style="margin-top:16px">🗑 Usuń fakturę</button>
+      <div id="inv-delete-msg" class="error-msg hidden" style="margin-top:8px"></div>
+
       <div class="detail-origin text-muted">Źródło: ${inv.origin === 'phone' ? '📱 Telefon' : '💻 Desktop'}</div>
     `;
+
+    document.getElementById('inv-delete-btn').addEventListener('click', async () => {
+      if (!confirm('Usunąć tę fakturę? Zniknie też na komputerze po synchronizacji.')) return;
+      const msg = document.getElementById('inv-delete-msg');
+      const btn = document.getElementById('inv-delete-btn');
+      msg.classList.add('hidden');
+      btn.disabled = true; btn.textContent = '⏳ Usuwanie…';
+      try {
+        await repo.deleteInvoice(id);
+        navigate('invoices');
+      } catch (err) {
+        msg.textContent = err.message; msg.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = '🗑 Usuń fakturę';
+      }
+    });
 
     const paidBtn = document.getElementById('inv-mark-paid-btn');
     if (paidBtn) {

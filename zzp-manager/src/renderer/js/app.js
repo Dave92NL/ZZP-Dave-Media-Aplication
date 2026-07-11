@@ -49,6 +49,17 @@ const App = (() => {
     window.api.on('tray:quick-expense', () => { navigate('expenses'); UI.openModal('Szybki koszt', quickExpenseHTML()); });
     window.api.on('tray:quick-task', () => { navigate('tasks'); UI.openModal('Szybkie zadanie', quickTaskHTML()); });
 
+    // Auto-synchronizacja: gdy pull przyniósł zmiany z drugiego urządzenia
+    // (np. usunięcie faktury/kosztu na telefonie), odśwież bieżący widok listy.
+    // Nie odświeżamy, gdy otwarty jest modal (nie przerywamy edycji).
+    const AUTO_REFRESH_PAGES = new Set(['dashboard', 'invoices', 'expenses', 'projects', 'contacts', 'time', 'mileage', 'reports']);
+    window.api.on('sync:autoSynced', (info) => {
+      if (!info || !info.changed) return;
+      const overlay = document.getElementById('modal-overlay');
+      if (overlay && !overlay.classList.contains('hidden')) return;
+      if (AUTO_REFRESH_PAGES.has(currentPage)) navigate(currentPage);
+    });
+
     // Keyboard shortcuts
     document.addEventListener('keydown', handleGlobalKeydown);
 

@@ -403,13 +403,51 @@ function registerIpcHandlers() {
     }
   });
 
+  // ── Auto-synchronizacja (push od razu po zmianie + pull co ~15 s) ──────────
+  // Każda mutacja danych planuje szybki push+pull; dodatkowy „heartbeat" co 15 s
+  // pobiera zmiany z drugiego urządzenia (w tym usunięcia).
+  let _autoSyncTimer = null;
+  let _autoSyncBusy = false;
+  function scheduleAutoSync(delay = 1500) {
+    if (_autoSyncTimer) clearTimeout(_autoSyncTimer);
+    _autoSyncTimer = setTimeout(() => runAutoSync('change'), delay);
+  }
+  async function runAutoSync(reason) {
+    if (_autoSyncBusy) return;
+    let status;
+    try { status = cloudSync.getStatus(); } catch { return; }
+    if (!status.configured) return;
+    _autoSyncBusy = true;
+    try {
+      const pushResult = await cloudSync.pushLocalChanges();
+      const pullResult = await cloudSync.pullCloudChanges();
+      const pulledSomething = pullResult && (
+        pullResult.pulledClients || pullResult.pulledProjects || pullResult.pulledInvoices ||
+        pullResult.pulledExpenses || pullResult.pulledTimeEntries || pullResult.pulledMileage ||
+        pullResult.deletedInvoices || pullResult.deletedExpenses
+      );
+      mainWindow?.webContents.send('sync:autoSynced', { reason, changed: !!pulledSomething });
+    } catch { /* offline / przejściowy błąd — spróbujemy przy następnym heartbeacie */ }
+    finally { _autoSyncBusy = false; }
+  }
+  // Rejestracja kanału mutującego = handler + zaplanowanie auto-syncu po sukcesie.
+  function mut(channel, fn) {
+    ipcMain.handle(channel, async (...args) => {
+      const result = await fn(...args);
+      scheduleAutoSync();
+      return result;
+    });
+  }
+  // Heartbeat co 15 s (pull zmian z drugiego urządzenia).
+  setInterval(() => runAutoSync('heartbeat'), 15000);
+
   // ── Invoices ──────────────────────────────
   ipcMain.handle('invoices:getAll', (_, filters) => invoices.getAll(filters));
   ipcMain.handle('invoices:getById', (_, id) => invoices.getById(id));
-  ipcMain.handle('invoices:create', (_, data) => invoices.create(data));
-  ipcMain.handle('invoices:update', (_, id, data) => invoices.update(id, data));
-  ipcMain.handle('invoices:delete', (_, id) => invoices.delete(id));
-  ipcMain.handle('invoices:markPaid', (_, id, date) => invoices.markPaid(id, date));
+  mut('invoices:create', (_, data) => invoices.create(data));
+  mut('invoices:update', (_, id, data) => invoices.update(id, data));
+  mut('invoices:delete', (_, id) => invoices.delete(id));
+  mut('invoices:markPaid', (_, id, date) => invoices.markPaid(id, date));
   ipcMain.handle('invoices:duplicate', (_, id) => invoices.duplicate(id));
   ipcMain.handle('invoices:exportPDF', async (_, id) => {
     const result = await invoices.exportPDF(id, mainWindow);
@@ -433,16 +471,16 @@ function registerIpcHandlers() {
 
   // ── Mileage (kilometrówka) ────────────────
   ipcMain.handle('mileage:getAll', (_, filters) => mileage.getAll(filters));
-  ipcMain.handle('mileage:create', (_, data) => mileage.create(data));
-  ipcMain.handle('mileage:update', (_, id, data) => mileage.update(id, data));
-  ipcMain.handle('mileage:delete', (_, id) => mileage.delete(id));
+  mut('mileage:create', (_, data) => mileage.create(data));
+  mut('mileage:update', (_, id, data) => mileage.update(id, data));
+  mut('mileage:delete', (_, id) => mileage.delete(id));
   ipcMain.handle('mileage:getSummary', (_, year) => mileage.getSummary(year));
 
   // ── Time Tracking ─────────────────────────
   ipcMain.handle('time:getAll', (_, filters) => timeTracking.getAll(filters));
-  ipcMain.handle('time:create', (_, data) => timeTracking.create(data));
-  ipcMain.handle('time:update', (_, id, data) => timeTracking.update(id, data));
-  ipcMain.handle('time:delete', (_, id) => timeTracking.delete(id));
+  mut('time:create', (_, data) => timeTracking.create(data));
+  mut('time:update', (_, id, data) => timeTracking.update(id, data));
+  mut('time:delete', (_, id) => timeTracking.delete(id));
   ipcMain.handle('time:getSummary', (_, filters) => timeTracking.getSummary(filters));
   ipcMain.handle('time:getYearTotal', (_, year) => timeTracking.getYearTotal(year));
   ipcMain.handle('time:exportPDF', async (_, filters) => {
@@ -451,11 +489,11 @@ function registerIpcHandlers() {
 
   // ── Expenses ──────────────────────────────
   ipcMain.handle('expenses:getAll', (_, filters) => expenses.getAll(filters));
-  ipcMain.handle('expenses:create', (_, data) => expenses.create(data));
-  ipcMain.handle('expenses:update', (_, id, data) => expenses.update(id, data));
-  ipcMain.handle('expenses:delete', (_, id) => expenses.delete(id));
+  mut('expenses:create', (_, data) => expenses.create(data));
+  mut('expenses:update', (_, id, data) => expenses.update(id, data));
+  mut('expenses:delete', (_, id) => expenses.delete(id));
   ipcMain.handle('expenses:getAttachments', (_, expenseId) => expenses.getAttachments(expenseId));
-  ipcMain.handle('expenses:addAttachment', async (_, expenseId) => {
+  mut('expenses:addAttachment', async (_, expenseId) => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Wybierz załącznik kosztu',
       filters: [{ name: 'Obrazy i PDF', extensions: ['jpg', 'jpeg', 'png', 'pdf'] }],
@@ -468,7 +506,7 @@ function registerIpcHandlers() {
     }
     return attachments;
   });
-  ipcMain.handle('expenses:deleteAttachment', (_, attachmentId) => expenses.deleteAttachment(attachmentId));
+  mut('expenses:deleteAttachment', (_, attachmentId) => expenses.deleteAttachment(attachmentId));
   ipcMain.handle('expenses:uploadReceipt', async (_, expenseId) => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Wybierz paragon',
@@ -508,16 +546,16 @@ function registerIpcHandlers() {
   // ── Projects ──────────────────────────────
   ipcMain.handle('projects:getAll', (_, filters) => projects.getAll(filters));
   ipcMain.handle('projects:getById', (_, id) => projects.getById(id));
-  ipcMain.handle('projects:create', (_, data) => projects.create(data));
-  ipcMain.handle('projects:update', (_, id, data) => projects.update(id, data));
-  ipcMain.handle('projects:delete', (_, id) => projects.delete(id));
+  mut('projects:create', (_, data) => projects.create(data));
+  mut('projects:update', (_, id, data) => projects.update(id, data));
+  mut('projects:delete', (_, id) => projects.delete(id));
 
   // ── Contacts / CRM ────────────────────────
   ipcMain.handle('contacts:getAll', (_, filters) => contacts.getAll(filters));
   ipcMain.handle('contacts:getById', (_, id) => contacts.getById(id));
-  ipcMain.handle('contacts:create', (_, data) => contacts.create(data));
-  ipcMain.handle('contacts:update', (_, id, data) => contacts.update(id, data));
-  ipcMain.handle('contacts:delete', (_, id) => contacts.delete(id));
+  mut('contacts:create', (_, data) => contacts.create(data));
+  mut('contacts:update', (_, id, data) => contacts.update(id, data));
+  mut('contacts:delete', (_, id) => contacts.delete(id));
   ipcMain.handle('contacts:getInteractions', (_, clientId) => contacts.getInteractions(clientId));
   ipcMain.handle('contacts:addInteraction', (_, data) => contacts.addInteraction(data));
   ipcMain.handle('contacts:deleteInteraction', (_, id) => contacts.deleteInteraction(id));

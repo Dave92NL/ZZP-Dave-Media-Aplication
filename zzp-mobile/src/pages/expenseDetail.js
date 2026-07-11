@@ -83,8 +83,26 @@ export async function load() {
 
       ${exp.notes ? `<h3 class="section-title">Uwagi</h3><div class="detail-block">${escHtml(exp.notes)}</div>` : ''}
 
+      <button class="btn btn-danger btn-block" id="exp-delete-btn" style="margin-top:16px">🗑 Usuń koszt</button>
+      <div id="exp-delete-msg" class="error-msg hidden" style="margin-top:8px"></div>
+
       <div class="detail-origin text-muted">Źródło: ${exp.origin === 'phone' ? '📱 Telefon' : '💻 Desktop'}</div>
     `;
+
+    document.getElementById('exp-delete-btn').addEventListener('click', async () => {
+      if (!confirm('Usunąć ten koszt? Zniknie też na komputerze po synchronizacji.')) return;
+      const msg = document.getElementById('exp-delete-msg');
+      const btn = document.getElementById('exp-delete-btn');
+      msg.classList.add('hidden');
+      btn.disabled = true; btn.textContent = '⏳ Usuwanie…';
+      try {
+        await repo.deleteExpense(id);
+        navigate('expenses');
+      } catch (err) {
+        msg.textContent = err.message; msg.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = '🗑 Usuń koszt';
+      }
+    });
 
     if (pdfToRender) {
       const cont = document.getElementById('exp-pdf-view');
