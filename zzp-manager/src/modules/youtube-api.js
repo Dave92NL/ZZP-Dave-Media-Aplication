@@ -26,19 +26,25 @@ const OAUTH_TIMEOUT_MS   = 3 * 60 * 1000; // 3 minutes to complete browser auth
 
 const SCOPES = [
   'https://www.googleapis.com/auth/yt-analytics.readonly',
+  'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
   'https://www.googleapis.com/auth/youtube.readonly'
 ].join(' ');
 
-const ANALYTICS_METRICS = [
+// Metryki podstawowe — dostępne z zakresem yt-analytics.readonly (zawsze działają).
+const CORE_METRICS = [
   'views',
   'estimatedMinutesWatched',
   'subscribersGained',
-  'subscribersLost',
+  'subscribersLost'
+];
+// Metryki przychodowe — wymagają zakresu yt-analytics-monetary.readonly ORAZ
+// zmonetyzowanego kanału (YPP). Pobierane osobno z „miękkim" fallbackiem.
+// Uwaga: 'rpm' oraz 'impressionClickThroughRate' NIE są metrykami tego API
+// (to pojęcia z YouTube Studio) — RPM wyliczamy lokalnie, CTR z API nie jest dostępny.
+const MONETARY_METRICS = [
   'estimatedRevenue',
-  'rpm',
-  'cpm',
-  'impressionClickThroughRate'
-].join(',');
+  'cpm'
+];
 
 // ── Low-level HTTP helpers ─────────────────────────────────────────────────
 
@@ -229,43 +235,62 @@ async function refreshAccessToken(clientId, clientSecret, refreshToken) {
  * Fetches daily analytics data from YouTube Analytics API v2.
  * Returns an array of day records mapped to youtube_stats columns.
  */
-async function fetchAnalytics(accessToken, startDate, endDate) {
+async function _fetchReport(accessToken, startDate, endDate, metrics) {
   const params = new URLSearchParams({
     ids:        'channel==MINE',
     startDate,
     endDate,
-    metrics:    ANALYTICS_METRICS,
+    metrics:    metrics.join(','),
     dimensions: 'day',
     sort:       'day'
   });
-
   const path = '/v2/reports?' + params.toString();
-  const data = await httpsGet(
-    YT_ANALYTICS_HOST,
-    path,
-    { Authorization: 'Bearer ' + accessToken }
-  );
+  const data = await httpsGet(YT_ANALYTICS_HOST, path, { Authorization: 'Bearer ' + accessToken });
 
-  if (!data.rows || data.rows.length === 0) return [];
-
-  // Map column headers to indices
   const colIndex = {};
-  (data.columnHeaders || []).forEach((col, i) => {
-    colIndex[col.name] = i;
-  });
+  (data.columnHeaders || []).forEach((col, i) => { colIndex[col.name] = i; });
+  const byDay = {};
+  for (const row of (data.rows || [])) {
+    byDay[row[colIndex['day']]] = { row, colIndex };
+  }
+  return byDay;
+}
 
-  return data.rows.map(row => ({
-    date:                row[colIndex['day']],
-    views:               Math.round(row[colIndex['views']] || 0),
-    watch_time_hours:    Math.round(((row[colIndex['estimatedMinutesWatched']] || 0) / 60) * 100) / 100,
-    subscribers_gained:  Math.round(row[colIndex['subscribersGained']] || 0),
-    subscribers_lost:    Math.round(row[colIndex['subscribersLost']] || 0),
-    estimated_revenue:   Math.round((row[colIndex['estimatedRevenue']] || 0) * 100) / 100,
-    rpm:                 Math.round((row[colIndex['rpm']] || 0) * 100) / 100,
-    cpm:                 Math.round((row[colIndex['cpm']] || 0) * 100) / 100,
-    ctr:                 Math.round((row[colIndex['impressionClickThroughRate']] || 0) * 10000) / 10000,
-    currency:            'EUR'
-  }));
+async function fetchAnalytics(accessToken, startDate, endDate) {
+  // 1. Metryki podstawowe (zawsze). Osobne zapytanie, by błąd metryk przychodowych
+  //    nie wywalał całej synchronizacji (kanał niezmonetyzowany / brak zakresu).
+  const core = await _fetchReport(accessToken, startDate, endDate, CORE_METRICS);
+
+  // 2. Metryki przychodowe — opcjonalnie. Przy braku uprawnień/monetyzacji pomijamy.
+  let monetary = {};
+  try {
+    monetary = await _fetchReport(accessToken, startDate, endDate, MONETARY_METRICS);
+  } catch {
+    monetary = {}; // brak zakresu monetarnego albo kanał niezmonetyzowany — przychody z CSV
+  }
+
+  const out = [];
+  for (const [day, { row, colIndex }] of Object.entries(core)) {
+    const views = Math.round(row[colIndex['views']] || 0);
+    const m = monetary[day];
+    const estimatedRevenue = m ? (m.row[m.colIndex['estimatedRevenue']] || 0) : 0;
+    const cpm = m ? (m.row[m.colIndex['cpm']] || 0) : 0;
+    // RPM = przychód / wyświetlenia * 1000 (liczone lokalnie — API nie ma tej metryki).
+    const rpm = views > 0 ? (estimatedRevenue / views) * 1000 : 0;
+    out.push({
+      date:                day,
+      views,
+      watch_time_hours:    Math.round(((row[colIndex['estimatedMinutesWatched']] || 0) / 60) * 100) / 100,
+      subscribers_gained:  Math.round(row[colIndex['subscribersGained']] || 0),
+      subscribers_lost:    Math.round(row[colIndex['subscribersLost']] || 0),
+      estimated_revenue:   Math.round(estimatedRevenue * 100) / 100,
+      rpm:                 Math.round(rpm * 100) / 100,
+      cpm:                 Math.round(cpm * 100) / 100,
+      ctr:                 0, // CTR wyświetleń nie jest dostępny w Analytics API (tylko w Studio)
+      currency:            'EUR'
+    });
+  }
+  return out;
 }
 
 // ── Sync Orchestration ────────────────────────────────────────────────────
