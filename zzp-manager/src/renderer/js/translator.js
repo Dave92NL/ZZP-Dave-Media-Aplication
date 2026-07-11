@@ -54,15 +54,21 @@
       const prev = btn.textContent;
       btn.textContent = '⏳'; btn.disabled = true;
       try {
-        const res = await window.api.translate.text(text, langBtn.dataset.lang);
-        if (res && res.text) {
-          input.value = res.text;
-          // wyzwól input/change, by odświeżyć podgląd/przeliczenia
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+        if (!window.api || !window.api.translate || typeof window.api.translate.text !== 'function') {
+          throw new Error('Brak mostu do tłumacza — zamknij aplikację CAŁKOWICIE i uruchom ponownie (npm start), nie tylko odśwież.');
         }
+        const res = await window.api.translate.text(text, langBtn.dataset.lang);
+        const out = res && res.text ? res.text : (typeof res === 'string' ? res : '');
+        if (!out) throw new Error('pusta odpowiedź tłumaczenia');
+        input.value = out;
+        // wyzwól input/change, by odświeżyć podgląd/przeliczenia
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
       } catch (err) {
-        window.UI?.toast?.('Tłumaczenie nie powiodło się: ' + err.message, 'error');
+        const msg = 'Tłumaczenie nie powiodło się: ' + (err && err.message ? err.message : err);
+        console.error('[translate]', err);
+        if (window.UI && typeof window.UI.toast === 'function') window.UI.toast(msg, 'error');
+        else alert(msg);
       } finally {
         btn.textContent = prev; btn.disabled = false;
       }
