@@ -2,6 +2,7 @@
   "name": "zzp-manager",
   "version": "1.0.0",
   "description": "ZZP Manager — zarządzanie firmą freelancera w Holandii",
+  "author": "Dave Media YT",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,6 +10,24 @@
     "dev": "set NODE_ENV=development&& electron .",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "build": {
+    "appId": "com.davemedia.zzpmanager",
+    "productName": "ZZP Manager",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
