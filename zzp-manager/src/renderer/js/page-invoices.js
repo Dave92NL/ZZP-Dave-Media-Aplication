@@ -296,12 +296,12 @@ const PageInvoices = (() => {
         <table style="width:100%;font-size:13px">
           <thead><tr>
             <th style="padding:6px 8px">Opis</th>
-            <th style="padding:6px 8px;width:60px">Ilość</th>
-            <th style="padding:6px 8px;width:80px">Jedn.</th>
-            <th style="padding:6px 8px;width:110px">Cena netto</th>
-            <th style="padding:6px 8px;width:70px">BTW%</th>
-            <th style="padding:6px 8px;width:110px;text-align:right">Suma</th>
-            <th style="padding:6px 8px;width:32px"></th>
+            <th style="padding:6px 4px;width:52px">Ilość</th>
+            <th style="padding:6px 4px;width:58px">Jedn.</th>
+            <th style="padding:6px 4px;width:88px">Cena netto</th>
+            <th style="padding:6px 4px;width:56px">BTW%</th>
+            <th style="padding:6px 4px;width:88px;text-align:right">Suma</th>
+            <th style="padding:6px 4px;width:30px"></th>
           </tr></thead>
           <tbody id="inv-items-body">${itemsHTML}</tbody>
         </table>
@@ -387,7 +387,7 @@ const PageInvoices = (() => {
   function itemRowHTML(i, item = {}) {
     const sum = (Number(item.quantity) || 1) * (Number(item.unit_price) || 0);
     return `<tr data-row="${i}">
-      <td style="padding:4px 8px"><div class="tr-field" style="display:flex;align-items:center;gap:4px"><input type="text" class="item-desc" value="${UI.esc(item.description || '')}" style="flex:1;min-width:0" oninput="PageInvoices.recalc()">${window.Translator ? Translator.widgetHTML() : ''}</div></td>
+      <td style="padding:4px 8px;position:relative"><input type="text" class="item-desc" value="${UI.esc(item.description || '')}" style="width:100%;padding-right:34px" oninput="PageInvoices.recalc()">${window.Translator ? Translator.widgetHTML() : ''}</td>
       <td style="padding:4px 4px"><input type="number" class="item-qty" value="${item.quantity || 1}" min="0.01" step="0.01" style="width:100%" oninput="PageInvoices.recalc()"></td>
       <td style="padding:4px 4px"><input type="text" class="item-unit" value="${UI.esc(item.unit || 'usługa')}" style="width:100%"></td>
       <td style="padding:4px 4px"><input type="number" class="item-price" value="${item.unit_price || 0}" min="0" step="0.01" style="width:100%" oninput="PageInvoices.recalc()"></td>

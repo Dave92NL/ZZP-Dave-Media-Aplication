@@ -1674,3 +1674,8 @@ td {
   white-space: nowrap;
 }
 .tr-menu button:hover { background: var(--bg-tertiary); }
+
+/* W wąskiej tabeli pozycji faktury: ikonka tłumaczenia jako nakładka w prawym
+   rogu pola opisu — nie zabiera szerokości kolumny OPIS. Menu i tak jest fixed. */
+td > .tr-widget { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+td > .tr-widget .tr-btn { padding: 3px 5px; font-size: 13px; }
