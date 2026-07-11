@@ -5,6 +5,20 @@ const fs = require('fs');
 const { app } = require('electron');
 const { getDb } = require('../database/db');
 
+// Rejestruje czcionkę Unicode (DejaVu Sans) w dokumencie PDF pod nazwami 'INV'/'INV-Bold'.
+// Standardowa Helvetica z pdfkit nie ma polskich glifów (ą ć ę ł ń ś ź ż) → krzaczki.
+// Wołane po utworzeniu każdego PDFDocument. Fallback: gdyby czcionek brakło, zostaje domyślna.
+function _registerPdfFonts(doc) {
+  try {
+    const dir = path.join(__dirname, '..', 'assets', 'fonts');
+    doc.registerFont('INV', path.join(dir, 'DejaVuSans.ttf'));
+    doc.registerFont('INV-Bold', path.join(dir, 'DejaVuSans-Bold.ttf'));
+  } catch (err) {
+    // Brak plików czcionek — nie przerywaj generowania (polskie znaki mogą być błędne).
+    console.error('Nie udało się zarejestrować czcionki PDF:', err.message);
+  }
+}
+
 // Clients whose paid invoices should be classified as AdSense/YouTube income
 const ADSENSE_CLIENT_NAMES = ['google ireland limited'];
 
@@ -388,6 +402,7 @@ async function exportPDF(id, win) {
 
   const outputPath = saveResult.filePath;
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  _registerPdfFonts(doc);
   const stream = fs.createWriteStream(outputPath);
 
   // QR EPC (SEPA) — skan w aplikacji bankowej wypełnia przelew.
@@ -478,20 +493,20 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
 
   // ── HEADER ────────────────────────────────────────────────
   // "Factuur" + number (top-left)
-  doc.font('Helvetica-Bold').fontSize(28).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(28).fillColor(DARK)
     .text('Factuur', M, 42, { lineBreak: false });
-  doc.font('Helvetica').fontSize(11).fillColor(GRAY)
+  doc.font('INV').fontSize(11).fillColor(GRAY)
     .text('Nr ' + invoice.invoice_number, M, 76, { lineBreak: false });
 
   // Company block (centre)
   const coX = 205, lblW = 72, valX = coX + lblW;
   let cy = 42;
 
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(9).fillColor(DARK)
     .text(profile.name || '', coX, cy, { lineBreak: false });
   cy += 12;
 
-  doc.font('Helvetica').fontSize(9).fillColor(GRAY);
+  doc.font('INV').fontSize(9).fillColor(GRAY);
   const addrLines = [
     profile.address,
     [profile.postcode, profile.city].filter(Boolean).join(' '),
@@ -503,27 +518,27 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
   }
 
   if (profile.btw_number) {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GRAY)
+    doc.font('INV-Bold').fontSize(9).fillColor(GRAY)
       .text('BTW ID-nummer', coX, cy, { lineBreak: false });
-    doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+    doc.font('INV').fontSize(9).fillColor(GRAY)
       .text(profile.btw_number, valX, cy, { lineBreak: false });
     cy += 11;
   }
   if (profile.kvk_number) {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GRAY)
+    doc.font('INV-Bold').fontSize(9).fillColor(GRAY)
       .text('KVK-nummer', coX, cy, { lineBreak: false });
-    doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+    doc.font('INV').fontSize(9).fillColor(GRAY)
       .text(String(profile.kvk_number), valX, cy, { lineBreak: false });
     cy += 11;
   }
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(GRAY)
+  doc.font('INV-Bold').fontSize(9).fillColor(GRAY)
     .text('Tel.:', coX, cy, { lineBreak: false });
-  doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+  doc.font('INV').fontSize(9).fillColor(GRAY)
     .text(profile.phone || '', valX, cy, { lineBreak: false });
   cy += 11;
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(GRAY)
+  doc.font('INV-Bold').fontSize(9).fillColor(GRAY)
     .text('E-mail', coX, cy, { lineBreak: false });
-  doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+  doc.font('INV').fontSize(9).fillColor(GRAY)
     .text(profile.email || '', valX, cy, { lineBreak: false });
   cy += 11;
 
@@ -542,16 +557,16 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
   const dateW = PW - M - dateX; // ~300
 
   // "Factuur voor:"
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(9).fillColor(DARK)
     .text('Factuur voor:', M, secY);
 
   let clY = secY + 15;
   const clientDisplayName = invoice.company_name || invoice.client_name || '';
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(10).fillColor(DARK)
     .text(clientDisplayName, M, clY, { width: 200, lineBreak: false });
   clY += 14;
 
-  doc.font('Helvetica').fontSize(9).fillColor(GRAY);
+  doc.font('INV').fontSize(9).fillColor(GRAY);
   const buyLines = [
     invoice.client_address,
     [invoice.client_postcode, invoice.client_city].filter(Boolean).join(' '),
@@ -562,9 +577,9 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     clY += 12;
   }
   if (invoice.client_vat) {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(DARK)
+    doc.font('INV-Bold').fontSize(9).fillColor(DARK)
       .text('BTW-ID:', M, clY, { lineBreak: false });
-    doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+    doc.font('INV').fontSize(9).fillColor(GRAY)
       .text('  ' + invoice.client_vat, M + 38, clY, { lineBreak: false });
     clY += 12;
   }
@@ -582,9 +597,9 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     const bx = dateX + i * (DB_W + DB_GAP);
     doc.rect(bx, secY, DB_W, DB_H).fillColor('#FFFFFF').fill();
     doc.rect(bx, secY, DB_W, DB_H).strokeColor(BORDER).lineWidth(0.5).stroke();
-    doc.font('Helvetica').fontSize(8).fillColor(LGRAY)
+    doc.font('INV').fontSize(8).fillColor(LGRAY)
       .text(dateBoxes[i].label, bx + 5, secY + 6, { width: DB_W - 10, lineBreak: false });
-    doc.font('Helvetica').fontSize(9).fillColor(DARK)
+    doc.font('INV').fontSize(9).fillColor(DARK)
       .text(dateBoxes[i].val, bx + 5, secY + 19, { width: DB_W - 10, lineBreak: false });
   }
 
@@ -596,17 +611,17 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
 
   doc.rect(dateX, payY, PB_W1, PB_H).fillColor('#FFFFFF').fill();
   doc.rect(dateX, payY, PB_W1, PB_H).strokeColor(BORDER).lineWidth(0.5).stroke();
-  doc.font('Helvetica').fontSize(8).fillColor(LGRAY)
+  doc.font('INV').fontSize(8).fillColor(LGRAY)
     .text('Te betalen', dateX + 5, payY + 5, { lineBreak: false });
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(10).fillColor(DARK)
     .text(cur + ' ' + fmtAmt(invoice.total), dateX + 5, payY + 18, { width: PB_W1 - 10, lineBreak: false });
 
   const ibanX = dateX + PB_W1 + DB_GAP;
   doc.rect(ibanX, payY, PB_W2, PB_H).fillColor('#FFFFFF').fill();
   doc.rect(ibanX, payY, PB_W2, PB_H).strokeColor(BORDER).lineWidth(0.5).stroke();
-  doc.font('Helvetica').fontSize(8).fillColor(LGRAY)
+  doc.font('INV').fontSize(8).fillColor(LGRAY)
     .text('IBAN', ibanX + 5, payY + 5, { lineBreak: false });
-  doc.font('Helvetica').fontSize(9).fillColor(DARK)
+  doc.font('INV').fontSize(9).fillColor(DARK)
     .text(profile.iban || '', ibanX + 5, payY + 18, { width: PB_W2 - 10, lineBreak: false });
 
   // ── ITEMS TABLE ────────────────────────────────────────────
@@ -615,7 +630,7 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
   const CQx = M + CD, CPx = CQx + CQ, CTx = CPx + CP;
 
   doc.rect(M, tblY, W, 20).fillColor(TBLHDR).fill();
-  doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
+  doc.font('INV-Bold').fontSize(9).fillColor('#FFFFFF');
   doc.text('Omschrijving', M + 5,  tblY + 6, { width: CD - 5,  lineBreak: false });
   doc.text('Aantal',       CQx,    tblY + 6, { width: CQ,      align: 'right', lineBreak: false });
   doc.text('Prijs p.e.',   CPx,    tblY + 6, { width: CP,      align: 'right', lineBreak: false });
@@ -626,7 +641,7 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     const item   = invoice.items[idx];
     const ROW_H  = 18;
     if (idx % 2 === 1) doc.rect(M, iy, W, ROW_H).fillColor('#F9F9F9').fill();
-    doc.font('Helvetica').fontSize(9).fillColor(DARK);
+    doc.font('INV').fontSize(9).fillColor(DARK);
     doc.text(item.description || '',            M + 5, iy + 5, { width: CD - 5, lineBreak: false });
     doc.text(Number(item.quantity).toFixed(2) + ' ' + (item.unit || 'Stk'),
                                                 CQx,   iy + 5, { width: CQ,     align: 'right', lineBreak: false });
@@ -640,7 +655,7 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
   // ── TOTALS ─────────────────────────────────────────────────
   const TLx = CQx, TLw = CQ + CP, TAx = CTx, TAw = CT - 5;
 
-  doc.font('Helvetica').fontSize(9).fillColor(GRAY);
+  doc.font('INV').fontSize(9).fillColor(GRAY);
   doc.text('Totaal excl. BTW', TLx, iy, { width: TLw, align: 'right', lineBreak: false });
   doc.text(cur + ' ' + fmtAmt(invoice.subtotal), TAx, iy, { width: TAw, align: 'right', lineBreak: false });
   iy += 14;
@@ -659,17 +674,17 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
   doc.moveTo(TLx, iy - 4).lineTo(PW - M, iy - 4).strokeColor(BORDER).lineWidth(0.5).stroke();
 
   // Opmerkingen label (left) + Te betalen box (right)
-  doc.font('Helvetica').fontSize(9).fillColor(LGRAY)
+  doc.font('INV').fontSize(9).fillColor(LGRAY)
     .text('Opmerkingen', M, iy, { lineBreak: false });
   if (invoice.notes) {
-    doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+    doc.font('INV').fontSize(9).fillColor(GRAY)
       .text(invoice.notes, M, iy + 12, { width: 200 });
   }
 
   doc.rect(TLx, iy - 4, TLw, 24).fillColor('#EEEEEE').fill();
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(10).fillColor(DARK)
     .text('Te betalen', TLx + 5, iy + 1, { width: TLw - 10, lineBreak: false });
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(DARK)
+  doc.font('INV-Bold').fontSize(12).fillColor(DARK)
     .text(cur + ' ' + fmtAmt(invoice.total), TAx, iy, { width: TAw, align: 'right', lineBreak: false });
 
   // ── FOOTER ─────────────────────────────────────────────────
@@ -685,7 +700,7 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
 
   // Tekst zajmuje lewą część; QR EPC (jeśli jest) — prawą
   const textW = qrBuffer ? Math.floor(W * 0.55) : Math.floor(W * 0.70);
-  doc.font('Helvetica').fontSize(8).fillColor(GRAY)
+  doc.font('INV').fontSize(8).fillColor(GRAY)
     .text(payText, M, footY + 8, { width: textW, align: 'left' });
 
   if (qrBuffer) {
@@ -693,15 +708,15 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     const qrX = M + textW + 14;
     try {
       doc.image(qrBuffer, qrX, footY + 6, { width: QR_S, height: QR_S });
-      doc.font('Helvetica-Bold').fontSize(7).fillColor(DARK)
+      doc.font('INV-Bold').fontSize(7).fillColor(DARK)
         .text('Betaal met QR-code', qrX + QR_S + 8, footY + 10, { width: PW - M - qrX - QR_S - 8, lineBreak: false });
-      doc.font('Helvetica').fontSize(6.5).fillColor(LGRAY)
+      doc.font('INV').fontSize(6.5).fillColor(LGRAY)
         .text('Scan met een bankieren-app om de overboeking te starten. Let op: niet alle banken ondersteunen de EPC QR.',
           qrX + QR_S + 8, footY + 20, { width: PW - M - qrX - QR_S - 12 });
     } catch { /* uszkodzony bufor QR nie blokuje PDF */ }
   }
 
-  doc.font('Helvetica').fontSize(8).fillColor(LGRAY)
+  doc.font('INV').fontSize(8).fillColor(LGRAY)
     .text('Pagina 1 / 1', M, PH - 25, { width: W, align: 'center', lineBreak: false });
 }
 
@@ -924,6 +939,7 @@ async function renderPreviewPDF(data) {
   const qr = await _buildEpcQrBuffer(invoice, profile);
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  _registerPdfFonts(doc);
   const chunks = [];
   return await new Promise((resolve, reject) => {
     doc.on('data', c => chunks.push(c));
@@ -941,6 +957,7 @@ async function renderSavedPreviewPDF(id) {
   const qr = await _buildEpcQrBuffer(invoice, profile);
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  _registerPdfFonts(doc);
   const chunks = [];
   return await new Promise((resolve, reject) => {
     doc.on('data', c => chunks.push(c));

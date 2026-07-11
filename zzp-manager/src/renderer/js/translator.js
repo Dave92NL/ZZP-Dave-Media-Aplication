@@ -18,14 +18,23 @@
   }
 
   document.addEventListener('click', async (e) => {
-    // 1) Klik w ikonkę → przełącz menu
+    // 1) Klik w ikonkę → przełącz menu. Pozycjonujemy je jako fixed od przycisku,
+    //    żeby nie przycinał go overflow tabeli/modala (inaczej menu bywa niewidoczne).
     const trigger = e.target.closest('.tr-btn');
     if (trigger) {
       e.preventDefault();
       const menu = trigger.parentElement.querySelector('.tr-menu');
       const willOpen = menu.classList.contains('hidden');
       closeMenus();
-      if (willOpen) menu.classList.remove('hidden');
+      if (willOpen) {
+        const r = trigger.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = (r.bottom + 4) + 'px';
+        menu.style.right = 'auto';
+        menu.classList.remove('hidden');
+        const mw = menu.offsetWidth || 170;
+        menu.style.left = Math.max(8, r.right - mw) + 'px';
+      }
       return;
     }
 
