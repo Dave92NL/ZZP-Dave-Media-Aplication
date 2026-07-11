@@ -245,6 +245,23 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
 textarea { resize: vertical; min-height: 80px; }
 
+textarea.item-desc {
+  resize: vertical;
+  min-height: 28px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid var(--border-color, #444);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 34px 4px 8px;
+  background: var(--bg-primary, #1a1a2e);
+  color: var(--text-primary, #e0e0e0);
+  width: 100%;
+  box-sizing: border-box;
+}
+
 select { cursor: pointer; }
 select option { background: var(--bg-secondary); }
 
@@ -1677,5 +1694,39 @@ td {
 
 /* W wąskiej tabeli pozycji faktury: ikonka tłumaczenia jako nakładka w prawym
    rogu pola opisu — nie zabiera szerokości kolumny OPIS. Menu i tak jest fixed. */
-td > .tr-widget { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+td > .tr-widget { position: absolute; right: 10px; top: 8px; transform: none; z-index: 10; }
 td > .tr-widget .tr-btn { padding: 3px 5px; font-size: 13px; }
+
+/* ── Pozycje faktury — układ blokowy (liczby w rzędzie, OPIS duży pod spodem) ── */
+.inv-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--bg-secondary);
+}
+.inv-item-nums {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.inv-item-nums .inv-fg { display: flex; flex-direction: column; gap: 3px; }
+.inv-item-nums .inv-fg label { font-size: 11px; color: var(--text-muted); }
+.inv-item-nums .item-qty { width: 80px; }
+.inv-item-nums .item-price { width: 120px; }
+.inv-item-nums .item-btw { width: 80px; }
+.inv-fg-sum { margin-left: auto; align-items: flex-end; }
+.inv-fg-sum .item-total { padding: 7px 4px; font-weight: 600; min-width: 96px; text-align: right; }
+.inv-item-del { align-self: flex-end; }
+.inv-item-desc { display: flex; flex-direction: column; gap: 3px; }
+.inv-item-desc > label { font-size: 11px; color: var(--text-muted); }
+.inv-item-desc .tr-field { display: flex; gap: 6px; align-items: flex-start; }
+.inv-item-desc .item-desc {
+  flex: 1;
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.5;
+}

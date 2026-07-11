@@ -293,18 +293,7 @@ const PageInvoices = (() => {
 
       <div style="margin-bottom:8px;font-weight:600;font-size:13px">Pozycje faktury</div>
       <div id="inv-items-wrap">
-        <table style="width:100%;font-size:13px">
-          <thead><tr>
-            <th style="padding:6px 8px">Opis</th>
-            <th style="padding:6px 4px;width:52px">Ilość</th>
-            <th style="padding:6px 4px;width:58px">Jedn.</th>
-            <th style="padding:6px 4px;width:88px">Cena netto</th>
-            <th style="padding:6px 4px;width:56px">BTW%</th>
-            <th style="padding:6px 4px;width:88px;text-align:right">Suma</th>
-            <th style="padding:6px 4px;width:30px"></th>
-          </tr></thead>
-          <tbody id="inv-items-body">${itemsHTML}</tbody>
-        </table>
+        <div id="inv-items-body">${itemsHTML}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
         <button class="btn btn-sm btn-secondary" onclick="PageInvoices.addItem()">+ Dodaj pozycję</button>
@@ -386,21 +375,28 @@ const PageInvoices = (() => {
 
   function itemRowHTML(i, item = {}) {
     const sum = (Number(item.quantity) || 1) * (Number(item.unit_price) || 0);
-    return `<tr data-row="${i}">
-      <td style="padding:4px 8px;position:relative"><input type="text" class="item-desc" value="${UI.esc(item.description || '')}" style="width:100%;padding-right:34px" oninput="PageInvoices.recalc()">${window.Translator ? Translator.widgetHTML() : ''}</td>
-      <td style="padding:4px 4px"><input type="number" class="item-qty" value="${item.quantity || 1}" min="0.01" step="0.01" style="width:100%" oninput="PageInvoices.recalc()"></td>
-      <td style="padding:4px 4px"><input type="text" class="item-unit" value="${UI.esc(item.unit || 'usługa')}" style="width:100%"></td>
-      <td style="padding:4px 4px"><input type="number" class="item-price" value="${item.unit_price || 0}" min="0" step="0.01" style="width:100%" oninput="PageInvoices.recalc()"></td>
-      <td style="padding:4px 4px"><input type="number" class="item-btw" value="${item.btw_rate || 0}" min="0" max="100" style="width:100%" oninput="PageInvoices.recalc()"></td>
-      <td style="padding:4px 8px;text-align:right" class="item-total mono">${fmtAmount(sum, 'EUR')}</td>
-      <td style="padding:4px 4px"><button class="btn btn-icon btn-sm btn-danger" onclick="this.closest('tr').remove();PageInvoices.recalc()">✕</button></td>
-    </tr>`;
+    return `<div class="inv-item" data-row="${i}" data-unit="${UI.esc(item.unit || 'usługa')}">
+      <div class="inv-item-nums">
+        <div class="inv-fg"><label>Ilość</label><input type="number" class="item-qty" value="${item.quantity || 1}" min="0.01" step="0.01" oninput="PageInvoices.recalc()"></div>
+        <div class="inv-fg"><label>Cena netto</label><input type="number" class="item-price" value="${item.unit_price || 0}" min="0" step="0.01" oninput="PageInvoices.recalc()"></div>
+        <div class="inv-fg"><label>BTW%</label><input type="number" class="item-btw" value="${item.btw_rate || 0}" min="0" max="100" oninput="PageInvoices.recalc()"></div>
+        <div class="inv-fg inv-fg-sum"><label>Suma</label><div class="item-total mono">${fmtAmount(sum, 'EUR')}</div></div>
+        <button class="btn btn-icon btn-sm btn-danger inv-item-del" title="Usuń pozycję" onclick="this.closest('.inv-item').remove();PageInvoices.recalc()">✕</button>
+      </div>
+      <div class="inv-item-desc">
+        <label>Opis</label>
+        <div class="tr-field">
+          <textarea class="item-desc" placeholder="Opis pozycji…" oninput="PageInvoices.recalc()">${UI.esc(item.description || '')}</textarea>
+          ${window.Translator ? Translator.widgetHTML() : ''}
+        </div>
+      </div>
+    </div>`;
   }
 
   function addItem() {
     const tbody = document.getElementById('inv-items-body');
     if (!tbody) return;
-    const i = tbody.querySelectorAll('tr').length;
+    const i = tbody.querySelectorAll('.inv-item').length;
     tbody.insertAdjacentHTML('beforeend', itemRowHTML(i));
   }
 
@@ -429,12 +425,12 @@ const PageInvoices = (() => {
     if (!preset) return;
     const desc = preset[lang];
 
-    const rows = tbody.querySelectorAll('tr');
+    const rows = tbody.querySelectorAll('.inv-item');
     const firstDesc = rows.length === 1 ? rows[0].querySelector('.item-desc') : null;
     if (firstDesc && !firstDesc.value.trim()) {
       firstDesc.value = desc;
     } else {
-      const i = tbody.querySelectorAll('tr').length;
+      const i = tbody.querySelectorAll('.inv-item').length;
       tbody.insertAdjacentHTML('beforeend', itemRowHTML(i, { description: desc, quantity: 1, unit: 'usługa', unit_price: 0, btw_rate: 0 }));
     }
     sel.value = '';
@@ -450,10 +446,10 @@ const PageInvoices = (() => {
     if (!p) return;
 
     // Jeśli jedyny wiersz jest pusty — zastąp go zamiast dokładać
-    const rows = tbody.querySelectorAll('tr');
+    const rows = tbody.querySelectorAll('.inv-item');
     if (rows.length === 1 && !rows[0].querySelector('.item-desc')?.value?.trim()) rows[0].remove();
 
-    const i = tbody.querySelectorAll('tr').length;
+    const i = tbody.querySelectorAll('.inv-item').length;
     tbody.insertAdjacentHTML('beforeend', itemRowHTML(i, {
       description: p.description ? `${p.name} — ${p.description}` : p.name,
       quantity: 1, unit: p.unit || 'usługa',
@@ -537,7 +533,7 @@ const PageInvoices = (() => {
   }
 
   function recalc() {
-    const rows = document.querySelectorAll('#inv-items-body tr');
+    const rows = document.querySelectorAll('#inv-items-body .inv-item');
     let subtotal = 0;
     rows.forEach(row => {
       const qty = parseFloat(row.querySelector('.item-qty')?.value) || 0;
@@ -594,7 +590,7 @@ const PageInvoices = (() => {
       el.addEventListener('input', renderInvoicePreview);
       el.addEventListener('change', renderInvoicePreview);
     });
-    document.querySelectorAll('#inv-items-body input').forEach(input => input.addEventListener('input', renderInvoicePreview));
+    document.querySelectorAll('#inv-items-body input, #inv-items-body textarea').forEach(input => input.addEventListener('input', renderInvoicePreview));
   }
 
   // Żywy podgląd = prawdziwy PDF faktury generowany z danych formularza.
@@ -661,11 +657,11 @@ const PageInvoices = (() => {
   }
 
   function collectFormData(status) {
-    const rows = document.querySelectorAll('#inv-items-body tr');
+    const rows = document.querySelectorAll('#inv-items-body .inv-item');
     const items = Array.from(rows).map(row => ({
       description: row.querySelector('.item-desc')?.value || '',
       quantity: parseFloat(row.querySelector('.item-qty')?.value) || 1,
-      unit: row.querySelector('.item-unit')?.value || 'usługa',
+      unit: row.dataset.unit || 'usługa',
       unit_price: parseFloat(row.querySelector('.item-price')?.value) || 0,
       btw_rate: parseFloat(row.querySelector('.item-btw')?.value) || 0
     })).filter(item => item.description || item.unit_price > 0);
