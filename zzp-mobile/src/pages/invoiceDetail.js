@@ -2,6 +2,7 @@ import { currentParam, navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml, todayStr } from '../lib/format.js';
 import * as repo from '../data/repo.js';
 import { COMPANY } from '../lib/companyProfile.js';
+import { icon } from '../lib/icons.js';
 
 // Stylizowany podgląd dokumentu faktury (odpowiednik generowanego PDF na desktopie).
 function _invoiceDocumentHTML(inv, client, items) {
@@ -89,7 +90,7 @@ export async function load() {
 
   el.innerHTML = `
     <div class="page">
-      <button class="btn btn-secondary btn-sm back-btn" id="detail-back-btn">← Wróć do listy</button>
+      <button class="btn btn-secondary btn-sm back-btn" id="detail-back-btn">${icon('arrowLeft', { size: 16 })} Wróć</button>
       <div id="inv-detail-wrap"><p class="text-muted">Ładowanie…</p></div>
     </div>
   `;

@@ -2,6 +2,7 @@ import { currentParam, navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
 import * as repo from '../data/repo.js';
 import { renderPdf, fetchArrayBuffer } from '../lib/pdfPreview.js';
+import { icon } from '../lib/icons.js';
 
 function _isPdf(path) {
   return /\.pdf(\?|$)/i.test(String(path || ''));
@@ -13,7 +14,7 @@ export async function load() {
 
   el.innerHTML = `
     <div class="page">
-      <button class="btn btn-secondary btn-sm back-btn" id="detail-back-btn">← Wróć do listy</button>
+      <button class="btn btn-secondary btn-sm back-btn" id="detail-back-btn">${icon('arrowLeft', { size: 16 })} Wróć</button>
       <div id="exp-detail-wrap"><p class="text-muted">Ładowanie…</p></div>
     </div>
   `;
