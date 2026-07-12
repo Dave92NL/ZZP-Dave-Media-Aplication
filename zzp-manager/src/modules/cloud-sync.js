@@ -194,6 +194,25 @@ async function pushLocalChanges() {
         // invoice_items w chmurze mają ON DELETE CASCADE.
         const { error } = await client.from('invoices').delete().eq('id', d.cloud_id);
         if (error) throw error;
+      } else if (d.table_name === 'clients') {
+        // FK w Postgres blokują delete — najpierw odepnij referencje (jak lokalnie,
+        // gdzie SQLite nie egzekwuje FK): projekty/faktury/kilometrówka tracą klienta.
+        for (const t of ['projects', 'invoices', 'mileage_entries']) {
+          const { error: unErr } = await client.from(t).update({ client_id: null }).eq('client_id', d.cloud_id);
+          if (unErr) throw unErr;
+        }
+        const { error } = await client.from('clients').delete().eq('id', d.cloud_id);
+        if (error) throw error;
+      } else if (d.table_name === 'projects') {
+        for (const t of ['invoices', 'expenses', 'time_entries', 'mileage_entries']) {
+          const { error: unErr } = await client.from(t).update({ project_id: null }).eq('project_id', d.cloud_id);
+          if (unErr) throw unErr;
+        }
+        const { error } = await client.from('projects').delete().eq('id', d.cloud_id);
+        if (error) throw error;
+      } else if (d.table_name === 'time_entries' || d.table_name === 'mileage_entries') {
+        const { error } = await client.from(d.table_name).delete().eq('id', d.cloud_id);
+        if (error) throw error;
       }
       db.prepare('DELETE FROM sync_deletions WHERE id = ?').run(d.id);
       pushedDeletions++;
@@ -432,8 +451,25 @@ async function pullCloudChanges() {
   const mileageModule = require('./mileage');
 
   let pulledClients = 0, pulledProjects = 0, pulledInvoices = 0, pulledExpenses = 0, pulledTimeEntries = 0, pulledMileage = 0;
-  let deletedInvoices = 0, deletedExpenses = 0;
+  let deletedInvoices = 0, deletedExpenses = 0, deletedClients = 0, deletedProjects = 0, deletedTimeEntries = 0, deletedMileage = 0;
   const errors = [];
+
+  // Rekoncyliacja usunięć: lokalne rekordy z cloud_id, których już nie ma w chmurze
+  // (skasowane na drugim urządzeniu) → usuń lokalnie z flagą fromCloudSync (bez
+  // nagrobka — uniknięcie pętli). Bezpieczne: wołane tylko po udanym fetchu tabeli,
+  // dotyczy wyłącznie rekordów wcześniej zsynchronizowanych.
+  const _reconcileDeletions = (table, cloudRows, deleteFn) => {
+    const cloudIds = new Set((cloudRows || []).map(r => r.id));
+    const localSynced = db.prepare(`SELECT id, cloud_id FROM ${table} WHERE cloud_id IS NOT NULL`).all();
+    let n = 0;
+    for (const row of localSynced) {
+      if (!cloudIds.has(row.cloud_id)) {
+        try { deleteFn(row.id, { fromCloudSync: true }); n++; }
+        catch (err) { errors.push(`Lokalne usunięcie ${table} #${row.id}: ${err.message}`); }
+      }
+    }
+    return n;
+  };
 
   // Map a cloud UUID FK back to the local integer id
   const _localClientId = (cloudId) =>
@@ -466,6 +502,8 @@ async function pullCloudChanges() {
     }
   }
 
+  deletedClients = _reconcileDeletions('clients', cloudClients, contacts.delete);
+
   // 2. Projects — before invoices/expenses/time_entries so project_id can be mapped
   const localProjectCloudIds = new Set(
     db.prepare(`SELECT cloud_id FROM projects WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
@@ -488,6 +526,8 @@ async function pullCloudChanges() {
       errors.push(`Projekt z chmury "${cp.name}": ${err.message}`);
     }
   }
+
+  deletedProjects = _reconcileDeletions('projects', cloudProjects, projectsModule.delete);
 
   // 3. Invoices (+ items)
   const localInvoiceCloudIds = new Set(
@@ -519,19 +559,7 @@ async function pullCloudChanges() {
     }
   }
 
-  // Rekoncyliacja usunięć: lokalne faktury z cloud_id, których już nie ma w chmurze
-  // (skasowane na drugim urządzeniu) → usuń lokalnie. Bezpieczne: fetch się powiódł
-  // (inaczej byłby throw wyżej), kasujemy tylko rekordy wcześniej zsynchronizowane.
-  {
-    const cloudIdSet = new Set((cloudInvoices || []).map(r => r.id));
-    const localSynced = db.prepare('SELECT id, cloud_id FROM invoices WHERE cloud_id IS NOT NULL').all();
-    for (const row of localSynced) {
-      if (!cloudIdSet.has(row.cloud_id)) {
-        try { invoicesModule.delete(row.id, { fromCloudSync: true }); deletedInvoices++; }
-        catch (err) { errors.push(`Lokalne usunięcie faktury #${row.id}: ${err.message}`); }
-      }
-    }
-  }
+  deletedInvoices = _reconcileDeletions('invoices', cloudInvoices, invoicesModule.delete);
 
   // 4. Expenses (+ receipt photo download from Storage)
   const localExpenseCloudIds = new Set(
@@ -573,17 +601,7 @@ async function pullCloudChanges() {
     }
   }
 
-  // Rekoncyliacja usunięć kosztów (analogicznie do faktur).
-  {
-    const cloudIdSet = new Set((cloudExpenses || []).map(r => r.id));
-    const localSynced = db.prepare('SELECT id, cloud_id FROM expenses WHERE cloud_id IS NOT NULL').all();
-    for (const row of localSynced) {
-      if (!cloudIdSet.has(row.cloud_id)) {
-        try { expensesModule.delete(row.id, { fromCloudSync: true }); deletedExpenses++; }
-        catch (err) { errors.push(`Lokalne usunięcie kosztu #${row.id}: ${err.message}`); }
-      }
-    }
-  }
+  deletedExpenses = _reconcileDeletions('expenses', cloudExpenses, expensesModule.delete);
 
   // 5. Time entries
   const localTimeCloudIds = new Set(
@@ -608,6 +626,8 @@ async function pullCloudChanges() {
     }
   }
 
+  deletedTimeEntries = _reconcileDeletions('time_entries', cloudTimeEntries, timeModule.delete);
+
   // 6. Mileage (kilometrówka)
   const localMileageCloudIds = new Set(
     db.prepare(`SELECT cloud_id FROM mileage_entries WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
@@ -631,11 +651,18 @@ async function pullCloudChanges() {
     }
   }
 
-  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage + deletedInvoices + deletedExpenses;
+  deletedMileage = _reconcileDeletions('mileage_entries', cloudMileage, mileageModule.delete);
+
+  const deletedTotal = deletedInvoices + deletedExpenses + deletedClients + deletedProjects + deletedTimeEntries + deletedMileage;
+  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage + deletedTotal;
   _recordHistory(db, 'pull', 0, totalPulled, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_pull', String(Date.now()));
 
-  return { pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, pulledMileage, deletedInvoices, deletedExpenses, errors };
+  return {
+    pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, pulledMileage,
+    deletedInvoices, deletedExpenses, deletedClients, deletedProjects, deletedTimeEntries, deletedMileage,
+    errors
+  };
 }
 
 module.exports = {

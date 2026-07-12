@@ -93,8 +93,16 @@ function update(id, data) {
   return { success: true };
 }
 
-function delete_(id) {
+function delete_(id, opts = {}) {
   const db = getDb();
+  // Nagrobek do propagacji usunięcia w chmurze — bez niego pull „wskrzesza" wpis.
+  if (!opts.fromCloudSync) {
+    const row = db.prepare('SELECT cloud_id FROM time_entries WHERE id = ?').get(id);
+    if (row && row.cloud_id) {
+      try { db.prepare('INSERT INTO sync_deletions (table_name, cloud_id) VALUES (?, ?)').run('time_entries', row.cloud_id); }
+      catch { /* tabela nagrobków sprzed migracji v8 */ }
+    }
+  }
   db.prepare('DELETE FROM time_entries WHERE id = ?').run(id);
   return { success: true };
 }

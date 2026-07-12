@@ -436,7 +436,8 @@ function registerIpcHandlers() {
       const pulledSomething = pullResult && (
         pullResult.pulledClients || pullResult.pulledProjects || pullResult.pulledInvoices ||
         pullResult.pulledExpenses || pullResult.pulledTimeEntries || pullResult.pulledMileage ||
-        pullResult.deletedInvoices || pullResult.deletedExpenses
+        pullResult.deletedInvoices || pullResult.deletedExpenses || pullResult.deletedClients ||
+        pullResult.deletedProjects || pullResult.deletedTimeEntries || pullResult.deletedMileage
       );
       mainWindow?.webContents.send('sync:autoSynced', { reason, changed: !!pulledSomething });
     } catch { /* offline / przejściowy błąd — spróbujemy przy następnym heartbeacie */ }
