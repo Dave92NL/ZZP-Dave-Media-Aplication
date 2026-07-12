@@ -2,6 +2,10 @@ import { todayStr, fmtDateNL, escHtml } from '../lib/format.js';
 import { navigate } from '../router.js';
 import * as repo from '../data/repo.js';
 import { translateWidgetHTML } from '../lib/translateWidget.js';
+import { icon } from '../lib/icons.js';
+import { progressRing } from '../lib/charts.js';
+
+const WORKDAY_MS = 8 * 3600 * 1000; // pełny pierścień = 8 h dnia pracy
 
 const CATEGORIES = [
   'YouTube/Archiwum Zła', 'Edycja wideo', 'Research/Scenariusz',
@@ -48,7 +52,10 @@ export async function load() {
   const el = document.getElementById('page-content');
   el.innerHTML = `
     <div class="page">
-      <h1 class="page-title">⏱️ Czas pracy</h1>
+      <div class="page-head">
+        <h1 class="page-title">Czas pracy</h1>
+        <button class="icon-btn" id="tm-cal" aria-label="Dopisz ręcznie">${icon('calendar', { size: 20 })}</button>
+      </div>
       <div id="timer-zone"></div>
 
       <details class="manual-details">
@@ -67,13 +74,17 @@ export async function load() {
         </div>
       </details>
 
-      <h3 class="section-title">Ostatnie wpisy</h3>
+      <h3 class="section-title">Ostatnie sesje</h3>
       <div id="tm-list-wrap"><p class="text-muted">Ładowanie…</p></div>
     </div>
   `;
 
   await _loadProjectOptions();
   document.getElementById('tm-save-btn').addEventListener('click', _saveManual);
+  document.getElementById('tm-cal').addEventListener('click', () => {
+    const d = document.querySelector('.manual-details');
+    if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
 
   await _renderTimer();
   await _renderList();
@@ -95,18 +106,31 @@ async function _renderTimer() {
   const timer = await repo.getRunningTimer();
 
   if (timer) {
+    const startTime = new Date(timer.started_at);
+    const startHM = String(startTime.getHours()).padStart(2, '0') + ':' + String(startTime.getMinutes()).padStart(2, '0');
+    const projName = timer.project_id ? (_projects.find(p => String(p.id) === String(timer.project_id))?.name || '—') : null;
     zone.innerHTML = `
-      <div class="timer-running">
-        <div class="timer-elapsed" id="timer-elapsed">00:00:00</div>
-        <div class="timer-meta text-muted">${escHtml(timer.category)}${timer.description ? ' · ' + escHtml(timer.description) : ''}</div>
-        <button class="btn btn-danger btn-block" id="timer-stop-btn">⏹ Zatrzymaj i zapisz</button>
+      <div class="timer-card">
+        <div class="timer-ring-wrap" id="timer-ring"></div>
+        <div class="timer-startedat"><span class="dot"></span>Rozpoczęto: ${startHM}</div>
+        <div class="timer-project">${icon('folder', { size: 16 })}${projName ? 'Projekt: ' + escHtml(projName) : escHtml(timer.category)}</div>
+        <button class="btn btn-accent-blue btn-block" id="timer-stop-btn">${icon('stop', { size: 18 })} Zatrzymaj</button>
       </div>
     `;
-    const startedAt = new Date(timer.started_at).getTime();
+    const startedAt = startTime.getTime();
+    const ringEl = document.getElementById('timer-ring');
+    const renderRing = (elapsedMs) => `
+      ${progressRing(Math.min(1, elapsedMs / WORKDAY_MS), { color: 'var(--accent-blue)' })}
+      <div class="ring-center">
+        <span class="ring-top">Dzisiaj</span>
+        <span class="ring-time">${fmtElapsed(elapsedMs)}</span>
+        <span class="ring-label">Godzin</span>
+      </div>`;
+    ringEl.innerHTML = renderRing(0);
     const update = () => {
-      const elapsedEl = document.getElementById('timer-elapsed');
-      if (!elapsedEl) { clearInterval(_tickInterval); _tickInterval = null; return; }
-      elapsedEl.textContent = fmtElapsed(Date.now() - startedAt);
+      const el2 = document.getElementById('timer-ring');
+      if (!el2) { clearInterval(_tickInterval); _tickInterval = null; return; }
+      el2.innerHTML = renderRing(Date.now() - startedAt);
     };
     update();
     _tickInterval = setInterval(update, 1000);
@@ -192,23 +216,25 @@ async function _renderList() {
     if (_editingId) { _renderEditForm(_editingId); return; }
     if (!_entries.length) { wrap.innerHTML = '<p class="text-muted">Brak wpisów.</p>'; return; }
 
-    wrap.innerHTML = _entries.map(t => `
-      <div class="list-card" data-id="${t.id}" role="button" tabindex="0">
-        <div class="list-card-header">
-          <span class="badge badge-info">${escHtml(t.category)}</span>
-          <span>
-            ${t._pending ? '<span class="badge badge-pending">⏳ oczekuje</span>' : ''}
-            ${t.is_billable ? '' : '<span class="badge badge-muted">nierozl.</span>'}
-          </span>
+    wrap.innerHTML = _entries.map(t => {
+      const title = t.description?.trim() || t.category;
+      const sub = `${escHtml(t.project_name || t.category)} · ${fmtDateNL(t.date)}`;
+      const flags = [
+        t._pending ? '<span class="pill pill-yellow"><span class="pill-dot"></span>oczekuje</span>' : '',
+        t.is_billable ? '' : '<span class="badge badge-muted">nierozl.</span>'
+      ].filter(Boolean).join(' ');
+      return `
+      <div class="session-row" data-id="${t.id}" role="button" tabindex="0">
+        <div class="session-main">
+          <div class="session-title">${escHtml(title)}</div>
+          <div class="session-sub">${sub}${flags ? ' · ' + flags : ''}</div>
         </div>
-        <div class="list-card-body">
-          <div>${escHtml(t.description || '—')}</div>
-          <div class="text-muted">${escHtml(t.project_name || 'bez projektu')} · ${fmtDateNL(t.date)}</div>
-        </div>
-        <div class="list-card-amount">${fmtDuration(t.duration_minutes)}</div>
-      </div>`).join('');
+        <div class="session-dur">${fmtDuration(t.duration_minutes)}</div>
+        <span class="session-chevron">${icon('chevronRight', { size: 18 })}</span>
+      </div>`;
+    }).join('');
 
-    wrap.querySelectorAll('.list-card[data-id]').forEach(card => {
+    wrap.querySelectorAll('.session-row[data-id]').forEach(card => {
       card.addEventListener('click', () => _renderEditForm(card.dataset.id));
     });
   } catch (err) {
