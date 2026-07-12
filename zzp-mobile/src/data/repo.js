@@ -80,6 +80,20 @@ export async function pushTimeEntry(payload) {
   return data;
 }
 
+export async function pushUpdateTimeEntry(cloudId, patch) {
+  const { data, error } = await supabase.from('time_entries')
+    .update(patch).eq('id', cloudId).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('time_entries', data);
+  return data;
+}
+
+export async function pushDeleteTimeEntry(cloudId) {
+  const { error } = await supabase.from('time_entries').delete().eq('id', cloudId);
+  if (error) throw new Error(error.message);
+  await idb.del('time_entries', cloudId);
+}
+
 export async function pushProject(payload) {
   const { data, error } = await supabase.from('projects').insert(payload).select().single();
   if (error) throw new Error(error.message);
@@ -138,6 +152,36 @@ export async function createTimeEntry(payload) {
   }
   const entry = await outbox.enqueue({ table: 'time_entries', type: 'insert-time-entry', payload: row });
   return { synced: false, row: outbox.toDisplayRow(entry) };
+}
+
+export async function updateTimeEntry(id, patch) {
+  // Rekord utworzony offline i jeszcze niewysłany → popraw payload w outboxie
+  // (nie tworzymy osobnej operacji update, bo insert jeszcze nie poszedł do chmury).
+  const pending = await idb.get('outbox', id);
+  if (pending && pending.type === 'insert-time-entry') {
+    pending.payload = { ...pending.payload, ...patch };
+    await idb.put('outbox', pending);
+    return { synced: false, row: outbox.toDisplayRow(pending) };
+  }
+  if (isOnline()) {
+    const data = await pushUpdateTimeEntry(id, patch);
+    return { synced: true, row: data };
+  }
+  await outbox.enqueue({ table: 'time_entries', type: 'update-time-entry', payload: { id, ...patch } });
+  // Optymistycznie zaktualizuj cache, by zmiana była widoczna od razu.
+  const cached = await idb.get('time_entries', id);
+  if (cached) await idb.put('time_entries', { ...cached, ...patch });
+  return { synced: false };
+}
+
+export async function deleteTimeEntry(id) {
+  // Rekord utworzony offline i jeszcze niewysłany → usuń tylko wpis z outboxa.
+  const pending = await idb.get('outbox', id);
+  if (pending) { await outbox.remove(id); await idb.del('time_entries', id); return { synced: false, removedPending: true }; }
+  if (isOnline()) { await pushDeleteTimeEntry(id); return { synced: true }; }
+  await outbox.enqueue({ table: 'time_entries', type: 'delete-time-entry', payload: { id } });
+  await idb.del('time_entries', id); // optymistycznie znika z widoku
+  return { synced: false };
 }
 
 export async function createProject(payload) {
@@ -369,7 +413,8 @@ export async function listTimeEntries(limit = 100) {
     server = (await idb.getAll('time_entries'))
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   }
-  const pending = (await outbox.forTable('time_entries')).map(outbox.toDisplayRow);
+  const pending = (await outbox.forTable('time_entries'))
+    .filter(e => e.type === 'insert-time-entry').map(outbox.toDisplayRow);
   const rows = [...pending, ...server];
   // dopnij nazwę projektu z cache
   const projById = {};

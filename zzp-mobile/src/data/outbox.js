@@ -3,8 +3,10 @@
 //   { localId, table, type, payload, items?, receiptBlob?, createdAt, error? }
 // gdzie:
 //   table   — której listy dotyczy (do nakładki „oczekujące": 'expenses' | 'invoices' | 'time_entries' | 'mileage_entries')
-//   type    — 'insert-*' (expense/invoice/time-entry/mileage/project/client) lub 'delete-expense' | 'delete-invoice'
-//             (delete-* niosą tylko payload.id rekordu w chmurze; nie są renderowane na listach)
+//   type    — 'insert-*' (expense/invoice/time-entry/mileage/project/client),
+//             'update-time-entry' (payload: { id, ...zmienione pola }) lub
+//             'delete-expense' | 'delete-invoice' | 'delete-time-entry'
+//             (delete-*/update-* niosą payload.id rekordu w chmurze; nie są renderowane na listach)
 //   payload — pola rekordu (bez serwerowego id)
 //   items   — pozycje faktury (tylko dla 'insert-invoice')
 //   receiptBlob — skompresowane zdjęcie paragonu (tylko dla 'insert-expense', opcjonalnie)

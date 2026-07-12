@@ -1,6 +1,7 @@
 import { navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
 import * as repo from '../data/repo.js';
+import { icon } from '../lib/icons.js';
 
 // Wybrany rok utrzymywany między odświeżeniami (null = jeszcze nieustalony).
 let _year = null;
@@ -18,7 +19,9 @@ export async function load() {
   const el = document.getElementById('page-content');
   el.innerHTML = `
     <div class="page">
-      <h1 class="page-title">💸 Koszty</h1>
+      <div class="page-head">
+        <h1 class="page-title">Koszty</h1>
+      </div>
       <div class="list-filter-bar">
         <label for="exp-year">Rok</label>
         <select id="exp-year"></select>
@@ -26,7 +29,10 @@ export async function load() {
       <div id="exp-summary" class="summary-box hidden"></div>
       <div id="exp-list-wrap"><p class="text-muted">Ładowanie…</p></div>
     </div>
+    <button class="fab" id="exp-fab" aria-label="Dodaj koszt">${icon('plus', { size: 26 })}</button>
   `;
+
+  document.getElementById('exp-fab').addEventListener('click', () => navigate('add-expense'));
 
   const wrap = document.getElementById('exp-list-wrap');
   const yearSel = document.getElementById('exp-year');
@@ -58,8 +64,8 @@ export async function load() {
       const total = rows.reduce((s, e) => s + Number(e.amount_eur ?? e.amount ?? 0), 0);
       summary.classList.remove('hidden');
       summary.innerHTML = `
-        <div><span class="text-muted">Liczba</span><strong>${rows.length}</strong></div>
-        <div><span class="text-muted">Razem</span><strong>${fmtEur(total)}</strong></div>`;
+        <div><span>Liczba</span><strong>${rows.length}</strong></div>
+        <div><span>Razem</span><strong>${fmtEur(total)}</strong></div>`;
     } else {
       summary.classList.add('hidden');
     }
@@ -71,24 +77,24 @@ export async function load() {
 
     wrap.innerHTML = rows.map(exp => {
       const hasPhoto = exp._pending ? exp._hasReceiptBlob : exp.receipt_storage_path;
+      const flags = [
+        exp._pending ? '<span class="pill pill-yellow"><span class="pill-dot"></span>oczekuje</span>' : '',
+        hasPhoto ? '<span class="pill pill-blue"><span class="pill-dot"></span>paragon</span>' : ''
+      ].filter(Boolean).join(' ');
       return `
-      <div class="list-card" data-id="${exp.id}" role="button" tabindex="0">
-        <div class="list-card-header">
-          <span class="badge badge-info">${escHtml(exp.category)}</span>
-          <span>
-            ${exp._pending ? '<span class="badge badge-pending">⏳ oczekuje</span>' : ''}
-            ${hasPhoto ? '<span title="Ma zdjęcie paragonu">📷</span>' : ''}
-          </span>
-        </div>
-        <div class="list-card-body">
-          <div>${escHtml(exp.description)}</div>
-          <div class="text-muted">${escHtml(exp.vendor || '')} ${exp.vendor ? '·' : ''} ${fmtDateNL(exp.date)}</div>
-        </div>
-        <div class="list-card-amount">${fmtEur(exp.amount_eur ?? exp.amount)}</div>
-      </div>`;
+        <div class="row-card" data-id="${exp.id}" role="button" tabindex="0">
+          <div class="row-chip">${icon('wallet', { size: 20 })}</div>
+          <div class="row-main">
+            <div class="row-main-title">${escHtml(exp.description || exp.category)}</div>
+            <div class="row-main-sub">${escHtml(exp.vendor || exp.category)} · ${fmtDateNL(exp.date)}${flags ? ' · ' + flags : ''}</div>
+          </div>
+          <div class="row-end">
+            <div class="row-amount">${fmtEur(exp.amount_eur ?? exp.amount)}</div>
+          </div>
+        </div>`;
     }).join('');
 
-    wrap.querySelectorAll('.list-card[data-id]').forEach(card => {
+    wrap.querySelectorAll('.row-card[data-id]').forEach(card => {
       card.addEventListener('click', () => navigate(`expense-detail/${card.dataset.id}`));
     });
   }

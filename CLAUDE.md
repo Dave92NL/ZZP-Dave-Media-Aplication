@@ -165,6 +165,77 @@ Push kosztów kończył się błędem `mime type text/plain;charset=UTF-8 is not
 ### Wybór roku na listach mobilnych (ZROBIONE)
 Listy faktur i kosztów na telefonie dostały **filtr roku** (jak na desktopie): `expenseList.js`/`invoiceList.js` budują listę lat z danych (`date` / `issue_date`), select „Rok" + opcja „Wszystkie lata", domyślnie bieżący rok (albo najnowszy z danymi), podsumowanie (liczba + suma, faktury też „opłacone"). Wybór roku trzymany w zmiennej modułu — przeżywa auto-odświeżanie. Styl `.list-filter-bar` w `main.css`.
 
+### Edycja wpisów czasu pracy w mobile (ZROBIONE)
+Wpisy na liście „Ostatnie wpisy" (strona Czas pracy) są teraz **klikalne** → otwierają inline formularz edycji (kategoria, projekt, data, godziny, opis + widget tłumaczenia, rozliczalne) z przyciskami **Zapisz zmiany / Anuluj / Usuń wpis**.
+- **Warstwa danych (`repo.js`):** `pushUpdateTimeEntry(cloudId, patch)` (update w Supabase + cache), `pushDeleteTimeEntry(cloudId)`, oraz `updateTimeEntry(id, patch)` / `deleteTimeEntry(id)` decydujące online vs offline (jak `deleteExpense/Invoice`). Rekord jeszcze niewysłany (pending `insert-time-entry` w outboxie) → edycja **modyfikuje payload w outboxie**, usunięcie → tylko kasuje wpis z outboxa (bez osobnej operacji).
+- **Outbox/sync:** nowe typy `update-time-entry` (payload `{ id, ...zmienione pola }`) i `delete-time-entry`; obsłużone w `sync.js flushOutbox` (z remapem FK `project_id`/`id`).
+- **Ważne:** `listTimeEntries` filtruje teraz nakładkę „oczekujące" do `insert-time-entry` (inaczej operacje update/delete renderowałyby się jako fałszywe wiersze).
+- **UI (`timeTracking.js`):** stan modułu `_entries/_projects/_editingId`; `_renderEditForm/_saveEdit/_deleteEntry`. Godziny liczone z `duration_minutes`; zapis ustawia `duration_minutes = round(h*60)`. Edycja przeżywa auto-odświeżanie po syncu (`_editingId` w scope modułu). Styl `.edit-form-title` w `main.css`. Tylko mobile UI (Polski), brak i18n do dopisania.
+
+### Redesign UI aplikacji mobilnej (ZROBIONE — etap 1: wygląd)
+Pełne przeprojektowanie wyglądu `zzp-mobile` wg dostarczonego mockupu (ciemny „premium" UI:
+karty statystyk z ikonami, wykresy, pierścień timera, segmentowane zakładki, FAB, pełnoekranowe menu).
+- **System projektowy (`src/styles/main.css`):** rozbudowane tokeny w `:root` — głębsze tło
+  (`--bg-primary #0A0E14`), `--bg-elevated`, skale `--sp-*`, promienie `--radius-lg/pill`, cienie
+  `--shadow-card/pop`, akcent `--accent-purple`. Nowe komponenty: `.greeting`, `.hero-card`,
+  `.stat-card`+`.stat-chip`, `.panel`, `.chart-legend`, `.quick-actions`+`.qa-*`, `.seg-tabs`,
+  `.fab`, `.row-card`+`.row-chip`, `.pill`+`.pill-dot`, `.sheet-*`/`.menu-group`, `.timer-card`/
+  `.timer-ring-wrap`/`.ring-*`, `.session-row`, `.coming-soon`, `.summary-box`. Font systemowy (bez
+  zewnętrznych zależności).
+- **Nowe moduły współdzielone:**
+  - `src/lib/icons.js` — zestaw ikon liniowych **inline SVG** (feather-style) + `icon(name,{size})`.
+    Używane w nawigacji, menu, chipach kart, szybkich akcjach, nagłówkach, przyciskach wstecz.
+  - `src/lib/charts.js` — wykresy **inline SVG** (bez bibliotek): `areaSparkline` (hero „Przychód
+    netto"), `groupedBars` (przychód vs koszty), `progressRing` (timer). **PUŁAPKA:** `var(--…)`
+    NIE działa w atrybutach prezentacji SVG (`stroke=`/`fill=`) — kolory podajemy przez inline
+    `style="stroke:…"`. Skalowanie przez `viewBox`+`preserveAspectRatio`.
+  - `src/lib/aggregate.js` — grupowanie miesięczne (`lastNMonths`, `revenueByMonth`, `costsByMonth`),
+    `pctChange`, `formatDelta`. **Przychód liczony z faktur opłaconych po `paid_date`** (parytet
+    z desktopem; fallback `issue_date`).
+- **Nawigacja (`src/components/nav.js`):** 5 zakładek z ikonami SVG — **Pulpit / Faktury / Czas /
+  Finanse / Menu**. „Koszty" zeszły z dolnego paska → dostęp z „Szybkich akcji" i z Menu
+  (`MORE_PAGES` obejmuje `expenses`).
+- **Ekrany:** `dashboard.js` (powitanie „Witaj, {imię}" z e-maila, hero + sparkline + delta,
+  2×2 karty, słupki z zakresem 6/12 mies., szybkie akcje), `timeTracking.js` (pierścień timera +
+  sesje — **logika edycji/usuwania wpisów zachowana**), `invoiceList.js` (zakładki statusów +
+  wyszukiwarka + `row-card` + FAB), `expenseList.js` (`row-card` + FAB), `more.js` (pełnoekranowe
+  menu-sheet z profilem i grupami), `login.js` (`login-card`, ląduje na `dashboard`). Detale:
+  przyciski „← Wróć" z ikoną. Blok `.invoice-doc*` (jasny podgląd faktury) bez zmian.
+- **Stub `src/pages/finance.js`** + trasa `finance` w `main.js` — placeholder „Wkrótce".
+- **Weryfikacja:** `npm run build` OK; zrzuty 4 ekranów w Chromium (Playwright) — zgodność z mockupem.
+- **UI mobilne tylko po polsku** (brak i18n DOM-map jak w desktopie) — bez tłumaczeń do dopisania.
+
+#### Finanse — pełny ekran (ZROBIONE, etap 2)
+`src/pages/finance.js` zamiast placeholdera: wybór roku (chip-select), karty 2×2
+(Przychód opłacony / Koszty / Zysk / VAT rok), wykres słupkowy przychód vs koszty (12 mies.,
+`groupedBars`), **VAT kwartalnie** (należny wg `issue_date` − odliczalny wg daty kosztu = do
+zapłaty per kwartał + suma roczna) oraz **struktura przychodu** (zwykły vs reverse-charge, ważne
+dla AdSense/Google Ireland). Przychód liczony z faktur opłaconych (`incomeDate` = paid_date/issue_date).
+Style `.fin-vat-*`/`.fin-bar*`/`.fin-legend2` w `main.css`. Reużywa `charts.js`, `aggregate.sumBy`, `icons.js`.
+
+#### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
+Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Raporty**, **Eksport danych**,
+**Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy), **Kopia zapasowa**.
+
+### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
+Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ
+(sidebar + szeroka treść) i emoji-ikony. Zmiana wyłącznie w CSS (motyw jest w pełni tokenowy):
+- **`styles/main.css` `:root`/`[data-theme="dark"]`:** paleta jak w mobile (tło `#0A0E14`,
+  `--bg-secondary #141A22`, `--bg-card #161D26`, `--border #262F3B`, akcenty orange `#F97A5C` /
+  blue `#4C8DFF` / green `#34C77E` / red `#F0564B` / purple `#8B7CF6`, tekst `#EEF3F9`). Dodane
+  `--bg-hover`, `--border-soft`, `--radius-lg 18px`, `--radius-pill`, miękkie cienie. Motyw jasny
+  też zaktualizowany (spójne akcenty).
+- **`styles/dark.css`:** twarde heksy GitHub-dark zamienione na `var(--…)` z nowej palety
+  (sidebar, inputy, modal, nav active, pin, timer-bar, tabele).
+- **Komponenty (`main.css`):** dodana bazowa reguła `.card` (wcześniej brak — tylko cień!),
+  `.kpi-card`/`.chart-card`/`.table-container` → `--radius-lg` + `--shadow`, `.badge` → pill
+  (`--radius-pill`, waga 700), `.btn`/inputy/`.search-input` → `--radius` (12px), primary z poświatą,
+  `.nav-item` większy promień + waga 600 aktywnej. Reszta stron dziedziczy przez tokeny.
+- **Uwaga:** desktop **nie ma auto-deployu** (to aplikacja Electron uruchamiana lokalnie `npm start`);
+  weryfikacja przez zrzut z Chromium (render powłoki + dashboardu z realnym CSS). Właściciel widzi
+  efekt po `git pull` + `npm start`. Font Inter/JetBrains Mono z Google Fonts (w zrzucie fallback
+  systemowy — bez wpływu na paletę/układ).
+
 ### Poprawka YouTube Analytics API (ZROBIONE)
 Synchronizacja YT rzucała `Unknown identifier (rpm) given in field parameters.metrics`.
 - **Przyczyna:** `youtube-api.js` prosił API o metryki, które w YouTube Analytics API **nie istnieją**: `rpm` i `impressionClickThroughRate` (to pojęcia z YouTube Studio, nie z API).
