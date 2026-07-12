@@ -12,18 +12,20 @@ export async function load() {
         <h1>ZZP Manager</h1>
         <p class="login-subtitle">Zaloguj się, aby dodawać koszty i faktury</p>
 
-        <div class="form-group">
-          <label>E-mail</label>
-          <input type="email" id="login-email" autocomplete="username" placeholder="ty@example.com">
-        </div>
-        <div class="form-group">
-          <label>Hasło</label>
-          <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••">
-        </div>
+        <div class="login-card">
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="login-email" autocomplete="username" placeholder="ty@example.com">
+          </div>
+          <div class="form-group">
+            <label>Hasło</label>
+            <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••">
+          </div>
 
-        <div id="login-error" class="error-msg hidden"></div>
+          <div id="login-error" class="error-msg hidden"></div>
 
-        <button class="btn btn-primary btn-block" id="login-submit-btn">Zaloguj się</button>
+          <button class="btn btn-primary btn-block" id="login-submit-btn">Zaloguj się</button>
+        </div>
       </div>
     </div>
   `;
@@ -46,7 +48,7 @@ export async function load() {
     btn.textContent = 'Logowanie…';
     try {
       await signIn(email, password);
-      navigate('expenses');
+      navigate('dashboard');
     } catch (err) {
       errorEl.textContent = 'Błąd logowania: ' + err.message;
       errorEl.classList.remove('hidden');
