@@ -6,45 +6,52 @@
 /* ── CSS Variables — Dark (default) ─────────────────────── */
 :root,
 [data-theme="dark"] {
-  --bg-primary:     #0D1117;
-  --bg-secondary:   #161B22;
-  --bg-tertiary:    #21262D;
-  --bg-card:        #1C2128;
-  --border:         #30363D;
-  --accent-orange:  #F78166;
-  --accent-blue:    #58A6FF;
-  --accent-green:   #3FB950;
-  --accent-yellow:  #D29922;
-  --accent-red:     #F85149;
-  --accent-purple:  #BC8CFF;
-  --text-primary:   #E6EDF3;
-  --text-secondary: #8B949E;
-  --text-muted:     #484F58;
-  --shadow:         0 4px 24px rgba(0,0,0,0.4);
-  --shadow-lg:      0 8px 40px rgba(0,0,0,0.6);
-  --radius:         10px;
-  --radius-sm:      6px;
-  --sidebar-w:      220px;
+  /* Paleta wyrównana do aplikacji mobilnej (ciemny „premium" motyw) */
+  --bg-primary:     #0A0E14;
+  --bg-secondary:   #141A22;
+  --bg-tertiary:    #1C242E;
+  --bg-card:        #161D26;
+  --bg-hover:       #232D3A;
+  --border:         #262F3B;
+  --border-soft:    #1B222C;
+  --accent-orange:  #F97A5C;
+  --accent-blue:    #4C8DFF;
+  --accent-green:   #34C77E;
+  --accent-yellow:  #E0A93B;
+  --accent-red:     #F0564B;
+  --accent-purple:  #8B7CF6;
+  --text-primary:   #EEF3F9;
+  --text-secondary: #AEB8C4;
+  --text-muted:     #737D8A;
+  --shadow:         0 2px 10px rgba(0,0,0,0.28);
+  --shadow-lg:      0 10px 30px rgba(0,0,0,0.5);
+  --radius:         12px;
+  --radius-sm:      8px;
+  --radius-lg:      18px;
+  --radius-pill:    999px;
+  --sidebar-w:      230px;
   --sidebar-w-collapsed: 64px;
 }
 
 [data-theme="light"] {
   --bg-primary:     #F6F8FA;
   --bg-secondary:   #FFFFFF;
-  --bg-tertiary:    #EFF2F5;
+  --bg-tertiary:    #EEF2F6;
   --bg-card:        #FFFFFF;
-  --border:         #D0D7DE;
-  --accent-orange:  #CF4F20;
-  --accent-blue:    #0969DA;
-  --accent-green:   #1A7F37;
-  --accent-yellow:  #9A6700;
-  --accent-red:     #CF222E;
-  --accent-purple:  #8250DF;
+  --bg-hover:       #EDF1F6;
+  --border:         #D8DEE6;
+  --border-soft:    #E6EBF1;
+  --accent-orange:  #E8623F;
+  --accent-blue:    #2563EB;
+  --accent-green:   #1E9E5A;
+  --accent-yellow:  #B07A0E;
+  --accent-red:     #E23D32;
+  --accent-purple:  #7C5CF0;
   --text-primary:   #1F2328;
-  --text-secondary: #656D76;
-  --text-muted:     #9198A1;
+  --text-secondary: #5B6572;
+  --text-muted:     #8A94A1;
   --shadow:         0 2px 12px rgba(0,0,0,0.08);
-  --shadow-lg:      0 4px 24px rgba(0,0,0,0.14);
+  --shadow-lg:      0 10px 30px rgba(0,0,0,0.14);
 }
 
 /* ── Reset & Base ────────────────────────────────────────── */
@@ -230,8 +237,8 @@ select,
 textarea {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 8px 11px;
+  border-radius: var(--radius);
+  padding: 9px 12px;
   color: var(--text-primary);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -277,10 +284,10 @@ select option { background: var(--bg-secondary); }
 /* ── Buttons ─────────────────────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  border-radius: var(--radius);
   border: 1px solid transparent;
-  font-size: 13px; font-weight: 500;
+  font-size: 13px; font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
   white-space: nowrap;
@@ -292,6 +299,7 @@ select option { background: var(--bg-secondary); }
   background: var(--accent-orange);
   color: white;
   border-color: var(--accent-orange);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-orange) 32%, transparent);
 }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent-orange) 85%, white); box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-orange) 40%, transparent); }
 
@@ -381,19 +389,19 @@ select option { background: var(--bg-secondary); }
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px;
-  border-radius: 6px;
-  margin: 1px 6px;
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  margin: 2px 8px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   white-space: nowrap;
-  border: none; background: none; width: calc(100% - 12px);
+  border: none; background: none; width: calc(100% - 16px);
   text-align: left;
   text-decoration: none;
 }
-.nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); text-decoration: none; }
-.nav-item.active { background: color-mix(in srgb, var(--accent-orange) 15%, transparent); color: var(--accent-orange); font-weight: 500; }
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); text-decoration: none; }
+.nav-item.active { background: color-mix(in srgb, var(--accent-orange) 16%, transparent); color: var(--accent-orange); font-weight: 600; }
 
 .nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
 .nav-label { font-size: 13px; overflow: hidden; transition: opacity 0.2s, width 0.25s; }
@@ -455,6 +463,15 @@ select option { background: var(--bg-secondary); }
 
 .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ── Karta (wspólna powierzchnia — styl mobilny) ─────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
 /* ── KPI Cards ───────────────────────────────────────────── */
 .kpi-grid {
   display: grid;
@@ -466,12 +483,13 @@ select option { background: var(--bg-secondary); }
 .kpi-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 18px 20px;
+  box-shadow: var(--shadow);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: default;
 }
-.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
 .kpi-label {
   font-size: 11px; font-weight: 500;
@@ -526,8 +544,9 @@ select option { background: var(--bg-secondary); }
 .chart-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 18px 20px;
+  box-shadow: var(--shadow);
 }
 .chart-card-title {
   font-size: 13px; font-weight: 600;
@@ -566,8 +585,9 @@ select option { background: var(--bg-secondary); }
 .table-container {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .table-toolbar {
@@ -580,8 +600,8 @@ select option { background: var(--bg-secondary); }
 .search-input {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 11px;
+  border-radius: var(--radius);
+  padding: 7px 12px;
   color: var(--text-primary);
   outline: none;
   width: 220px;
@@ -629,9 +649,9 @@ td {
 /* ── Status Badges ───────────────────────────────────────── */
 .badge {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11px; font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .badge-draft    { background: color-mix(in srgb, var(--text-muted) 20%, transparent); color: var(--text-secondary); }
@@ -662,7 +682,7 @@ td {
 .modal {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   width: 580px;
   max-width: 95vw;
   max-height: 90vh;

@@ -217,6 +217,25 @@ Style `.fin-vat-*`/`.fin-bar*`/`.fin-legend2` w `main.css`. Reużywa `charts.js`
 Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Raporty**, **Eksport danych**,
 **Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy), **Kopia zapasowa**.
 
+### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
+Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ
+(sidebar + szeroka treść) i emoji-ikony. Zmiana wyłącznie w CSS (motyw jest w pełni tokenowy):
+- **`styles/main.css` `:root`/`[data-theme="dark"]`:** paleta jak w mobile (tło `#0A0E14`,
+  `--bg-secondary #141A22`, `--bg-card #161D26`, `--border #262F3B`, akcenty orange `#F97A5C` /
+  blue `#4C8DFF` / green `#34C77E` / red `#F0564B` / purple `#8B7CF6`, tekst `#EEF3F9`). Dodane
+  `--bg-hover`, `--border-soft`, `--radius-lg 18px`, `--radius-pill`, miękkie cienie. Motyw jasny
+  też zaktualizowany (spójne akcenty).
+- **`styles/dark.css`:** twarde heksy GitHub-dark zamienione na `var(--…)` z nowej palety
+  (sidebar, inputy, modal, nav active, pin, timer-bar, tabele).
+- **Komponenty (`main.css`):** dodana bazowa reguła `.card` (wcześniej brak — tylko cień!),
+  `.kpi-card`/`.chart-card`/`.table-container` → `--radius-lg` + `--shadow`, `.badge` → pill
+  (`--radius-pill`, waga 700), `.btn`/inputy/`.search-input` → `--radius` (12px), primary z poświatą,
+  `.nav-item` większy promień + waga 600 aktywnej. Reszta stron dziedziczy przez tokeny.
+- **Uwaga:** desktop **nie ma auto-deployu** (to aplikacja Electron uruchamiana lokalnie `npm start`);
+  weryfikacja przez zrzut z Chromium (render powłoki + dashboardu z realnym CSS). Właściciel widzi
+  efekt po `git pull` + `npm start`. Font Inter/JetBrains Mono z Google Fonts (w zrzucie fallback
+  systemowy — bez wpływu na paletę/układ).
+
 ### Poprawka YouTube Analytics API (ZROBIONE)
 Synchronizacja YT rzucała `Unknown identifier (rpm) given in field parameters.metrics`.
 - **Przyczyna:** `youtube-api.js` prosił API o metryki, które w YouTube Analytics API **nie istnieją**: `rpm` i `impressionClickThroughRate` (to pojęcia z YouTube Studio, nie z API).
