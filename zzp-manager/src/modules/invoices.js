@@ -643,7 +643,7 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     if (idx % 2 === 1) doc.rect(M, iy, W, ROW_H).fillColor('#F9F9F9').fill();
     doc.font('INV').fontSize(9).fillColor(DARK);
     doc.text(item.description || '',            M + 5, iy + 5, { width: CD - 5, lineBreak: false });
-    doc.text(Number(item.quantity).toFixed(2) + ' ' + (item.unit || 'Stk'),
+    doc.text(String(Math.round(Number(item.quantity) || 1)),
                                                 CQx,   iy + 5, { width: CQ,     align: 'right', lineBreak: false });
     doc.text(cur + ' ' + fmtAmt(item.unit_price), CPx, iy + 5, { width: CP,     align: 'right', lineBreak: false });
     doc.text(cur + ' ' + fmtAmt(item.total),    CTx,   iy + 5, { width: CT - 5, align: 'right', lineBreak: false });

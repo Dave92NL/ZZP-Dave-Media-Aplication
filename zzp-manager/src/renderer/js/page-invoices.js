@@ -377,7 +377,7 @@ const PageInvoices = (() => {
     const sum = (Number(item.quantity) || 1) * (Number(item.unit_price) || 0);
     return `<div class="inv-item" data-row="${i}" data-unit="${UI.esc(item.unit || 'usługa')}">
       <div class="inv-item-nums">
-        <div class="inv-fg"><label>Ilość</label><input type="number" class="item-qty" value="${item.quantity || 1}" min="0.01" step="0.01" oninput="PageInvoices.recalc()"></div>
+        <div class="inv-fg"><label>Ilość</label><input type="number" class="item-qty" value="${Math.round(Number(item.quantity) || 1)}" min="1" step="1" oninput="PageInvoices.recalc()"></div>
         <div class="inv-fg"><label>Cena netto</label><input type="number" class="item-price" value="${item.unit_price || 0}" min="0" step="0.01" oninput="PageInvoices.recalc()"></div>
         <div class="inv-fg"><label>BTW%</label><input type="number" class="item-btw" value="${item.btw_rate || 0}" min="0" max="100" oninput="PageInvoices.recalc()"></div>
         <div class="inv-fg inv-fg-sum"><label>Suma</label><div class="item-total mono">${fmtAmount(sum, 'EUR')}</div></div>

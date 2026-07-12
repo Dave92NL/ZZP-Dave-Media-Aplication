@@ -129,7 +129,7 @@ function _addItemRow() {
       <input type="text" class="item-desc" placeholder="Opis pozycji" style="flex:1;min-width:0">
       ${translateWidgetHTML()}
     </span>
-    <input type="number" class="item-qty" value="1" min="0" step="0.01" style="width:60px" placeholder="Ilość">
+    <input type="number" class="item-qty" value="1" min="1" step="1" style="width:60px" placeholder="Ilość">
     <input type="text" class="item-unit" value="szt" style="width:50px">
     <input type="number" class="item-price" value="0" min="0" step="0.01" style="width:80px" placeholder="Cena">
     <button type="button" class="btn btn-icon btn-sm btn-danger item-remove-btn">✕</button>

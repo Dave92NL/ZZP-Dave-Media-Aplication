@@ -7,6 +7,7 @@ import { translate } from './translate.js';
 export function translateWidgetHTML(targetId) {
   const attr = targetId ? ` data-tr-for="${targetId}"` : '';
   return `<span class="tr-widget"${attr}>` +
+    `<button type="button" class="tr-lang" data-lang="pl" title="Przetłumacz na polski">🌐 PL</button>` +
     `<button type="button" class="tr-lang" data-lang="nl" title="Przetłumacz na niderlandzki">🌐 NL</button>` +
     `<button type="button" class="tr-lang" data-lang="en" title="Przetłumacz na angielski">🌐 EN</button>` +
     `</span>`;

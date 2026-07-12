@@ -8,6 +8,7 @@ const settings = require('./settings');
 
 // Kody języków docelowych akceptowane przez UI → (DeepL, MyMemory)
 const LANGS = {
+  pl: { deepl: 'PL', mymemory: 'pl' },
   nl: { deepl: 'NL', mymemory: 'nl' },
   en: { deepl: 'EN-GB', mymemory: 'en' }
 };
@@ -28,8 +29,9 @@ function _request(options, bodyStr) {
 async function _deepl(text, targetDeepl, apiKey) {
   // Klucz darmowy kończy się na ":fx" → host api-free; inaczej api (pro).
   const host = apiKey.trim().endsWith(':fx') ? 'api-free.deepl.com' : 'api.deepl.com';
+  // Pomijamy source_lang → DeepL sam wykrywa język źródłowy (PL/NL/EN → dowolny cel).
   const form = new URLSearchParams({
-    text, target_lang: targetDeepl, source_lang: 'PL'
+    text, target_lang: targetDeepl
   }).toString();
   const { status, body } = await _request({
     hostname: host, path: '/v2/translate', method: 'POST',
@@ -47,8 +49,11 @@ async function _deepl(text, targetDeepl, apiKey) {
 }
 
 async function _myMemory(text, targetMM) {
+  // MyMemory wymaga pary źródło|cel. Przy celu PL zakładamy niderlandzki (język
+  // klienta); przy celu NL/EN zakładamy polski (język, w którym piszesz opisy).
+  const source = targetMM === 'pl' ? 'nl' : 'pl';
   const q = encodeURIComponent(text);
-  const path = `/get?q=${q}&langpair=pl|${targetMM}`;
+  const path = `/get?q=${q}&langpair=${source}|${targetMM}`;
   const { status, body } = await _request({
     hostname: 'api.mymemory.translated.net', path, method: 'GET'
   });
