@@ -486,6 +486,23 @@ input:focus, select:focus, textarea:focus {
 }
 .chip-select .icon { width: 14px; height: 14px; }
 
+/* ── Finanse (VAT kwartalny + struktura) ────────────── */
+.fin-vat-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border-soft);
+}
+.fin-vat-row:last-child { border-bottom: none; }
+.fin-vat-q { font-weight: 700; font-size: 14px; }
+.fin-vat-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.fin-vat-due { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-vat-total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px; }
+.fin-bar {
+  height: 12px; border-radius: var(--radius-pill); overflow: hidden;
+  background: var(--accent-purple); display: flex; margin-bottom: 12px;
+}
+.fin-bar-fill { height: 100%; background: var(--accent-green); }
+.fin-legend2 { display: flex; flex-direction: column; gap: 6px; }
+
 /* Chart legend */
 .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
