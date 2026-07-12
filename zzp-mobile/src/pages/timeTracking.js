@@ -9,6 +9,9 @@ const CATEGORIES = [
 ];
 
 let _tickInterval = null;
+let _entries = [];      // ostatnio wczytane wpisy (do formularza edycji)
+let _projects = [];     // cache projektów (do selecta w edycji)
+let _editingId = null;  // id aktualnie edytowanego wpisu (null = lista)
 
 function fmtDuration(minutes) {
   const h = Math.floor(minutes / 60);
@@ -26,6 +29,17 @@ function fmtElapsed(ms) {
 
 function catOptions(selected) {
   return CATEGORIES.map(c => `<option value="${escHtml(c)}"${c === selected ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+}
+
+function projectOptions(selectedId) {
+  return '<option value="">— brak —</option>' +
+    _projects.map(p => `<option value="${p.id}"${String(p.id) === String(selectedId) ? ' selected' : ''}>${escHtml(p.name)}</option>`).join('');
+}
+
+// Godziny (liczba dziesiętna) z minut, ładnie skrócone (np. 2.5, 1.25, 3).
+function hoursFromMinutes(minutes) {
+  const h = (Number(minutes) || 0) / 60;
+  return String(Math.round(h * 100) / 100);
 }
 
 export async function load() {
@@ -67,6 +81,7 @@ export async function load() {
 
 async function _loadProjectOptions() {
   const projects = await repo.listProjects();
+  _projects = projects;
   const opts = '<option value="">— brak —</option>' +
     projects.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
   const tm = document.getElementById('tm-project');
@@ -173,11 +188,12 @@ async function _saveManual() {
 async function _renderList() {
   const wrap = document.getElementById('tm-list-wrap');
   try {
-    const entries = await repo.listTimeEntries(100);
-    if (!entries.length) { wrap.innerHTML = '<p class="text-muted">Brak wpisów.</p>'; return; }
+    _entries = await repo.listTimeEntries(100);
+    if (_editingId) { _renderEditForm(_editingId); return; }
+    if (!_entries.length) { wrap.innerHTML = '<p class="text-muted">Brak wpisów.</p>'; return; }
 
-    wrap.innerHTML = entries.map(t => `
-      <div class="list-card">
+    wrap.innerHTML = _entries.map(t => `
+      <div class="list-card" data-id="${t.id}" role="button" tabindex="0">
         <div class="list-card-header">
           <span class="badge badge-info">${escHtml(t.category)}</span>
           <span>
@@ -191,7 +207,84 @@ async function _renderList() {
         </div>
         <div class="list-card-amount">${fmtDuration(t.duration_minutes)}</div>
       </div>`).join('');
+
+    wrap.querySelectorAll('.list-card[data-id]').forEach(card => {
+      card.addEventListener('click', () => _renderEditForm(card.dataset.id));
+    });
   } catch (err) {
     wrap.innerHTML = `<p class="error-msg">Błąd wczytywania wpisów: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function _renderEditForm(id) {
+  const entry = _entries.find(t => String(t.id) === String(id));
+  const wrap = document.getElementById('tm-list-wrap');
+  if (!entry) { _editingId = null; _renderList(); return; }
+  _editingId = id;
+
+  wrap.innerHTML = `
+    <div class="card-form">
+      <div class="edit-form-title">✏️ Edytuj wpis${entry._pending ? ' <span class="badge badge-pending">⏳ oczekuje</span>' : ''}</div>
+      <div class="form-group"><label>Kategoria</label><select id="te-category">${catOptions(entry.category)}</select></div>
+      <div class="form-group"><label>Projekt</label><select id="te-project">${projectOptions(entry.project_id)}</select></div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Data</label><input type="date" id="te-date" value="${escHtml(entry.date || todayStr())}"></div>
+        <div class="form-group"><label>Godziny</label><input type="number" id="te-hours" step="0.25" min="0" inputmode="decimal" value="${hoursFromMinutes(entry.duration_minutes)}"></div>
+      </div>
+      <div class="form-group"><label>Opis</label><div class="tr-field" style="display:flex;align-items:center;gap:6px"><input type="text" id="te-desc" placeholder="Co robiłeś?" style="flex:1" value="${escHtml(entry.description || '')}">${translateWidgetHTML('te-desc')}</div></div>
+      <label class="check-row"><input type="checkbox" id="te-billable"${entry.is_billable !== false ? ' checked' : ''}> Rozliczalne (do faktury)</label>
+      <div id="te-error" class="error-msg hidden"></div>
+      <button class="btn btn-primary btn-block" id="te-save-btn">💾 Zapisz zmiany</button>
+      <button class="btn btn-secondary btn-block" id="te-cancel-btn" style="margin-top:8px">Anuluj</button>
+      <button class="btn btn-danger btn-block" id="te-delete-btn" style="margin-top:8px">🗑 Usuń wpis</button>
+    </div>
+  `;
+
+  document.getElementById('te-cancel-btn').addEventListener('click', () => { _editingId = null; _renderList(); });
+  document.getElementById('te-save-btn').addEventListener('click', () => _saveEdit(id));
+  document.getElementById('te-delete-btn').addEventListener('click', () => _deleteEntry(id));
+}
+
+async function _saveEdit(id) {
+  const hours = parseFloat(document.getElementById('te-hours').value);
+  const date = document.getElementById('te-date').value;
+  const errorEl = document.getElementById('te-error');
+  errorEl.classList.add('hidden');
+  if (!hours || hours <= 0) { errorEl.textContent = 'Podaj liczbę godzin.'; errorEl.classList.remove('hidden'); return; }
+  if (!date) { errorEl.textContent = 'Data jest wymagana.'; errorEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('te-save-btn');
+  btn.disabled = true; btn.textContent = '⏳ Zapisywanie…';
+  const patch = {
+    category: document.getElementById('te-category').value,
+    project_id: document.getElementById('te-project').value || null,
+    description: document.getElementById('te-desc').value.trim(),
+    is_billable: document.getElementById('te-billable').checked,
+    duration_minutes: Math.round(hours * 60),
+    date
+  };
+  try {
+    await repo.updateTimeEntry(id, patch);
+    _editingId = null;
+    await _renderList();
+  } catch (err) {
+    errorEl.textContent = err.message; errorEl.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = '💾 Zapisz zmiany';
+  }
+}
+
+async function _deleteEntry(id) {
+  if (!confirm('Usunąć ten wpis? Zniknie też na komputerze po synchronizacji.')) return;
+  const errorEl = document.getElementById('te-error');
+  const btn = document.getElementById('te-delete-btn');
+  errorEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = '⏳ Usuwanie…';
+  try {
+    await repo.deleteTimeEntry(id);
+    _editingId = null;
+    await _renderList();
+  } catch (err) {
+    errorEl.textContent = err.message; errorEl.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = '🗑 Usuń wpis';
   }
 }

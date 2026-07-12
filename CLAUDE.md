@@ -165,6 +165,13 @@ Push kosztów kończył się błędem `mime type text/plain;charset=UTF-8 is not
 ### Wybór roku na listach mobilnych (ZROBIONE)
 Listy faktur i kosztów na telefonie dostały **filtr roku** (jak na desktopie): `expenseList.js`/`invoiceList.js` budują listę lat z danych (`date` / `issue_date`), select „Rok" + opcja „Wszystkie lata", domyślnie bieżący rok (albo najnowszy z danymi), podsumowanie (liczba + suma, faktury też „opłacone"). Wybór roku trzymany w zmiennej modułu — przeżywa auto-odświeżanie. Styl `.list-filter-bar` w `main.css`.
 
+### Edycja wpisów czasu pracy w mobile (ZROBIONE)
+Wpisy na liście „Ostatnie wpisy" (strona Czas pracy) są teraz **klikalne** → otwierają inline formularz edycji (kategoria, projekt, data, godziny, opis + widget tłumaczenia, rozliczalne) z przyciskami **Zapisz zmiany / Anuluj / Usuń wpis**.
+- **Warstwa danych (`repo.js`):** `pushUpdateTimeEntry(cloudId, patch)` (update w Supabase + cache), `pushDeleteTimeEntry(cloudId)`, oraz `updateTimeEntry(id, patch)` / `deleteTimeEntry(id)` decydujące online vs offline (jak `deleteExpense/Invoice`). Rekord jeszcze niewysłany (pending `insert-time-entry` w outboxie) → edycja **modyfikuje payload w outboxie**, usunięcie → tylko kasuje wpis z outboxa (bez osobnej operacji).
+- **Outbox/sync:** nowe typy `update-time-entry` (payload `{ id, ...zmienione pola }`) i `delete-time-entry`; obsłużone w `sync.js flushOutbox` (z remapem FK `project_id`/`id`).
+- **Ważne:** `listTimeEntries` filtruje teraz nakładkę „oczekujące" do `insert-time-entry` (inaczej operacje update/delete renderowałyby się jako fałszywe wiersze).
+- **UI (`timeTracking.js`):** stan modułu `_entries/_projects/_editingId`; `_renderEditForm/_saveEdit/_deleteEntry`. Godziny liczone z `duration_minutes`; zapis ustawia `duration_minutes = round(h*60)`. Edycja przeżywa auto-odświeżanie po syncu (`_editingId` w scope modułu). Styl `.edit-form-title` w `main.css`. Tylko mobile UI (Polski), brak i18n do dopisania.
+
 ### Poprawka YouTube Analytics API (ZROBIONE)
 Synchronizacja YT rzucała `Unknown identifier (rpm) given in field parameters.metrics`.
 - **Przyczyna:** `youtube-api.js` prosił API o metryki, które w YouTube Analytics API **nie istnieją**: `rpm` i `impressionClickThroughRate` (to pojęcia z YouTube Studio, nie z API).

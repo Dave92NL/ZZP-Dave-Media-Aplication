@@ -365,6 +365,13 @@ input:focus, select:focus, textarea:focus {
 }
 .card-form .form-group:last-of-type { margin-bottom: 10px; }
 
+.edit-form-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
 .check-row {
   display: flex;
   align-items: center;

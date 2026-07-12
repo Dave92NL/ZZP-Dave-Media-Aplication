@@ -48,6 +48,12 @@ export async function flushOutbox() {
           invoice_id: _remap(e.payload.invoice_id, idMap)
         };
         await repo.pushTimeEntry(payload);
+      } else if (e.type === 'update-time-entry') {
+        const { id, ...patch } = e.payload;
+        if (patch.project_id !== undefined) patch.project_id = _remap(patch.project_id, idMap);
+        await repo.pushUpdateTimeEntry(_remap(id, idMap), patch);
+      } else if (e.type === 'delete-time-entry') {
+        await repo.pushDeleteTimeEntry(_remap(e.payload.id, idMap));
       } else if (e.type === 'insert-mileage') {
         const payload = {
           ...e.payload,
