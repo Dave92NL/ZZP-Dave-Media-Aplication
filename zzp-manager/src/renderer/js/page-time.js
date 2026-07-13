@@ -355,8 +355,14 @@ const PageTime = (() => {
   }
 
   function formatTimerDisplay() {
-    if (timerMode === 'pomodoro') return formatSecs(timerDurationSec);
-    return '00:00:00';
+    if (timerMode !== 'pomodoro') return '00:00:00';
+    if (timerState === 'idle') return formatSecs(timerDurationSec);
+    // running/paused — pokaż realny pozostały czas (nie pełny czas trwania),
+    // inaczej powrót do zakładki po nawigacji pokazywałby zawsze świeże 25:00
+    // mimo że timer jest zatrzymany w połowie odliczania.
+    const elapsedMs = timerState === 'paused' ? timerPausedMs : Date.now() - timerStartTs;
+    const remaining = Math.max(0, timerDurationSec - Math.floor(elapsedMs / 1000));
+    return formatSecs(remaining);
   }
 
   function formatSecs(secs) {
