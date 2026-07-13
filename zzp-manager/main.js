@@ -296,7 +296,10 @@ function setupAutoUpdater() {
 
   ipcMain.handle('update:install', () => {
     isQuitting = true;
-    autoUpdater.quitAndInstall();
+    // isSilent=true: instalator NSIS (oneClick) leci z flagą /S — bez okna kreatora.
+    // isForceRunAfter=true: aplikacja sama się uruchamia ponownie po aktualizacji —
+    // użytkownik nie musi nic klikać poza przyciskiem w pasku.
+    autoUpdater.quitAndInstall(true, true);
   });
 
   // manual=true (przycisk w Ustawieniach) → pokaż „Sprawdzanie…" od razu;
