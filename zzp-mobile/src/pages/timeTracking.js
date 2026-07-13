@@ -67,6 +67,7 @@ export async function load() {
             <div class="form-group"><label>Data</label><input type="date" id="tm-date" value="${todayStr()}"></div>
             <div class="form-group"><label>Godziny</label><input type="number" id="tm-hours" step="0.25" min="0" placeholder="np. 2.5" inputmode="decimal"></div>
           </div>
+          <div class="form-group"><label>Przerwa (min)</label><input type="number" id="tm-break" min="0" step="5" placeholder="np. 45"></div>
           <div class="form-group"><label>Opis</label><div class="tr-field" style="display:flex;align-items:center;gap:6px"><input type="text" id="tm-desc" placeholder="Co robiłeś?" style="flex:1">${translateWidgetHTML('tm-desc')}</div></div>
           <label class="check-row"><input type="checkbox" id="tm-billable" checked> Rozliczalne (do faktury)</label>
           <div id="tm-error" class="error-msg hidden"></div>
@@ -200,6 +201,7 @@ async function _saveManual() {
       description: document.getElementById('tm-desc').value.trim(),
       start_time: null, end_time: null,
       duration_minutes: Math.round(hours * 60), is_pomodoro: false,
+      break_minutes: Math.max(0, parseInt(document.getElementById('tm-break').value) || 0),
       is_billable: document.getElementById('tm-billable').checked, date
     });
     navigate('time');
@@ -257,6 +259,7 @@ function _renderEditForm(id) {
         <div class="form-group"><label>Data</label><input type="date" id="te-date" value="${escHtml(entry.date || todayStr())}"></div>
         <div class="form-group"><label>Godziny</label><input type="number" id="te-hours" step="0.25" min="0" inputmode="decimal" value="${hoursFromMinutes(entry.duration_minutes)}"></div>
       </div>
+      <div class="form-group"><label>Przerwa (min)</label><input type="number" id="te-break" min="0" step="5" value="${entry.break_minutes || 0}"></div>
       <div class="form-group"><label>Opis</label><div class="tr-field" style="display:flex;align-items:center;gap:6px"><input type="text" id="te-desc" placeholder="Co robiłeś?" style="flex:1" value="${escHtml(entry.description || '')}">${translateWidgetHTML('te-desc')}</div></div>
       <label class="check-row"><input type="checkbox" id="te-billable"${entry.is_billable !== false ? ' checked' : ''}> Rozliczalne (do faktury)</label>
       <div id="te-error" class="error-msg hidden"></div>
@@ -287,6 +290,7 @@ async function _saveEdit(id) {
     description: document.getElementById('te-desc').value.trim(),
     is_billable: document.getElementById('te-billable').checked,
     duration_minutes: Math.round(hours * 60),
+    break_minutes: Math.max(0, parseInt(document.getElementById('te-break').value) || 0),
     date
   };
   try {

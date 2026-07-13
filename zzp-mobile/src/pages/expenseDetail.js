@@ -84,11 +84,14 @@ export async function load() {
 
       ${exp.notes ? `<h3 class="section-title">Uwagi</h3><div class="detail-block">${escHtml(exp.notes)}</div>` : ''}
 
-      <button class="btn btn-danger btn-block" id="exp-delete-btn" style="margin-top:16px">🗑 Usuń koszt</button>
+      <button class="btn btn-primary btn-block" id="exp-edit-btn" style="margin-top:16px">✏️ Edytuj koszt</button>
+      <button class="btn btn-danger btn-block" id="exp-delete-btn" style="margin-top:10px">🗑 Usuń koszt</button>
       <div id="exp-delete-msg" class="error-msg hidden" style="margin-top:8px"></div>
 
       <div class="detail-origin text-muted">Źródło: ${exp.origin === 'phone' ? '📱 Telefon' : '💻 Desktop'}</div>
     `;
+
+    document.getElementById('exp-edit-btn').addEventListener('click', () => navigate(`add-expense/${id}`));
 
     document.getElementById('exp-delete-btn').addEventListener('click', async () => {
       if (!confirm('Usunąć ten koszt? Zniknie też na komputerze po synchronizacji.')) return;

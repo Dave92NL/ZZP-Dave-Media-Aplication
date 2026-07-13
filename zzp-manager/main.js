@@ -476,11 +476,9 @@ function registerIpcHandlers() {
     try {
       const pushResult = await cloudSync.pushLocalChanges();
       const pullResult = await cloudSync.pullCloudChanges();
-      const pulledSomething = pullResult && (
-        pullResult.pulledClients || pullResult.pulledProjects || pullResult.pulledInvoices ||
-        pullResult.pulledExpenses || pullResult.pulledTimeEntries || pullResult.pulledMileage ||
-        pullResult.deletedInvoices || pullResult.deletedExpenses || pullResult.deletedClients ||
-        pullResult.deletedProjects || pullResult.deletedTimeEntries || pullResult.deletedMileage
+      const pr = pullResult || {};
+      const pulledSomething = Object.entries(pr).some(([k, v]) =>
+        (k.startsWith('pulled') || k.startsWith('deleted') || k.startsWith('updated')) && v > 0
       );
       mainWindow?.webContents.send('sync:autoSynced', { reason, changed: !!pulledSomething });
     } catch { /* offline / przejściowy błąd — spróbujemy przy następnym heartbeacie */ }

@@ -65,6 +65,15 @@ export async function flushOutbox() {
         await repo.pushDeleteExpense(_remap(e.payload.id, idMap));
       } else if (e.type === 'delete-invoice') {
         await repo.pushDeleteInvoice(_remap(e.payload.id, idMap));
+      } else if (e.type === 'update-expense') {
+        const { id, ...patch } = e.payload;
+        if (patch.project_id) patch.project_id = _remap(patch.project_id, idMap);
+        await repo.pushUpdateExpense(_remap(id, idMap), patch, e.receiptBlob);
+      } else if (e.type === 'update-invoice') {
+        const { id, ...header } = e.payload;
+        if (header.client_id) header.client_id = _remap(header.client_id, idMap);
+        if (header.project_id) header.project_id = _remap(header.project_id, idMap);
+        await repo.pushUpdateInvoice(_remap(id, idMap), header, e.items);
       } else {
         throw new Error('Nieznany typ operacji: ' + e.type);
       }

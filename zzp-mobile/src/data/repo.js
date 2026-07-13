@@ -80,9 +80,16 @@ export async function pushTimeEntry(payload) {
   return data;
 }
 
+// UWAGA: Postgres NIE odświeża updated_at przy UPDATE (default działa tylko przy
+// INSERT, triggera brak) — każdy push-update MUSI jawnie ustawić updated_at,
+// inaczej desktop nie zobaczy edycji (pull porównuje updated_at z synced_at).
+function _stamp(patch) {
+  return { ...patch, updated_at: new Date().toISOString() };
+}
+
 export async function pushUpdateTimeEntry(cloudId, patch) {
   const { data, error } = await supabase.from('time_entries')
-    .update(patch).eq('id', cloudId).select().single();
+    .update(_stamp(patch)).eq('id', cloudId).select().single();
   if (error) throw new Error(error.message);
   await idb.put('time_entries', data);
   return data;
@@ -105,6 +112,48 @@ export async function pushClient(payload) {
   const { data, error } = await supabase.from('clients').insert(payload).select().single();
   if (error) throw new Error(error.message);
   await idb.put('clients', data);
+  return data;
+}
+
+export async function pushUpdateExpense(cloudId, patch, receipt) {
+  // Nowe zdjęcie paragonu = wymiana pliku w Storage (stary plik kasujemy).
+  const stamped = _stamp(patch);
+  if (receipt) {
+    const { data: old } = await supabase.from('expenses').select('receipt_storage_path').eq('id', cloudId).maybeSingle();
+    const objectPath = _receiptObjectPath(stamped.date || new Date().toISOString());
+    const { error: upErr } = await supabase.storage.from('receipts')
+      .upload(objectPath, receipt, { contentType: 'image/jpeg', upsert: false });
+    if (upErr) throw new Error('Zdjęcie paragonu: ' + upErr.message);
+    stamped.receipt_storage_path = objectPath;
+    if (old && old.receipt_storage_path) {
+      try { await supabase.storage.from('receipts').remove([old.receipt_storage_path]); } catch { /* stary plik — pomiń */ }
+    }
+  }
+  const { data, error } = await supabase.from('expenses')
+    .update(stamped).eq('id', cloudId).select().single();
+  if (error) throw new Error(error.message);
+  await idb.put('expenses', data);
+  return data;
+}
+
+export async function pushUpdateInvoice(cloudId, header, items) {
+  const { data, error } = await supabase.from('invoices')
+    .update(_stamp(header)).eq('id', cloudId).select().single();
+  if (error) throw new Error(error.message);
+  if (Array.isArray(items)) {
+    const { error: delErr } = await supabase.from('invoice_items').delete().eq('invoice_id', cloudId);
+    if (delErr) throw new Error('pozycje faktury: ' + delErr.message);
+    const itemsPayload = items.map((it, i) => ({
+      invoice_id: cloudId, description: it.description, quantity: it.quantity,
+      unit: it.unit, unit_price: it.unit_price, btw_rate: it.btw_rate || 0,
+      total: (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), sort_order: i
+    }));
+    if (itemsPayload.length) {
+      const { error: itErr } = await supabase.from('invoice_items').insert(itemsPayload);
+      if (itErr) throw new Error('pozycje faktury: ' + itErr.message);
+    }
+  }
+  await idb.put('invoices', data);
   return data;
 }
 
@@ -171,6 +220,49 @@ export async function updateTimeEntry(id, patch) {
   // Optymistycznie zaktualizuj cache, by zmiana była widoczna od razu.
   const cached = await idb.get('time_entries', id);
   if (cached) await idb.put('time_entries', { ...cached, ...patch });
+  return { synced: false };
+}
+
+// Edycja kosztu (patch pól + opcjonalnie nowe zdjęcie paragonu).
+// Rekord z outboxa (utworzony offline) → scal patch do payloadu w kolejce.
+export async function updateExpense(id, patch, photoFile) {
+  let receipt = null;
+  if (photoFile) {
+    try { receipt = await compressReceiptPhoto(photoFile); } catch { receipt = photoFile; }
+  }
+  const pending = await idb.get('outbox', id);
+  if (pending && pending.type === 'insert-expense') {
+    pending.payload = { ...pending.payload, ...patch };
+    if (receipt) pending.receiptBlob = receipt;
+    await idb.put('outbox', pending);
+    return { synced: false, row: outbox.toDisplayRow(pending) };
+  }
+  if (isOnline()) {
+    const data = await pushUpdateExpense(id, patch, receipt);
+    return { synced: true, row: data };
+  }
+  await outbox.enqueue({ table: 'expenses', type: 'update-expense', payload: { id, ...patch }, receiptBlob: receipt });
+  const cached = await idb.get('expenses', id);
+  if (cached) await idb.put('expenses', { ...cached, ...patch });
+  return { synced: false };
+}
+
+// Edycja faktury (nagłówek + pełna lista pozycji).
+export async function updateInvoice(id, header, items) {
+  const pending = await idb.get('outbox', id);
+  if (pending && pending.type === 'insert-invoice') {
+    pending.payload = { ...pending.payload, ...header };
+    pending.items = items;
+    await idb.put('outbox', pending);
+    return { synced: false };
+  }
+  if (isOnline()) {
+    await pushUpdateInvoice(id, header, items);
+    return { synced: true };
+  }
+  await outbox.enqueue({ table: 'invoices', type: 'update-invoice', payload: { id, ...header }, items });
+  const cached = await idb.get('invoices', id);
+  if (cached) await idb.put('invoices', { ...cached, ...header });
   return { synced: false };
 }
 
@@ -469,7 +561,7 @@ export async function clearRunningTimer() {
 export async function markInvoicePaid(id, paidDate) {
   if (!isOnline()) throw new Error('Oznaczenie jako zapłacona wymaga połączenia z internetem.');
   const { data, error } = await supabase.from('invoices')
-    .update({ status: 'paid', paid_date: paidDate }).eq('id', id).select().single();
+    .update(_stamp({ status: 'paid', paid_date: paidDate })).eq('id', id).select().single();
   if (error) throw new Error(error.message);
   await idb.put('invoices', data);
   return data;

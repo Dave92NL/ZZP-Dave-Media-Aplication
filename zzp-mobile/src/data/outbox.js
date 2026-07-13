@@ -4,7 +4,8 @@
 // gdzie:
 //   table   — której listy dotyczy (do nakładki „oczekujące": 'expenses' | 'invoices' | 'time_entries' | 'mileage_entries')
 //   type    — 'insert-*' (expense/invoice/time-entry/mileage/project/client),
-//             'update-time-entry' (payload: { id, ...zmienione pola }) lub
+//             'update-time-entry' | 'update-expense' | 'update-invoice'
+//             (payload: { id, ...zmienione pola }; update-invoice ma też items) lub
 //             'delete-expense' | 'delete-invoice' | 'delete-time-entry'
 //             (delete-*/update-* niosą payload.id rekordu w chmurze; nie są renderowane na listach)
 //   payload — pola rekordu (bez serwerowego id)

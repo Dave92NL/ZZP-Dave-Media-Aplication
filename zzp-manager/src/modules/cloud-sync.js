@@ -453,7 +453,26 @@ async function pullCloudChanges() {
 
   let pulledClients = 0, pulledProjects = 0, pulledInvoices = 0, pulledExpenses = 0, pulledTimeEntries = 0, pulledMileage = 0;
   let deletedInvoices = 0, deletedExpenses = 0, deletedClients = 0, deletedProjects = 0, deletedTimeEntries = 0, deletedMileage = 0;
+  let updatedClients = 0, updatedProjects = 0, updatedInvoices = 0, updatedExpenses = 0, updatedTimeEntries = 0, updatedMileage = 0;
   const errors = [];
+
+  // Mapa lokalnych rekordów zsynchronizowanych: cloud_id → { id, synced_at }.
+  const _localMap = (table) => new Map(
+    db.prepare(`SELECT id, cloud_id, synced_at FROM ${table} WHERE cloud_id IS NOT NULL`)
+      .all().map(r => [r.cloud_id, r])
+  );
+
+  // Czy rekord w chmurze jest nowszy niż nasz ostatni sync? (edycja z telefonu)
+  // synced_at to SQLite CURRENT_TIMESTAMP (UTC, bez strefy) — dokładamy 'Z'.
+  const _cloudNewer = (cloudUpdatedAt, syncedAt) => {
+    if (!cloudUpdatedAt) return false;
+    if (!syncedAt) return true;
+    return new Date(cloudUpdatedAt) > new Date(String(syncedAt).replace(' ', 'T') + 'Z');
+  };
+
+  // Po zastosowaniu update ustaw synced_at (>= lokalnego updated_at) — push nie odeśle echa.
+  const _markSynced = (table, localId) =>
+    db.prepare(`UPDATE ${table} SET synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(localId);
 
   // Rekoncyliacja usunięć: lokalne rekordy z cloud_id, których już nie ma w chmurze
   // (skasowane na drugim urządzeniu) → usuń lokalnie z flagą fromCloudSync (bez
@@ -481,21 +500,28 @@ async function pullCloudChanges() {
     cloudId ? (db.prepare('SELECT id FROM invoices WHERE cloud_id = ?').get(cloudId)?.id || null) : null;
 
   // 1. Clients
-  const localClientCloudIds = new Set(
-    db.prepare(`SELECT cloud_id FROM clients WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
-  );
+  const localClients = _localMap('clients');
   const { data: cloudClients, error: clErr } = await client.from('clients').select('*');
   if (clErr) throw new Error('Pobieranie klientów z chmury nieudane: ' + clErr.message);
 
   for (const cc of cloudClients || []) {
-    if (localClientCloudIds.has(cc.id)) continue;
+    const payload = {
+      name: cc.name, company_name: cc.company_name, email: cc.email, phone: cc.phone,
+      address: cc.address, postcode: cc.postcode, city: cc.city, country: cc.country,
+      vat_number: cc.vat_number, btw_rate: cc.btw_rate, btw_reverse_charge: cc.btw_reverse_charge ? 1 : 0,
+      currency: cc.currency, notes: cc.notes, status: cc.status
+    };
+    const known = localClients.get(cc.id);
+    if (known) {
+      // Rekord znany — zastosuj edycję z chmury, jeśli nowsza niż nasz ostatni sync.
+      if (_cloudNewer(cc.updated_at, known.synced_at)) {
+        try { contacts.update(known.id, payload); _markSynced('clients', known.id); updatedClients++; }
+        catch (err) { errors.push(`Aktualizacja klienta "${cc.name}": ${err.message}`); }
+      }
+      continue;
+    }
     try {
-      const result = contacts.create({
-        name: cc.name, company_name: cc.company_name, email: cc.email, phone: cc.phone,
-        address: cc.address, postcode: cc.postcode, city: cc.city, country: cc.country,
-        vat_number: cc.vat_number, btw_rate: cc.btw_rate, btw_reverse_charge: cc.btw_reverse_charge,
-        currency: cc.currency, notes: cc.notes, status: cc.status
-      });
+      const result = contacts.create(payload);
       db.prepare(`UPDATE clients SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cc.id, result.id);
       pulledClients++;
     } catch (err) {
@@ -506,21 +532,27 @@ async function pullCloudChanges() {
   deletedClients = _reconcileDeletions('clients', cloudClients, contacts.delete);
 
   // 2. Projects — before invoices/expenses/time_entries so project_id can be mapped
-  const localProjectCloudIds = new Set(
-    db.prepare(`SELECT cloud_id FROM projects WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
-  );
+  const localProjects = _localMap('projects');
   const { data: cloudProjects, error: prErr } = await client.from('projects').select('*');
   if (prErr) throw new Error('Pobieranie projektów z chmury nieudane: ' + prErr.message);
 
   for (const cp of cloudProjects || []) {
-    if (localProjectCloudIds.has(cp.id)) continue;
+    const payload = {
+      name: cp.name, client_id: _localClientId(cp.client_id), description: cp.description,
+      status: cp.status, start_date: cp.start_date, end_date: cp.end_date,
+      hourly_rate: cp.hourly_rate, budget_hours: cp.budget_hours, budget_amount: cp.budget_amount,
+      currency: cp.currency, youtube_episode: cp.youtube_episode
+    };
+    const known = localProjects.get(cp.id);
+    if (known) {
+      if (_cloudNewer(cp.updated_at, known.synced_at)) {
+        try { projectsModule.update(known.id, payload); _markSynced('projects', known.id); updatedProjects++; }
+        catch (err) { errors.push(`Aktualizacja projektu "${cp.name}": ${err.message}`); }
+      }
+      continue;
+    }
     try {
-      const result = projectsModule.create({
-        name: cp.name, client_id: _localClientId(cp.client_id), description: cp.description,
-        status: cp.status, start_date: cp.start_date, end_date: cp.end_date,
-        hourly_rate: cp.hourly_rate, budget_hours: cp.budget_hours, budget_amount: cp.budget_amount,
-        currency: cp.currency, youtube_episode: cp.youtube_episode
-      });
+      const result = projectsModule.create(payload);
       db.prepare(`UPDATE projects SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cp.id, result.id);
       pulledProjects++;
     } catch (err) {
@@ -531,28 +563,34 @@ async function pullCloudChanges() {
   deletedProjects = _reconcileDeletions('projects', cloudProjects, projectsModule.delete);
 
   // 3. Invoices (+ items)
-  const localInvoiceCloudIds = new Set(
-    db.prepare(`SELECT cloud_id FROM invoices WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
-  );
+  const localInvoices = _localMap('invoices');
   const { data: cloudInvoices, error: invErr } = await client.from('invoices').select('*, invoice_items(*)');
   if (invErr) throw new Error('Pobieranie faktur z chmury nieudane: ' + invErr.message);
 
   for (const ci of cloudInvoices || []) {
-    if (localInvoiceCloudIds.has(ci.id)) continue;
+    const items = (ci.invoice_items || []).map(it => ({
+      description: it.description, quantity: it.quantity, unit: it.unit,
+      unit_price: it.unit_price, btw_rate: it.btw_rate
+    }));
+    const payload = {
+      invoice_number: ci.invoice_number, client_id: _localClientId(ci.client_id),
+      project_id: _localProjectId(ci.project_id), status: ci.status,
+      issue_date: ci.issue_date, due_date: ci.due_date, paid_date: ci.paid_date,
+      sale_date: ci.sale_date,
+      currency: ci.currency, exchange_rate: ci.exchange_rate, btw_rate: ci.btw_rate,
+      btw_reverse_charge: ci.btw_reverse_charge, notes: ci.notes, reference: ci.reference,
+      items
+    };
+    const known = localInvoices.get(ci.id);
+    if (known) {
+      if (_cloudNewer(ci.updated_at, known.synced_at)) {
+        try { invoicesModule.update(known.id, payload); _markSynced('invoices', known.id); updatedInvoices++; }
+        catch (err) { errors.push(`Aktualizacja faktury ${ci.invoice_number || ci.id}: ${err.message}`); }
+      }
+      continue;
+    }
     try {
-      const items = (ci.invoice_items || []).map(it => ({
-        description: it.description, quantity: it.quantity, unit: it.unit,
-        unit_price: it.unit_price, btw_rate: it.btw_rate
-      }));
-      const result = invoicesModule.create({
-        invoice_number: ci.invoice_number, client_id: _localClientId(ci.client_id),
-        project_id: _localProjectId(ci.project_id), status: ci.status,
-        issue_date: ci.issue_date, due_date: ci.due_date, paid_date: ci.paid_date,
-        sale_date: ci.sale_date,
-        currency: ci.currency, exchange_rate: ci.exchange_rate, btw_rate: ci.btw_rate,
-        btw_reverse_charge: ci.btw_reverse_charge, notes: ci.notes, reference: ci.reference,
-        items
-      });
+      const result = invoicesModule.create(payload);
       db.prepare(`UPDATE invoices SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(ci.id, result.id);
       pulledInvoices++;
     } catch (err) {
@@ -563,21 +601,28 @@ async function pullCloudChanges() {
   deletedInvoices = _reconcileDeletions('invoices', cloudInvoices, invoicesModule.delete);
 
   // 4. Expenses (+ receipt photo download from Storage)
-  const localExpenseCloudIds = new Set(
-    db.prepare(`SELECT cloud_id FROM expenses WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
-  );
+  const localExpenses = _localMap('expenses');
   const { data: cloudExpenses, error: expErr } = await client.from('expenses').select('*');
   if (expErr) throw new Error('Pobieranie kosztów z chmury nieudane: ' + expErr.message);
 
   for (const ce of cloudExpenses || []) {
-    if (localExpenseCloudIds.has(ce.id)) continue;
+    const expPayload = {
+      project_id: _localProjectId(ce.project_id),
+      category: ce.category, description: ce.description, amount: ce.amount, currency: ce.currency,
+      exchange_rate: ce.exchange_rate, btw_rate: ce.btw_rate, btw_deductible: ce.btw_deductible,
+      date: ce.date, vendor: ce.vendor, is_deductible: ce.is_deductible, notes: ce.notes
+    };
+    const knownExp = localExpenses.get(ce.id);
+    if (knownExp) {
+      if (_cloudNewer(ce.updated_at, knownExp.synced_at)) {
+        // Aktualizujemy pola; sam plik paragonu (wymiana zdjęcia) — poza zakresem update.
+        try { expensesModule.update(knownExp.id, expPayload); _markSynced('expenses', knownExp.id); updatedExpenses++; }
+        catch (err) { errors.push(`Aktualizacja kosztu "${ce.description}": ${err.message}`); }
+      }
+      continue;
+    }
     try {
-      const result = expensesModule.create({
-        project_id: _localProjectId(ce.project_id),
-        category: ce.category, description: ce.description, amount: ce.amount, currency: ce.currency,
-        exchange_rate: ce.exchange_rate, btw_rate: ce.btw_rate, btw_deductible: ce.btw_deductible,
-        date: ce.date, vendor: ce.vendor, is_deductible: ce.is_deductible, notes: ce.notes
-      });
+      const result = expensesModule.create(expPayload);
 
       if (ce.receipt_storage_path) {
         try {
@@ -605,14 +650,27 @@ async function pullCloudChanges() {
   deletedExpenses = _reconcileDeletions('expenses', cloudExpenses, expensesModule.delete);
 
   // 5. Time entries
-  const localTimeCloudIds = new Set(
-    db.prepare(`SELECT cloud_id FROM time_entries WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
-  );
+  const localTime = _localMap('time_entries');
   const { data: cloudTimeEntries, error: teErr } = await client.from('time_entries').select('*');
   if (teErr) throw new Error('Pobieranie wpisów czasu z chmury nieudane: ' + teErr.message);
 
   for (const ct of cloudTimeEntries || []) {
-    if (localTimeCloudIds.has(ct.id)) continue;
+    const knownTe = localTime.get(ct.id);
+    if (knownTe) {
+      if (_cloudNewer(ct.updated_at, knownTe.synced_at)) {
+        try {
+          timeModule.update(knownTe.id, {
+            project_id: _localProjectId(ct.project_id), category: ct.category,
+            description: ct.description, start_time: ct.start_time, end_time: ct.end_time,
+            duration_minutes: ct.duration_minutes, break_minutes: ct.break_minutes || 0,
+            is_billable: ct.is_billable ? 1 : 0, date: ct.date
+          });
+          _markSynced('time_entries', knownTe.id);
+          updatedTimeEntries++;
+        } catch (err) { errors.push(`Aktualizacja wpisu czasu ${ct.date || ct.id}: ${err.message}`); }
+      }
+      continue;
+    }
     try {
       const result = timeModule.create({
         project_id: _localProjectId(ct.project_id), invoice_id: _localInvoiceId(ct.invoice_id),
@@ -631,21 +689,27 @@ async function pullCloudChanges() {
   deletedTimeEntries = _reconcileDeletions('time_entries', cloudTimeEntries, timeModule.delete);
 
   // 6. Mileage (kilometrówka)
-  const localMileageCloudIds = new Set(
-    db.prepare(`SELECT cloud_id FROM mileage_entries WHERE cloud_id IS NOT NULL`).all().map(r => r.cloud_id)
-  );
+  const localMileage = _localMap('mileage_entries');
   const { data: cloudMileage, error: miErr } = await client.from('mileage_entries').select('*');
   if (miErr) throw new Error('Pobieranie kilometrówki z chmury nieudane: ' + miErr.message);
 
   for (const cm of cloudMileage || []) {
-    if (localMileageCloudIds.has(cm.id)) continue;
+    const miPayload = {
+      date: cm.date, from_location: cm.from_location, to_location: cm.to_location,
+      distance_km: cm.distance_km, is_return: cm.is_return ? 1 : 0, purpose: cm.purpose,
+      client_id: _localClientId(cm.client_id), project_id: _localProjectId(cm.project_id),
+      rate_per_km: cm.rate_per_km
+    };
+    const knownMi = localMileage.get(cm.id);
+    if (knownMi) {
+      if (_cloudNewer(cm.updated_at, knownMi.synced_at)) {
+        try { mileageModule.update(knownMi.id, miPayload); _markSynced('mileage_entries', knownMi.id); updatedMileage++; }
+        catch (err) { errors.push(`Aktualizacja przejazdu ${cm.date || cm.id}: ${err.message}`); }
+      }
+      continue;
+    }
     try {
-      const result = mileageModule.create({
-        date: cm.date, from_location: cm.from_location, to_location: cm.to_location,
-        distance_km: cm.distance_km, is_return: cm.is_return, purpose: cm.purpose,
-        client_id: _localClientId(cm.client_id), project_id: _localProjectId(cm.project_id),
-        rate_per_km: cm.rate_per_km
-      });
+      const result = mileageModule.create(miPayload);
       db.prepare(`UPDATE mileage_entries SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(cm.id, result.id);
       pulledMileage++;
     } catch (err) {
@@ -656,13 +720,15 @@ async function pullCloudChanges() {
   deletedMileage = _reconcileDeletions('mileage_entries', cloudMileage, mileageModule.delete);
 
   const deletedTotal = deletedInvoices + deletedExpenses + deletedClients + deletedProjects + deletedTimeEntries + deletedMileage;
-  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage + deletedTotal;
+  const updatedTotal = updatedClients + updatedProjects + updatedInvoices + updatedExpenses + updatedTimeEntries + updatedMileage;
+  const totalPulled = pulledClients + pulledProjects + pulledInvoices + pulledExpenses + pulledTimeEntries + pulledMileage + deletedTotal + updatedTotal;
   _recordHistory(db, 'pull', 0, totalPulled, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_pull', String(Date.now()));
 
   return {
     pulledClients, pulledProjects, pulledInvoices, pulledExpenses, pulledTimeEntries, pulledMileage,
     deletedInvoices, deletedExpenses, deletedClients, deletedProjects, deletedTimeEntries, deletedMileage,
+    updatedClients, updatedProjects, updatedInvoices, updatedExpenses, updatedTimeEntries, updatedMileage,
     errors
   };
 }

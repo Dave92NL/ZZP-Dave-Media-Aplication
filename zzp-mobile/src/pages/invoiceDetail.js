@@ -156,6 +156,8 @@ export async function load() {
 
       ${inv.notes ? `<h3 class="section-title">Uwagi</h3><div class="detail-block">${escHtml(inv.notes)}</div>` : ''}
 
+      <button class="btn btn-secondary btn-block" id="inv-edit-btn" style="margin-top:16px">✏️ Edytuj fakturę</button>
+
       ${(!inv._pending && inv.status !== 'paid') ? `
         <button class="btn btn-primary btn-block" id="inv-mark-paid-btn" style="margin-top:16px">✅ Oznacz jako zapłaconą</button>
         <div id="inv-paid-msg" class="error-msg hidden" style="margin-top:8px"></div>` : ''}
@@ -165,6 +167,8 @@ export async function load() {
 
       <div class="detail-origin text-muted">Źródło: ${inv.origin === 'phone' ? '📱 Telefon' : '💻 Desktop'}</div>
     `;
+
+    document.getElementById('inv-edit-btn').addEventListener('click', () => navigate(`new-invoice/${id}`));
 
     document.getElementById('inv-delete-btn').addEventListener('click', async () => {
       if (!confirm('Usunąć tę fakturę? Zniknie też na komputerze po synchronizacji.')) return;

@@ -1,13 +1,18 @@
 import { CATEGORIES } from '../lib/categories.js';
 import { calculateExpense } from '../lib/expenseMath.js';
 import { todayStr, escHtml } from '../lib/format.js';
+import { currentParam, navigate } from '../router.js';
 import * as repo from '../data/repo.js';
 
+// Tryb edycji: trasa 'add-expense/<id>' (null = nowy koszt).
+let _editId = null;
+
 export async function load() {
+  _editId = currentParam() || null;
   const el = document.getElementById('page-content');
   el.innerHTML = `
     <div class="page">
-      <h1 class="page-title">📷 Dodaj koszt</h1>
+      <h1 class="page-title">${_editId ? '✏️ Edytuj koszt' : '📷 Dodaj koszt'}</h1>
 
       <div class="form-group">
         <label>Kategoria</label>
@@ -46,7 +51,7 @@ export async function load() {
       </div>
 
       <div class="form-group">
-        <label>Zdjęcie paragonu</label>
+        <label>${_editId ? 'Zdjęcie paragonu (nowe = wymiana istniejącego)' : 'Zdjęcie paragonu'}</label>
         <input type="file" id="exp-photo" accept="image/*" capture="environment">
         <div id="exp-photo-preview" class="photo-preview hidden">
           <img id="exp-photo-img" alt="Podgląd paragonu">
@@ -55,9 +60,22 @@ export async function load() {
 
       <div id="exp-error" class="error-msg hidden"></div>
 
-      <button class="btn btn-primary btn-block" id="exp-save-btn">💾 Zapisz koszt</button>
+      <button class="btn btn-primary btn-block" id="exp-save-btn">${_editId ? '💾 Zapisz zmiany' : '💾 Zapisz koszt'}</button>
     </div>
   `;
+
+  // Tryb edycji — wypełnij formularz danymi kosztu.
+  if (_editId) {
+    const exp = await repo.getExpense(_editId);
+    if (!exp) { _showError('Nie znaleziono kosztu do edycji.'); return; }
+    document.getElementById('exp-category').value = exp.category || 'Inne';
+    document.getElementById('exp-description').value = exp.description || '';
+    document.getElementById('exp-amount').value = exp.amount ?? '';
+    document.getElementById('exp-date').value = String(exp.date || '').slice(0, 10);
+    document.getElementById('exp-vendor').value = exp.vendor || '';
+    const btw = document.querySelector(`input[name="exp-btw"][value="${Number(exp.btw_rate) || 0}"]`);
+    if (btw) btw.checked = true;
+  }
 
   document.getElementById('exp-photo').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -103,6 +121,13 @@ async function _save() {
       date, vendor, is_deductible: true, notes: ''
     };
 
+    if (_editId) {
+      const { synced } = await repo.updateExpense(_editId, payload, photoFile);
+      _showToast(synced ? '✅ Zmiany zapisane!' : '📥 Zapisano offline — wyślę po połączeniu');
+      navigate(`expense-detail/${_editId}`);
+      return;
+    }
+
     const { synced } = await repo.createExpense(payload, photoFile);
 
     _resetForm();
@@ -111,7 +136,7 @@ async function _save() {
     _showError(err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '💾 Zapisz koszt';
+    btn.textContent = _editId ? '💾 Zapisz zmiany' : '💾 Zapisz koszt';
   }
 }
 

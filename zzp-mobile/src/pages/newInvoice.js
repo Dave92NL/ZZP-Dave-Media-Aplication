@@ -1,11 +1,14 @@
 import { calculateTotals } from '../lib/invoiceMath.js';
 import { todayStr, addDays, fmtEur, escHtml } from '../lib/format.js';
-import { navigate } from '../router.js';
+import { navigate, currentParam } from '../router.js';
 import * as repo from '../data/repo.js';
 import { translateWidgetHTML } from '../lib/translateWidget.js';
 
 let _clientsMap = {};
 let _itemRowCount = 0;
+// Tryb edycji: trasa 'new-invoice/<id>' (null = nowa faktura).
+let _editId = null;
+let _editInvoice = null;
 
 // Gotowe opisy usług (KvK Dave Media YT) — identyczne z desktopem, w 3 językach.
 const SERVICE_PRESETS = [
@@ -24,14 +27,18 @@ function _presetSelectHTML() {
 }
 
 export async function load() {
+  _editId = currentParam() || null;
+  _editInvoice = null;
+
   const el = document.getElementById('page-content');
   el.innerHTML = `
     <div class="page">
-      <h1 class="page-title">🧾 Nowa faktura</h1>
+      <h1 class="page-title">${_editId ? '✏️ Edytuj fakturę' : '🧾 Nowa faktura'}</h1>
 
       <div class="info-box">
-        ℹ️ Numeracja bazuje na danych zsynchronizowanych z desktopem — jeśli ostatnio
-        wystawiałeś faktury na komputerze, zsynchronizuj je najpierw (Ustawienia → Synchronizacja → Wyślij zmiany).
+        ${_editId
+          ? 'ℹ️ Edytujesz zsynchronizowaną fakturę. Numer faktury pozostaje bez zmian.'
+          : 'ℹ️ Numeracja bazuje na danych zsynchronizowanych z desktopem — jeśli ostatnio wystawiałeś faktury na komputerze, zsynchronizuj je najpierw (Ustawienia → Synchronizacja → Wyślij zmiany).'}
       </div>
 
       <div class="form-group">
@@ -81,25 +88,74 @@ export async function load() {
       <div id="inv-error" class="error-msg hidden"></div>
 
       <div class="button-row">
-        <button class="btn btn-secondary btn-block" id="inv-save-draft-btn">Zapisz jako szkic</button>
-        <button class="btn btn-primary btn-block" id="inv-save-sent-btn">Zapisz i oznacz jako wysłaną</button>
+        ${_editId
+          ? `<button class="btn btn-primary btn-block" id="inv-save-edit-btn">💾 Zapisz zmiany</button>`
+          : `<button class="btn btn-secondary btn-block" id="inv-save-draft-btn">Zapisz jako szkic</button>
+             <button class="btn btn-primary btn-block" id="inv-save-sent-btn">Zapisz i oznacz jako wysłaną</button>`}
       </div>
     </div>
   `;
-
-  _itemRowCount = 0;
-  _addItemRow();
 
   document.getElementById('inv-add-item-btn').addEventListener('click', _addItemRow);
   document.getElementById('inv-preset-pick').addEventListener('change', _insertPreset);
   document.getElementById('inv-items').addEventListener('input', _recalc);
   document.querySelectorAll('input[name="inv-btw"]').forEach(r => r.addEventListener('change', _recalc));
 
-  document.getElementById('inv-save-draft-btn').addEventListener('click', () => _save('draft'));
-  document.getElementById('inv-save-sent-btn').addEventListener('click', () => _save('sent'));
+  if (_editId) {
+    document.getElementById('inv-save-edit-btn').addEventListener('click', () => _save(_editInvoice?.status || 'draft'));
+  } else {
+    document.getElementById('inv-save-draft-btn').addEventListener('click', () => _save('draft'));
+    document.getElementById('inv-save-sent-btn').addEventListener('click', () => _save('sent'));
+  }
 
   await _loadClients();
+
+  if (_editId) {
+    await _prefillForEdit(_editId);
+  } else {
+    _itemRowCount = 0;
+    _addItemRow();
+  }
+
   _recalc();
+}
+
+async function _prefillForEdit(id) {
+  const inv = await repo.getInvoice(id);
+  if (!inv) { _showError('Nie znaleziono faktury do edycji.'); return; }
+  _editInvoice = inv;
+
+  const clientSel = document.getElementById('inv-client');
+  if (clientSel && inv.client_id) {
+    clientSel.value = inv.client_id;
+    // Klient mógł zostać zarchiwizowany (listActiveClients go pomija) — dołóż opcję,
+    // żeby edycja nie gubiła przypisania.
+    if (clientSel.value !== String(inv.client_id)) {
+      const label = inv.clients?.company_name || inv.clients?.name || 'Klient (nieaktywny)';
+      const opt = document.createElement('option');
+      opt.value = inv.client_id;
+      opt.textContent = label;
+      opt.selected = true;
+      clientSel.prepend(opt);
+    }
+  }
+
+  document.getElementById('inv-issue-date').value = String(inv.issue_date || '').slice(0, 10);
+  document.getElementById('inv-due-date').value = String(inv.due_date || '').slice(0, 10);
+  document.getElementById('inv-sale-date').value = String(inv.sale_date || '').slice(0, 10);
+
+  const btwValue = inv.btw_reverse_charge ? 'reverse' : String(inv.btw_rate ?? 21);
+  const btwRadio = document.querySelector(`input[name="inv-btw"][value="${btwValue}"]`);
+  if (btwRadio) btwRadio.checked = true;
+
+  const items = (inv.invoice_items || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  _itemRowCount = 0;
+  document.getElementById('inv-items').innerHTML = '';
+  if (items.length) {
+    for (const it of items) _addItemRow(it);
+  } else {
+    _addItemRow();
+  }
 }
 
 async function _loadClients() {
@@ -118,20 +174,24 @@ async function _loadClients() {
   }
 }
 
-function _addItemRow() {
+function _addItemRow(item = null) {
   const container = document.getElementById('inv-items');
   const idx = _itemRowCount++;
   const row = document.createElement('div');
   row.className = 'item-row';
   row.dataset.idx = idx;
+  const desc = item ? escHtml(item.description || '') : '';
+  const qty = item ? (Math.round(Number(item.quantity)) || 1) : 1;
+  const unit = item ? escHtml(item.unit || 'szt') : 'szt';
+  const price = item ? (Number(item.unit_price) || 0) : 0;
   row.innerHTML = `
     <span class="tr-field" style="flex:2;display:flex;align-items:center;gap:4px">
-      <input type="text" class="item-desc" placeholder="Opis pozycji" style="flex:1;min-width:0">
+      <input type="text" class="item-desc" placeholder="Opis pozycji" style="flex:1;min-width:0" value="${desc}">
       ${translateWidgetHTML()}
     </span>
-    <input type="number" class="item-qty" value="1" min="1" step="1" style="width:60px" placeholder="Ilość">
-    <input type="text" class="item-unit" value="szt" style="width:50px">
-    <input type="number" class="item-price" value="0" min="0" step="0.01" style="width:80px" placeholder="Cena">
+    <input type="number" class="item-qty" value="${qty}" min="1" step="1" style="width:60px" placeholder="Ilość">
+    <input type="text" class="item-unit" value="${unit}" style="width:50px">
+    <input type="number" class="item-price" value="${price}" min="0" step="0.01" style="width:80px" placeholder="Cena">
     <button type="button" class="btn btn-icon btn-sm btn-danger item-remove-btn">✕</button>
   `;
   row.querySelector('.item-remove-btn').addEventListener('click', () => {
@@ -201,8 +261,11 @@ async function _save(status) {
 
   const draftBtn = document.getElementById('inv-save-draft-btn');
   const sentBtn = document.getElementById('inv-save-sent-btn');
-  draftBtn.disabled = true; sentBtn.disabled = true;
-  const activeBtn = status === 'draft' ? draftBtn : sentBtn;
+  const editBtn = document.getElementById('inv-save-edit-btn');
+  const activeBtn = _editId ? editBtn : (status === 'draft' ? draftBtn : sentBtn);
+  if (draftBtn) draftBtn.disabled = true;
+  if (sentBtn) sentBtn.disabled = true;
+  if (editBtn) editBtn.disabled = true;
   const originalText = activeBtn.textContent;
   activeBtn.textContent = '⏳ Zapisywanie…';
 
@@ -215,12 +278,19 @@ async function _save(status) {
   };
 
   try {
-    await repo.createInvoice(header, items, status);
-    navigate('invoices');
+    if (_editId) {
+      await repo.updateInvoice(_editId, header, items);
+      navigate(`invoice-detail/${_editId}`);
+    } else {
+      await repo.createInvoice(header, items, status);
+      navigate('invoices');
+    }
   } catch (err) {
     _showError(err.message);
   } finally {
-    draftBtn.disabled = false; sentBtn.disabled = false;
+    if (draftBtn) draftBtn.disabled = false;
+    if (sentBtn) sentBtn.disabled = false;
+    if (editBtn) editBtn.disabled = false;
     activeBtn.textContent = originalText;
   }
 }
