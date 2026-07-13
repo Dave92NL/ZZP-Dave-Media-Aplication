@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960" viewBox="0 0 960 960">
+  <!-- Tło „tablica z wzorami" — kafelek 960×960. Rysowane pełną bielą; wyblaknięcie
+       (opacity) i wersję dla jasnego motywu ustawia CSS (body::before). -->
+  <g fill="#fff" stroke="none" font-family="'Segoe Print','Segoe Script','Comic Sans MS',cursive">
+
+    <text x="40"  y="70"  font-size="30" transform="rotate(-4 40 70)">S&#8345; = a&#8321; · (q&#8319;&#8722;1)/(q&#8722;1)</text>
+    <text x="470" y="60"  font-size="26" transform="rotate(2 470 60)">z&#8319; = |z|&#8319;(cos n&#966; + i·sin n&#966;)</text>
+    <text x="60"  y="160" font-size="28">P(A&#8745;B) = P(A)·P(B)</text>
+    <text x="450" y="150" font-size="30" transform="rotate(-2 450 150)">P(A|B) = P(A&#8745;B) / P(B)</text>
+    <text x="90"  y="250" font-size="27" transform="rotate(3 90 250)">z = a + bi</text>
+    <text x="330" y="255" font-size="28">log&#8336; rs = log&#8336; r + log&#8336; s</text>
+    <text x="740" y="250" font-size="30" transform="rotate(-3 740 250)">e&#8317;&#960;&#8318; + 1 = 0</text>
+
+    <text x="300" y="380" font-size="44" transform="rotate(-2 300 380)">x&#8321;,&#8322; = (&#8722;b &#177; &#8730;D&#773;) / 2a</text>
+    <text x="60"  y="390" font-size="26" transform="rotate(4 60 390)">a&#178; + b&#178; = c&#178;</text>
+    <text x="760" y="390" font-size="26">|z&#773;| = &#8730;(a&#178;+b&#178;)</text>
+
+    <text x="70"  y="520" font-size="27" transform="rotate(-3 70 520)">(a+b)&#8319; = &#931; (&#8342; &#8336;) a&#8317;&#8318;&#8722;&#8317;&#8342;&#8318; b&#8342;</text>
+    <text x="560" y="510" font-size="28" transform="rotate(2 560 510)">&#931;&#8342;&#8331;&#8320; (&#8342; &#8336;) = 2&#8319;</text>
+
+    <text x="280" y="640" font-size="38">e = 2,7182818284&#8230;</text>
+    <text x="60"  y="650" font-size="26" transform="rotate(3 60 650)">|tg x/2| = &#8730;((1&#8722;cos x)/(1+cos x))</text>
+    <text x="720" y="640" font-size="30" transform="rotate(-4 720 640)">y = ax&#178; + bx + c</text>
+
+    <text x="90"  y="770" font-size="28" transform="rotate(-2 90 770)">lim&#8345;&#8594;&#8734; a&#8345; = a</text>
+    <text x="360" y="780" font-size="28">lim&#8345;&#8594;&#8734; a&#8345;/b&#8345; = a/b</text>
+    <text x="700" y="770" font-size="30" transform="rotate(3 700 770)">x&#772; = &#931;&#11388;&#8331;&#8321; x&#11388;·n&#11388; / n</text>
+
+    <text x="100" y="900" font-size="30">P(A) = &#931;&#8338;&#8712;&#8320; p(&#969;)</text>
+    <text x="430" y="910" font-size="30" transform="rotate(-2 430 910)">&#8747; f(&#966;(x))·&#966;&#8242;(x) dx = &#8747; f(u) du</text>
+
+    <!-- Szkice: osie + sinus/cosinus -->
+    <g stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round">
+      <path d="M600 330 h180 m-14,-8 l14,8 l-14,8"/>
+      <path d="M615 415 v-150 m-8,14 l8,-14 l8,14"/>
+      <path d="M615 375 q22,-45 45,0 t45,0 t45,0"/>
+      <path d="M615 355 q22,45 45,0 t45,0 t45,0" stroke-dasharray="5 7"/>
+    </g>
+    <text x="790" y="330" font-size="20">y=sin x</text>
+
+    <!-- Trójkąt prostokątny -->
+    <g stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round">
+      <path d="M700 60 l110 75 l-110 0 z"/>
+      <path d="M700 118 a18 18 0 0 1 16 10"/>
+    </g>
+    <text x="740" y="120" font-size="20">&#945;</text>
+
+    <!-- Parabola y=x² z osiami -->
+    <g stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round">
+      <path d="M120 560 h150 m-12,-7 l12,7 l-12,7"/>
+      <path d="M190 590 v-130 m-7,12 l7,-12 l7,12"/>
+      <path d="M135 505 q55,110 110,0"/>
+    </g>
+    <text x="252" y="480" font-size="20">y=x&#178;</text>
+
+    <!-- Diagram Venna -->
+    <g stroke="#fff" stroke-width="2.4" fill="none">
+      <circle cx="520" cy="860" r="38"/>
+      <circle cx="565" cy="860" r="38"/>
+    </g>
+    <text x="620" y="880" font-size="26">A&#8745;B</text>
+
+    <!-- Wektory -->
+    <g stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round">
+      <path d="M830 470 l70 -40 m-14,-2 l14,2 l-6,13"/>
+      <path d="M830 470 l80 15 m-14,-9 l14,9 l-15,5"/>
+    </g>
+    <text x="900" y="415" font-size="20">u&#8407;+v&#8407;</text>
+  </g>
+</svg>

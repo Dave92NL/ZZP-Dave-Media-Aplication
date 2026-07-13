@@ -1835,3 +1835,27 @@ td > .tr-widget .tr-btn { padding: 3px 5px; font-size: 13px; }
   font-size: 13px;
 }
 .update-bar-close:hover { color: var(--text-primary); }
+
+/* ── Tło „tablica z wzorami" (math-bg.svg) ────────────────────────────────────
+   Warstwa fixed pod całym UI: karty/panele (solidne tła) ją przykrywają, więc
+   wzory widać tylko „za okienkami" — na każdej zakładce. Wyblaknięcie: opacity. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: url('../assets/math-bg.svg') repeat;
+  background-size: 720px auto;
+  opacity: 0.05;
+}
+/* Jasny motyw: biała „kreda" niewidoczna → odwróć na ciemny tusz, jeszcze subtelniej */
+[data-theme="light"] body::before {
+  filter: invert(1);
+  opacity: 0.045;
+}
+/* UI ponad warstwą tła (fixed tworzy kontekst nakładania) */
+#app, #lock-screen {
+  position: relative;
+  z-index: 1;
+}
