@@ -143,6 +143,14 @@ Usunięcie rekordu na jednym urządzeniu znika też na drugim; zmiany synchroniz
 - **Mobile:** `repo.deleteInvoice/deleteExpense` (online → kasuje w Supabase + Storage; offline → outbox `delete-invoice`/`delete-expense`; rekord jeszcze niewysłany → tylko usunięcie wpisu z outboxa). `sync.js flushOutbox` obsługuje delete-opy. Listy filtrują nakładkę „oczekujące" do `insert-*` (delete-opy nie renderują się jako wiersze). Przyciski „Usuń" w `invoiceDetail`/`expenseDetail`. Auto-odświeżanie: `sync.js` heartbeat `syncNow` co 15 s wykrywa zmianę stanu chmury lekką **sygnaturą** (`repo.remoteChangeSignature` = id+updated_at faktur, kosztów, godzinówki i kilometrówki) i dopiero wtedy emituje `zzp-synced`, a `main.js` re-renderuje bieżący widok. Kluczowe: **nie odświeżamy bezwarunkowo co cykl** (to powodowało „mruganie") — tylko gdy dane faktycznie się zmieniły. Odczyt mobilny i tak lustrzano odbija chmurę (`idb.replaceAll`), więc usunięcia z desktopu znikają przy odświeżeniu.
 - **Model „immediate":** push natychmiast (~1,5 s po zmianie), pull/propagacja na drugie urządzenie do ~15 s. (Realtime/websocket odrzucone jako cięższe.)
 
+### Przerwa we wpisie czasu (ZROBIONE, desktop + chmura)
+Godzinówka 1:1 z efakturą: czas trwania = od–do **minus przerwa** (netto).
+- Migracja SQLite **v9**: `time_entries.break_minutes INTEGER DEFAULT 0`; chmura ma tę kolumnę (wykonano przez Management API; addytywnie też w `docs/supabase-migration-mobile-pakiet.sql` sekcja 3 i w `supabase-schema.sql`).
+- `time-tracking.js`: `create` liczy netto ze start/end−przerwa i zapisuje `break_minutes`; `update` ma `break_minutes` w allowed.
+- `page-time.js`: formularz ręczny — pole „Przerwa (min)" (`m-break`, `calcDuration` odejmuje); edycja — pola od/do/przerwa (`e-from/e-to/e-break`, prefill z wpisu; przy podanych od–do czas liczony z zakresu minus przerwa); karta podglądu pokazuje `(HH:MM przerwy)`.
+- `cloud-sync.js`: push/pull time_entries z `break_minutes`. **Uwaga:** push wysyła tę kolumnę bezwarunkowo — chmura MUSI ją mieć (inaczej błąd inserta wszystkich wpisów).
+- Mobile nie wysyła `break_minutes` (default 0 w chmurze) — ewentualne pole przerwy na telefonie to osobny krok.
+
 ### Karta podglądu wpisu czasu (ZROBIONE, desktop)
 Klik w wiersz na liście godzinówki otwiera kartę jak w efakturze: tytuł = klient
 (`time-tracking.js getAll` ma teraz `LEFT JOIN clients` → `client_name`), podtytuł =
