@@ -24,3 +24,6 @@ create table if not exists public.mileage_entries (
 alter table public.mileage_entries enable row level security;
 drop policy if exists "authenticated_all" on public.mileage_entries;
 create policy "authenticated_all" on public.mileage_entries for all using (auth.role() = 'authenticated');
+
+-- 3. Przerwa we wpisie czasu (godzinówka jak w efakturze)
+alter table public.time_entries add column if not exists break_minutes integer default 0;

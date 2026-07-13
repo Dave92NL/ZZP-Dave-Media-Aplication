@@ -416,6 +416,11 @@ function getMigrations() {
         cloud_id TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
+    ]],
+
+    // Migration 9 — przerwa we wpisie czasu (godzinówka jak w efakturze)
+    [9, [
+      `ALTER TABLE time_entries ADD COLUMN break_minutes INTEGER DEFAULT 0`
     ]]
   ];
 }

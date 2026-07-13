@@ -129,6 +129,7 @@ create table public.time_entries (
   start_time timestamptz,
   end_time timestamptz,
   duration_minutes integer default 0,
+  break_minutes integer default 0,
   is_pomodoro boolean default false,
   is_billable boolean default true,
   date date not null,

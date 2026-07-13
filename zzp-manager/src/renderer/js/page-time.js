@@ -169,6 +169,10 @@ const PageTime = (() => {
           <input type="time" id="m-to" oninput="PageTime.calcDuration()">
         </div>
         <div class="form-group">
+          <label>Przerwa (min)</label>
+          <input type="number" id="m-break" min="0" step="5" placeholder="np. 45" oninput="PageTime.calcDuration()">
+        </div>
+        <div class="form-group">
           <label>Czas trwania</label>
           <input type="text" id="m-duration" placeholder="np. 1h 30m" oninput="PageTime.onDurationInput()">
         </div>
@@ -443,6 +447,9 @@ const PageTime = (() => {
     const [th, tm] = to.split(':').map(Number);
     let mins = (th * 60 + tm) - (fh * 60 + fm);
     if (mins < 0) mins += 24 * 60;
+    // Odejmij przerwę — czas trwania to czas netto pracy (jak w efakturze).
+    const brk = Math.max(0, parseInt(document.getElementById('m-break')?.value) || 0);
+    mins = Math.max(0, mins - brk);
     document.getElementById('m-duration').value = fmtDuration(mins);
   }
 
@@ -474,12 +481,15 @@ const PageTime = (() => {
 
     if (!date) { UI.toast('Data jest wymagana.', 'warning'); return; }
 
+    const breakMinutes = Math.max(0, parseInt(document.getElementById('m-break')?.value) || 0);
+
     let durationMinutes = 0;
     if (from && to) {
       const [fh, fm] = from.split(':').map(Number);
       const [th, tm] = to.split(':').map(Number);
       durationMinutes = (th * 60 + tm) - (fh * 60 + fm);
       if (durationMinutes < 0) durationMinutes += 24 * 60;
+      durationMinutes -= breakMinutes; // czas netto (bez przerwy)
     } else {
       durationMinutes = parseDuration(durationStr);
     }
@@ -493,12 +503,14 @@ const PageTime = (() => {
         start_time: from ? `${date}T${from}:00` : null,
         end_time: to ? `${date}T${to}:00` : null,
         duration_minutes: durationMinutes,
+        break_minutes: breakMinutes,
         is_billable: billable ? 1 : 0
       });
       UI.toast(`Dodano: ${fmtDuration(durationMinutes)}`, 'success');
       // Clear form
       document.getElementById('m-from').value = '';
       document.getElementById('m-to').value = '';
+      document.getElementById('m-break').value = '';
       document.getElementById('m-duration').value = '';
       document.getElementById('m-desc').value = '';
       await refreshList();
@@ -628,7 +640,9 @@ const PageTime = (() => {
     const range = (e.start_time && e.end_time) ? `${hm(e.start_time)} - ${hm(e.end_time)}` : '';
 
     const mins = Number(e.duration_minutes) || 0;
-    const durLabel = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')} godzin`;
+    const brk = Number(e.break_minutes) || 0;
+    const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const durLabel = `${hhmm(mins)} godzin${brk > 0 ? ` (${hhmm(brk)} przerwy)` : ''}`;
 
     UI.openModal('', `
       <div class="time-view-card">
@@ -657,10 +671,20 @@ const PageTime = (() => {
       projects.map(p => `<option value="${p.id}" ${p.id == entry.project_id ? 'selected' : ''}>${UI.esc(p.name)}</option>`).join('');
     const catOpts = CATEGORIES.map(c => `<option ${c === entry.category ? 'selected' : ''}>${UI.esc(c)}</option>`).join('');
 
+    // Prefill godzin od/do z istniejącego start/end (wpisy z licznika je mają).
+    const hmVal = (ts) => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    };
+
     UI.openModal('Edytuj wpis czasu', `
       <div class="form-grid-2">
         <div class="form-group"><label>Data</label><input type="date" id="e-date" value="${entry.date}"></div>
         <div class="form-group"><label>Czas trwania (min)</label><input type="number" id="e-duration" value="${entry.duration_minutes}" min="1"></div>
+        <div class="form-group"><label>Godzina od</label><input type="time" id="e-from" value="${hmVal(entry.start_time)}"></div>
+        <div class="form-group"><label>Godzina do</label><input type="time" id="e-to" value="${hmVal(entry.end_time)}"></div>
+        <div class="form-group"><label>Przerwa (min)</label><input type="number" id="e-break" value="${entry.break_minutes || 0}" min="0" step="5"></div>
         <div class="form-group"><label>Projekt</label><select id="e-project">${projOpts}</select></div>
         <div class="form-group"><label>Kategoria</label><select id="e-category">${catOpts}</select></div>
         <div class="form-group full"><label>Opis</label><div style="display:flex;align-items:center;gap:6px"><input type="text" id="e-desc" value="${UI.esc(entry.description || '')}" style="flex:1">${window.Translator ? Translator.widgetHTML('e-desc') : ''}</div></div>
@@ -676,9 +700,28 @@ const PageTime = (() => {
   }
 
   async function confirmEdit(id) {
+    const date = document.getElementById('e-date')?.value;
+    const from = document.getElementById('e-from')?.value;
+    const to = document.getElementById('e-to')?.value;
+    const breakMinutes = Math.max(0, parseInt(document.getElementById('e-break')?.value) || 0);
+
+    // Gdy podano od/do — czas trwania liczony z zakresu minus przerwa (netto);
+    // inaczej obowiązuje ręczna wartość „Czas trwania (min)".
+    let durationMinutes = parseInt(document.getElementById('e-duration')?.value) || 0;
+    if (from && to) {
+      const [fh, fm] = from.split(':').map(Number);
+      const [th, tm] = to.split(':').map(Number);
+      let mins = (th * 60 + tm) - (fh * 60 + fm);
+      if (mins < 0) mins += 24 * 60;
+      durationMinutes = Math.max(0, mins - breakMinutes);
+    }
+
     const data = {
-      date: document.getElementById('e-date')?.value,
-      duration_minutes: parseInt(document.getElementById('e-duration')?.value) || 0,
+      date,
+      duration_minutes: durationMinutes,
+      break_minutes: breakMinutes,
+      start_time: (from && date) ? `${date}T${from}:00` : null,
+      end_time: (to && date) ? `${date}T${to}:00` : null,
       project_id: document.getElementById('e-project')?.value || null,
       category: document.getElementById('e-category')?.value,
       description: document.getElementById('e-desc')?.value || '',

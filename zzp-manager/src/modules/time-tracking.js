@@ -47,19 +47,21 @@ function create(data) {
   if (!data.date) throw new Error('Data jest wymagana.');
   if (!data.category) throw new Error('Kategoria jest wymagana.');
 
+  const breakMinutes = Math.max(0, Number(data.break_minutes) || 0);
   let durationMinutes = Number(data.duration_minutes) || 0;
 
   if (data.start_time && data.end_time && !durationMinutes) {
     const start = new Date(data.start_time);
     const end = new Date(data.end_time);
-    durationMinutes = Math.round((end - start) / 60000);
+    durationMinutes = Math.round((end - start) / 60000) - breakMinutes;
+    if (durationMinutes < 0) durationMinutes = 0;
   }
 
   const result = db.prepare(`
     INSERT INTO time_entries
       (project_id, invoice_id, category, description, start_time, end_time,
-       duration_minutes, is_pomodoro, is_billable, date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       duration_minutes, break_minutes, is_pomodoro, is_billable, date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.project_id || null,
     data.invoice_id || null,
@@ -68,6 +70,7 @@ function create(data) {
     data.start_time || null,
     data.end_time || null,
     durationMinutes,
+    breakMinutes,
     data.is_pomodoro ? 1 : 0,
     data.is_billable !== false ? 1 : 0,
     data.date
@@ -78,7 +81,7 @@ function create(data) {
 
 function update(id, data) {
   const db = getDb();
-  const allowed = ['project_id', 'category', 'description', 'start_time', 'end_time', 'duration_minutes', 'is_billable', 'date'];
+  const allowed = ['project_id', 'category', 'description', 'start_time', 'end_time', 'duration_minutes', 'break_minutes', 'is_billable', 'date'];
   const fields = [];
   const values = [];
 

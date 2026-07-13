@@ -383,6 +383,7 @@ async function pushLocalChanges() {
         project_id: _projectCloud(t.project_id), invoice_id: _invoiceCloud(t.invoice_id),
         category: t.category, description: t.description,
         start_time: t.start_time, end_time: t.end_time, duration_minutes: t.duration_minutes,
+        break_minutes: t.break_minutes || 0,
         is_pomodoro: !!t.is_pomodoro, is_billable: !!t.is_billable, date: t.date, origin: 'desktop'
       };
       let cloudId = t.cloud_id;
@@ -617,6 +618,7 @@ async function pullCloudChanges() {
         project_id: _localProjectId(ct.project_id), invoice_id: _localInvoiceId(ct.invoice_id),
         category: ct.category, description: ct.description,
         start_time: ct.start_time, end_time: ct.end_time, duration_minutes: ct.duration_minutes,
+        break_minutes: ct.break_minutes || 0,
         is_pomodoro: ct.is_pomodoro, is_billable: ct.is_billable, date: ct.date
       });
       db.prepare(`UPDATE time_entries SET cloud_id = ?, synced_at = CURRENT_TIMESTAMP WHERE id = ?`).run(ct.id, result.id);
