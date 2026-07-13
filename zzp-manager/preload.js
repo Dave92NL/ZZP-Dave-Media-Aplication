@@ -8,6 +8,7 @@ const VALID_CHANNELS = new Set([
   'profile:get', 'profile:save', 'profile:uploadLogo',
   'settings:get', 'settings:set', 'settings:getAll', 'settings:factoryReset',
   'translate:text',
+  'update:install', 'update:check', 'app:getVersion',
   'floating:getEnabled', 'floating:setEnabled',
   'invoices:getAll', 'invoices:getById', 'invoices:create', 'invoices:update',
   'invoices:delete', 'invoices:markPaid', 'invoices:duplicate', 'invoices:exportPDF',
@@ -62,7 +63,8 @@ const VALID_PUSH_CHANNELS = new Set([
   'tray:toggle-timer', 'tray:quick-expense', 'tray:quick-task',
   'notification:reminder',
   'youtube:autoSynced',
-  'sync:autoSynced'
+  'sync:autoSynced',
+  'update:status'
 ]);
 
 function on(channel, callback) {
@@ -100,6 +102,13 @@ contextBridge.exposeInMainWorld('api', {
   // ── Tłumaczenie opisów (PL → NL/EN) ───────
   translate: {
     text: (text, target) => invoke('translate:text', text, target)
+  },
+
+  // ── Aktualizacje aplikacji (GitHub Releases) ──
+  updates: {
+    install: () => invoke('update:install'),
+    check: () => invoke('update:check'),
+    getVersion: () => invoke('app:getVersion')
   },
 
   // ── Floating widget ────────────────────────

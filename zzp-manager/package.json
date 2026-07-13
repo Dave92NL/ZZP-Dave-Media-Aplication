@@ -1,6 +1,6 @@
 {
   "name": "zzp-manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ZZP Manager — zarządzanie firmą freelancera w Holandii",
   "author": "Dave Media YT",
   "main": "main.js",
@@ -17,6 +17,13 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Dave92NL",
+        "repo": "ZZP-Dave-Media-Aplication"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "src/assets/icon.ico"

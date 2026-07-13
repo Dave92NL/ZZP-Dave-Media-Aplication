@@ -1016,3 +1016,38 @@ input:focus, select:focus, textarea:focus {
 }
 .tr-lang:active { background: var(--bg-secondary); }
 .tr-lang:disabled { opacity: .6; }
+
+/* ── Pasek aktualizacji PWA („Nowa wersja — Odśwież") ─────────────────────── */
+.update-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 44px 10px 14px;
+  background: color-mix(in srgb, var(--accent-blue) 22%, var(--bg-secondary));
+  border-bottom: 1px solid var(--accent-blue);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.update-bar #update-bar-btn {
+  border: none;
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+.update-bar #update-bar-close {
+  position: absolute;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+}

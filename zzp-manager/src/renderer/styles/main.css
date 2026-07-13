@@ -1795,3 +1795,43 @@ td > .tr-widget .tr-btn { padding: 3px 5px; font-size: 13px; }
   line-height: 1.6;
   white-space: pre-wrap;
 }
+
+/* ── Pasek aktualizacji aplikacji (electron-updater) ──────────────────────── */
+.update-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 40px 8px 14px;
+  background: color-mix(in srgb, var(--accent-blue) 18%, var(--bg-secondary));
+  border-bottom: 1px solid var(--accent-blue);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.update-bar.hidden { display: none; }
+.update-bar-btn {
+  border: none;
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.update-bar-btn:hover { filter: brightness(1.1); }
+.update-bar-close {
+  position: absolute;
+  right: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+.update-bar-close:hover { color: var(--text-primary); }

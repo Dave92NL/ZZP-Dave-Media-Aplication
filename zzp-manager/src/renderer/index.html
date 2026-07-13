@@ -14,6 +14,13 @@
 </head>
 <body>
 
+<!-- Pasek aktualizacji (electron-updater) — pokazywany przez app.js po 'update:status' -->
+<div id="update-bar" class="update-bar hidden">
+  <span id="update-bar-text"></span>
+  <button class="update-bar-btn hidden" id="update-bar-btn">Zainstaluj i uruchom ponownie</button>
+  <button class="update-bar-close" id="update-bar-close" title="Ukryj">✕</button>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════
      LOCK SCREEN
 ════════════════════════════════════════════════════════════ -->

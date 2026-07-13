@@ -1,4 +1,5 @@
 import './styles/main.css';
+import { registerSW } from 'virtual:pwa-register';
 import { registerRoutes, navigate, initRouter, currentPage, currentParam } from './router.js';
 import { onAuthStateChange } from './auth.js';
 import { initSync } from './data/sync.js';
@@ -49,6 +50,31 @@ initSync();
 
 // Tłumaczenie opisów (ikonka 🌐 przy polach opisu) — jeden delegowany listener.
 initTranslateWidget();
+
+// ── Aktualizacje PWA: pasek „Nowa wersja — Odśwież" ─────────────────────────
+// registerType 'prompt': nowy service worker czeka na zgodę; klik = skipWaiting
+// + przeładowanie. Dodatkowo sprawdzaj nową wersję co godzinę.
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (document.getElementById('update-bar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'update-bar';
+    bar.className = 'update-bar';
+    bar.innerHTML = `
+      <span>🎉 Nowa wersja aplikacji</span>
+      <button type="button" id="update-bar-btn">Odśwież</button>
+      <button type="button" id="update-bar-close" aria-label="Ukryj">✕</button>`;
+    document.body.appendChild(bar);
+    document.getElementById('update-bar-btn').addEventListener('click', () => {
+      document.getElementById('update-bar-btn').textContent = '⏳';
+      updateSW(true);
+    });
+    document.getElementById('update-bar-close').addEventListener('click', () => bar.remove());
+  },
+  onRegisteredSW(_url, reg) {
+    if (reg) setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+  }
+});
 
 // Po udanej synchronizacji odśwież bieżący widok, by pokazać zaktualizowane dane.
 // Nie przeładowujemy ekranów-formularzy, żeby nie skasować wpisywanych danych.

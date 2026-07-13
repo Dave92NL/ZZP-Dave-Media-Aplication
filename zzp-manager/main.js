@@ -253,6 +253,47 @@ function updateTrayMenu(stats = {}) {
 }
 
 // ─────────────────────────────────────────────
+// Auto-aktualizacje (GitHub Releases + electron-updater)
+// ─────────────────────────────────────────────
+// Działa tylko w zapakowanej aplikacji (instalator); w dev (`npm start`) pomijane.
+// Pobiera aktualizację w tle i wysyła stan do renderera ('update:status'),
+// który pokazuje pasek u góry okna. Instalacja: IPC 'update:install'.
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch (err) {
+    console.error('electron-updater niedostępny:', err.message);
+    return;
+  }
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  const send = (payload) => { mainWindow?.webContents.send('update:status', payload); };
+
+  autoUpdater.on('update-available', (info) => send({ state: 'downloading', version: info.version, percent: 0 }));
+  autoUpdater.on('download-progress', (p) => send({ state: 'downloading', percent: Math.round(p.percent || 0) }));
+  autoUpdater.on('update-downloaded', (info) => send({ state: 'ready', version: info.version }));
+  autoUpdater.on('error', (err) => {
+    // Brak sieci / brak wydania — nie przeszkadzaj użytkownikowi, tylko zaloguj.
+    console.error('AutoUpdater:', err?.message || err);
+    send({ state: 'error', message: String(err?.message || err) });
+  });
+
+  ipcMain.handle('update:install', () => {
+    isQuitting = true;
+    autoUpdater.quitAndInstall();
+  });
+  ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().catch(() => null));
+
+  const check = () => autoUpdater.checkForUpdates().catch(() => null);
+  check();                                  // przy starcie
+  setInterval(check, 6 * 60 * 60 * 1000);   // co 6 h
+}
+
+// ─────────────────────────────────────────────
 // App lifecycle
 // ─────────────────────────────────────────────
 app.whenReady().then(() => {
@@ -292,6 +333,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   registerIpcHandlers();
+  setupAutoUpdater();
 
   // Floating always-on-top launcher bubble — enabled by default
   if (settings.get('floating_widget_enabled') !== 'false') {
@@ -368,6 +410,7 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:get', (_, key) => settings.get(key));
   ipcMain.handle('settings:set', (_, key, value) => settings.set(key, value));
   ipcMain.handle('settings:getAll', () => settings.getAll());
+  ipcMain.handle('app:getVersion', () => app.getVersion());
   ipcMain.handle('translate:text', (_, text, target) => translate.translate(text, target));
 
   // ── Floating widget ───────────────────────

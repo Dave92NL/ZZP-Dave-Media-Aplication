@@ -49,6 +49,27 @@ const App = (() => {
     window.api.on('tray:quick-expense', () => { navigate('expenses'); UI.openModal('Szybki koszt', quickExpenseHTML()); });
     window.api.on('tray:quick-task', () => { navigate('tasks'); UI.openModal('Szybkie zadanie', quickTaskHTML()); });
 
+    // Pasek aktualizacji (electron-updater): pobieranie → gotowa do instalacji.
+    const updBar = document.getElementById('update-bar');
+    const updText = document.getElementById('update-bar-text');
+    const updBtn = document.getElementById('update-bar-btn');
+    document.getElementById('update-bar-close')?.addEventListener('click', () => updBar.classList.add('hidden'));
+    updBtn?.addEventListener('click', () => window.api.updates.install());
+    window.api.on('update:status', (info) => {
+      if (!info || !updBar) return;
+      if (info.state === 'downloading') {
+        updBar.classList.remove('hidden');
+        updBtn.classList.add('hidden');
+        updText.textContent = `⬇️ Pobieranie aktualizacji${info.version ? ' ' + info.version : ''}… ${info.percent ? info.percent + '%' : ''}`;
+      } else if (info.state === 'ready') {
+        updBar.classList.remove('hidden');
+        updBtn.classList.remove('hidden');
+        updText.textContent = `🎉 Nowa wersja ${info.version || ''} jest gotowa.`;
+      } else if (info.state === 'error') {
+        updBar.classList.add('hidden'); // nie przeszkadzaj — szczegóły w logu procesu głównego
+      }
+    });
+
     // Auto-synchronizacja: gdy pull przyniósł zmiany z drugiego urządzenia
     // (np. usunięcie faktury/kosztu na telefonie), odśwież bieżący widok listy.
     // Nie odświeżamy, gdy otwarty jest modal (nie przerywamy edycji).

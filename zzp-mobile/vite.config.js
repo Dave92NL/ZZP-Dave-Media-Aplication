@@ -10,7 +10,9 @@ export default defineConfig({
   base: BASE,
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': nowy service worker czeka, a UI pokazuje pasek „Nowa wersja — Odśwież"
+      // (rejestracja + obsługa w src/main.js przez virtual:pwa-register).
+      registerType: 'prompt',
       includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
         id: BASE,
