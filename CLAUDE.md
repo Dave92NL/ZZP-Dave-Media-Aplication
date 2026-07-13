@@ -143,6 +143,15 @@ Usunięcie rekordu na jednym urządzeniu znika też na drugim; zmiany synchroniz
 - **Mobile:** `repo.deleteInvoice/deleteExpense` (online → kasuje w Supabase + Storage; offline → outbox `delete-invoice`/`delete-expense`; rekord jeszcze niewysłany → tylko usunięcie wpisu z outboxa). `sync.js flushOutbox` obsługuje delete-opy. Listy filtrują nakładkę „oczekujące" do `insert-*` (delete-opy nie renderują się jako wiersze). Przyciski „Usuń" w `invoiceDetail`/`expenseDetail`. Auto-odświeżanie: `sync.js` heartbeat `syncNow` co 15 s wykrywa zmianę stanu chmury lekką **sygnaturą** (`repo.remoteChangeSignature` = id+updated_at faktur, kosztów, godzinówki i kilometrówki) i dopiero wtedy emituje `zzp-synced`, a `main.js` re-renderuje bieżący widok. Kluczowe: **nie odświeżamy bezwarunkowo co cykl** (to powodowało „mruganie") — tylko gdy dane faktycznie się zmieniły. Odczyt mobilny i tak lustrzano odbija chmurę (`idb.replaceAll`), więc usunięcia z desktopu znikają przy odświeżeniu.
 - **Model „immediate":** push natychmiast (~1,5 s po zmianie), pull/propagacja na drugie urządzenie do ~15 s. (Realtime/websocket odrzucone jako cięższe.)
 
+### Karta podglądu wpisu czasu (ZROBIONE, desktop)
+Klik w wiersz na liście godzinówki otwiera kartę jak w efakturze: tytuł = klient
+(`time-tracking.js getAll` ma teraz `LEFT JOIN clients` → `client_name`), podtytuł =
+projekt/kategoria, data słownie (pl-PL, weekday+day+month), zakres godzin (tylko wpisy
+z licznika — ręczne nie mają start/end), czas trwania `HH:MM godzin`, opis; stopka
+✏️ Edytuj / 🗑 Usuń (przechodzą do istniejących modali). `PageTime.viewEntry(id)` w
+`page-time.js`; wiersz `onclick` + `event.stopPropagation()` na komórce akcji;
+style `.time-view-*` w `main.css` (zielony pasek akcentu).
+
 ### Poprawki po zgłoszeniu (pole opisu, polskie znaki w PDF, menu tłumaczenia)
 - **Polskie znaki w PDF faktury (krzaczki):** pdfkit domyślnie używał Helvetiki, która nie ma glifów ą/ć/ę/ł/ń/ś/ź/ż. Dodano czcionkę **DejaVu Sans** (`src/assets/fonts/DejaVuSans.ttf` + `-Bold.ttf`), rejestrowaną helperem `_registerPdfFonts(doc)` po każdym `new PDFDocument` w `invoices.js`; wszystkie `doc.font('Helvetica*')` → `'INV'/'INV-Bold'`. Dotyczy PDF faktury i żywego podglądu. (Font bundlowany w src/** → trafia do instalatora.)
 - **Wąskie pole opisu w pozycji faktury:** po dodaniu ikonki 🌐 input miał `width:100%` w kontenerze flex → ściśnięty. Zmiana na `flex:1;min-width:0` (`.tr-field`).
