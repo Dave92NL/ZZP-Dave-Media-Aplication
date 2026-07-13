@@ -1,6 +1,7 @@
 import { navigate } from '../router.js';
 import { signOut, getSession } from '../auth.js';
 import { enablePush, pushSupported } from '../push.js';
+import { checkForUpdateNow } from '../lib/appUpdate.js';
 import { icon } from '../lib/icons.js';
 
 const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -64,7 +65,14 @@ export async function load() {
           <span>Włącz powiadomienia</span>
           <span class="menu-chevron">${icon('chevronRight', { size: 18 })}</span>
         </button>
+        <button class="menu-item" id="more-check-update">
+          <span class="menu-icon">${icon('download', { size: 20 })}</span>
+          <span id="more-check-update-label">Sprawdź aktualizacje</span>
+          <span class="menu-chevron">${icon('chevronRight', { size: 18 })}</span>
+        </button>
       </div></div>
+      <div id="more-notify-msg" class="info-box hidden" style="margin-top:-4px;margin-bottom:12px"></div>
+      <div id="more-update-msg" class="info-box hidden" style="margin-top:-4px;margin-bottom:12px"></div>
 
       <div class="menu-group"><div class="menu-list">
         <button class="menu-item menu-item-danger" id="more-logout">
@@ -73,8 +81,6 @@ export async function load() {
           <span class="menu-chevron">${icon('chevronRight', { size: 18 })}</span>
         </button>
       </div></div>
-
-      <div id="more-notify-msg" class="info-box hidden" style="margin-top:12px"></div>
     </div>
   `;
 
@@ -107,6 +113,24 @@ export async function load() {
     msg.textContent = res.ok
       ? '✅ Powiadomienia włączone — dostaniesz alert o fakturach po terminie.'
       : '⚠️ ' + res.reason;
+  });
+
+  document.getElementById('more-check-update').addEventListener('click', async () => {
+    const msg = document.getElementById('more-update-msg');
+    const btn = document.getElementById('more-check-update');
+    msg.classList.remove('hidden');
+    msg.textContent = '⏳ Sprawdzanie…';
+    document.getElementById('more-check-update-label').textContent = 'Sprawdzanie…';
+    try {
+      const result = await checkForUpdateNow();
+      if (result === 'found') msg.textContent = '🎉 Jest nowa wersja — pasek u góry pozwoli ją zainstalować.';
+      else if (result === 'not-found') msg.textContent = '✅ Masz najnowszą wersję aplikacji.';
+      else msg.textContent = '⚠️ Nie udało się sprawdzić (spróbuj ponownie po odświeżeniu aplikacji).';
+    } catch (err) {
+      msg.textContent = '⚠️ ' + err.message;
+    } finally {
+      document.getElementById('more-check-update-label').textContent = 'Sprawdź aktualizacje';
+    }
   });
 
   document.getElementById('more-logout').addEventListener('click', async () => {

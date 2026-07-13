@@ -259,7 +259,20 @@ function updateTrayMenu(stats = {}) {
 // Pobiera aktualizację w tle i wysyła stan do renderera ('update:status'),
 // który pokazuje pasek u góry okna. Instalacja: IPC 'update:install'.
 function setupAutoUpdater() {
-  if (!app.isPackaged) return;
+  const send = (payload) => { mainWindow?.webContents.send('update:status', payload); };
+
+  // Tryb deweloperski (npm start): rejestrujemy IPC mimo wszystko, żeby przycisk
+  // „Sprawdź aktualizacje" w Ustawieniach nie wywalał się brakiem handlera —
+  // po prostu informujemy, że to działa tylko w zainstalowanej wersji.
+  if (!app.isPackaged) {
+    ipcMain.handle('update:check', () => {
+      send({ state: 'not-available', message: 'Sprawdzanie aktualizacji działa tylko w zainstalowanej wersji aplikacji (tryb deweloperski jest pomijany).' });
+      return null;
+    });
+    ipcMain.handle('update:install', () => null);
+    return;
+  }
+
   let autoUpdater;
   try {
     ({ autoUpdater } = require('electron-updater'));
@@ -271,11 +284,10 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  const send = (payload) => { mainWindow?.webContents.send('update:status', payload); };
-
   autoUpdater.on('update-available', (info) => send({ state: 'downloading', version: info.version, percent: 0 }));
   autoUpdater.on('download-progress', (p) => send({ state: 'downloading', percent: Math.round(p.percent || 0) }));
   autoUpdater.on('update-downloaded', (info) => send({ state: 'ready', version: info.version }));
+  autoUpdater.on('update-not-available', () => send({ state: 'not-available' }));
   autoUpdater.on('error', (err) => {
     // Brak sieci / brak wydania — nie przeszkadzaj użytkownikowi, tylko zaloguj.
     console.error('AutoUpdater:', err?.message || err);
@@ -286,11 +298,20 @@ function setupAutoUpdater() {
     isQuitting = true;
     autoUpdater.quitAndInstall();
   });
-  ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().catch(() => null));
 
-  const check = () => autoUpdater.checkForUpdates().catch(() => null);
-  check();                                  // przy starcie
-  setInterval(check, 6 * 60 * 60 * 1000);   // co 6 h
+  // manual=true (przycisk w Ustawieniach) → pokaż „Sprawdzanie…" od razu;
+  // sprawdzanie automatyczne (start/heartbeat) działa po cichu w tle.
+  const check = (manual = false) => {
+    if (manual) send({ state: 'checking' });
+    return autoUpdater.checkForUpdates().catch((err) => {
+      send({ state: 'error', message: String(err?.message || err) });
+      return null;
+    });
+  };
+  ipcMain.handle('update:check', () => check(true));
+
+  check();                                        // przy starcie
+  setInterval(() => check(false), 6 * 60 * 60 * 1000); // co 6 h
 }
 
 // ─────────────────────────────────────────────

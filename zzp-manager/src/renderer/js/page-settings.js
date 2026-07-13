@@ -16,7 +16,8 @@ window.PageSettings = (() => {
     { id: 'data',      icon: '📦', label: 'Dane' },
     { id: 'youtube',   icon: '🎬', label: 'YouTube API' },
     { id: 'translate', icon: '🌐', label: 'Tłumaczenia' },
-    { id: 'sync',      icon: '📱', label: 'Synchronizacja / Telefon' }
+    { id: 'sync',      icon: '📱', label: 'Synchronizacja / Telefon' },
+    { id: 'about',     icon: 'ℹ️', label: 'O aplikacji' }
   ];
 
   async function load() {
@@ -69,6 +70,7 @@ window.PageSettings = (() => {
       case 'youtube':   el.innerHTML = await _tplYouTube(); break;
       case 'translate': el.innerHTML = _tplTranslate();  break;
       case 'sync':      el.innerHTML = await _tplSync();    break;
+      case 'about':     el.innerHTML = await _tplAbout();   break;
     }
     _bindTabEvents(tab);
   }
@@ -590,7 +592,64 @@ window.PageSettings = (() => {
 </div>`;
   }
 
+  // ── O aplikacji tab (wersja + ręczne sprawdzenie aktualizacji) ───────────
+  async function _tplAbout() {
+    const version = await window.api.updates.getVersion().catch(() => '?');
+    return `
+<div class="card">
+  <h3 class="section-title">O aplikacji</h3>
+  <div class="totals-row"><span>Wersja</span><span class="mono">${UI.esc(version)}</span></div>
+  <p class="text-muted" style="font-size:13px;margin-top:8px">
+    Aplikacja sprawdza aktualizacje automatycznie przy starcie i co 6 godzin. Możesz też sprawdzić od razu.
+  </p>
+  <button class="btn btn-primary" id="ab-check-update-btn" style="margin-top:12px">🔄 Sprawdź aktualizacje</button>
+  <div id="ab-update-status" class="text-muted" style="margin-top:10px;font-size:13px"></div>
+</div>`;
+  }
+
+  // Globalny listener statusu aktualizacji — rejestrowany raz, aktualizuje tekst
+  // w zakładce „O aplikacji", jeśli jest akurat otwarta (element może nie istnieć).
+  let _updateStatusBound = false;
+  function _bindUpdateStatusListener() {
+    if (_updateStatusBound) return;
+    _updateStatusBound = true;
+    window.api.on('update:status', (info) => {
+      const statusEl = document.getElementById('ab-update-status');
+      const btn = document.getElementById('ab-check-update-btn');
+      if (!statusEl) return; // zakładka „O aplikacji" nie jest aktywna
+      if (info.state === 'checking') {
+        statusEl.textContent = '⏳ Sprawdzanie aktualizacji…';
+      } else if (info.state === 'downloading') {
+        statusEl.textContent = `⬇️ Pobieranie aktualizacji${info.version ? ' ' + info.version : ''}… ${info.percent ? info.percent + '%' : ''}`;
+      } else if (info.state === 'ready') {
+        statusEl.textContent = `🎉 Wersja ${info.version || ''} pobrana — zainstaluj przyciskiem w pasku u góry.`;
+        if (btn) btn.disabled = false;
+      } else if (info.state === 'not-available') {
+        statusEl.textContent = info.message || '✅ Masz najnowszą wersję.';
+        if (btn) btn.disabled = false;
+      } else if (info.state === 'error') {
+        statusEl.textContent = '⚠️ ' + (info.message || 'Błąd sprawdzania aktualizacji.');
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+
   function _bindTabEvents(tab) {
+    if (tab === 'about') {
+      _bindUpdateStatusListener();
+      document.getElementById('ab-check-update-btn')?.addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        try {
+          await window.api.updates.check();
+        } catch (err) {
+          const statusEl = document.getElementById('ab-update-status');
+          if (statusEl) statusEl.textContent = '⚠️ ' + err.message;
+          e.target.disabled = false;
+        }
+        // Właściwy wynik (downloading/ready/not-available/error) przychodzi przez
+        // 'update:status' i odblokowuje przycisk w _bindUpdateStatusListener.
+      });
+    }
     if (tab === 'translate') {
       document.getElementById('tr-save-btn')?.addEventListener('click', async () => {
         const key = document.getElementById('tr-deepl-key')?.value.trim() || '';
