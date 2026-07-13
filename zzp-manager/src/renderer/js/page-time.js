@@ -540,14 +540,14 @@ const PageTime = (() => {
         </tr></thead>
         <tbody>
           ${entries.map(e => `
-            <tr>
+            <tr onclick="PageTime.viewEntry(${e.id})" style="cursor:pointer" title="Kliknij, aby zobaczyć szczegóły">
               <td class="mono">${fmtDate(e.date)}</td>
               <td>${UI.esc(e.project_name || '—')}</td>
               <td><span class="badge badge-muted" style="font-size:11px">${UI.esc(e.category)}</span></td>
               <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${UI.esc(e.description || '—')}</td>
               <td class="mono" style="text-align:right;color:var(--accent-blue)">${fmtDuration(e.duration_minutes)}</td>
               <td style="text-align:center">${e.is_billable ? '✅' : '—'}</td>
-              <td>
+              <td onclick="event.stopPropagation()">
                 <div style="display:flex;gap:4px">
                   <button class="btn btn-icon btn-sm btn-secondary" onclick="PageTime.editEntry(${e.id})" title="Edytuj">✏️</button>
                   <button class="btn btn-icon btn-sm btn-danger" onclick="PageTime.deleteEntry(${e.id})" title="Usuń">🗑</button>
@@ -605,6 +605,48 @@ const PageTime = (() => {
           </div>
         </div>
       </div>`;
+  }
+
+  // ── Podgląd wpisu (karta jak w efakturze) ────────────────
+  function viewEntry(id) {
+    const e = entries.find(x => x.id === id);
+    if (!e) return;
+
+    // Tytuł: klient (jak w efakturze); gdy brak — projekt albo kategoria.
+    const title = e.client_name || e.project_name || e.category || 'Wpis czasu';
+    const subtitle = e.client_name ? (e.project_name || e.category || '') : (e.project_name ? e.category : '');
+
+    // „środa, 1 lipca"
+    const dayLabel = new Date(e.date + 'T00:00:00')
+      .toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    // Zakres godzin tylko dla wpisów z licznika (start/end); wpisy ręczne go nie mają.
+    const hm = (ts) => {
+      const d = new Date(ts);
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    };
+    const range = (e.start_time && e.end_time) ? `${hm(e.start_time)} - ${hm(e.end_time)}` : '';
+
+    const mins = Number(e.duration_minutes) || 0;
+    const durLabel = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')} godzin`;
+
+    UI.openModal('', `
+      <div class="time-view-card">
+        <div class="time-view-head">
+          <div class="time-view-title">${UI.esc(title)}</div>
+          ${subtitle ? `<div class="time-view-subtitle">${UI.esc(subtitle)}</div>` : ''}
+        </div>
+        <div class="time-view-meta">
+          <div>${UI.esc(dayLabel)}</div>
+          ${range ? `<div>${range}</div>` : ''}
+          <div>${durLabel}${e.is_billable ? '' : ' · nierozliczalne'}</div>
+        </div>
+        ${e.description ? `<div class="time-view-desc">${UI.esc(e.description)}</div>` : ''}
+      </div>`, {
+      footer: `
+        <button class="btn btn-primary" onclick="PageTime.editEntry(${e.id})" title="Edytuj">✏️ Edytuj</button>
+        <button class="btn btn-danger" onclick="PageTime.deleteEntry(${e.id})" title="Usuń">🗑</button>`
+    });
   }
 
   // ── Edit / Delete ────────────────────────────────────────
@@ -943,7 +985,7 @@ const PageTime = (() => {
     idleAddToSession, idleSubtract, idleStopSession,
     calcDuration, onDurationInput, addManualEntry,
     applyListFilters, refreshList,
-    editEntry, confirmEdit, deleteEntry, confirmDelete,
+    viewEntry, editEntry, confirmEdit, deleteEntry, confirmDelete,
     openExportModal, doExport,
     openImportWizard, doHoursImport
   };

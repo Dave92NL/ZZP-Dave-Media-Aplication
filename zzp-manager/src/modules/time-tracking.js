@@ -30,9 +30,11 @@ function getAll(filters = {}) {
   const limit = filters.limit ? `LIMIT ${parseInt(filters.limit)}` : '';
 
   return db.prepare(`
-    SELECT t.*, p.name as project_name
+    SELECT t.*, p.name as project_name,
+           COALESCE(c.company_name, c.name) as client_name
     FROM time_entries t
     LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN clients c ON p.client_id = c.id
     ${whereStr}
     ORDER BY t.date DESC, t.id DESC
     ${limit}

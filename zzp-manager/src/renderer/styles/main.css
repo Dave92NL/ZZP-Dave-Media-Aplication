@@ -1768,3 +1768,30 @@ td > .tr-widget .tr-btn { padding: 3px 5px; font-size: 13px; }
 }
 .tr-lang:hover { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--accent-blue); }
 .tr-lang:disabled { opacity: .6; cursor: default; }
+
+/* ── Karta podglądu wpisu czasu (klik w wiersz godzinówki) ────────────────── */
+.time-view-card { padding: 4px 2px; }
+.time-view-head {
+  border-left: 4px solid var(--accent-green);
+  padding-left: 12px;
+  margin-bottom: 14px;
+}
+.time-view-title { font-size: 19px; font-weight: 700; color: var(--text-primary); }
+.time-view-subtitle { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-top: 2px; }
+.time-view-meta {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.time-view-meta > div:first-child { text-transform: capitalize; }
+.time-view-desc {
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
