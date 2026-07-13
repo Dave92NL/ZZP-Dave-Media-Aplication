@@ -21,7 +21,8 @@
       {
         "provider": "github",
         "owner": "Dave92NL",
-        "repo": "ZZP-Dave-Media-Aplication"
+        "repo": "ZZP-Dave-Media-Aplication",
+        "releaseType": "release"
       }
     ],
     "win": {
