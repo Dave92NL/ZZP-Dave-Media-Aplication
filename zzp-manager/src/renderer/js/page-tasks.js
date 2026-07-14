@@ -13,7 +13,9 @@ const PageTasks = (() => {
   const PRIORITY_COLOR = { urgent: 'var(--accent-red)', high: 'var(--accent-orange)', medium: 'var(--accent-yellow)', low: 'var(--accent-green)' };
   const PRIORITY_LABEL = { urgent: 'PILNE', high: 'WYSOKI', medium: 'ŚREDNI', low: 'NISKI' };
   const MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
-  const DAY_NAMES = ['Pon','Wto','Śro','Czw','Pią','Sob','Nie'];
+  // "Ndz" zamiast "Nie" — unika kolizji z kluczem 'Nie' (Tak/Nie) w DOM_MAP tłumaczeń,
+  // który inaczej cicho przesłania tłumaczenie skrótu dnia tygodnia.
+  const DAY_NAMES = ['Pon','Wto','Śro','Czw','Pią','Sob','Ndz'];
 
   // ── Entry point ──────────────────────────────────────────
   async function load() {
@@ -246,8 +248,8 @@ const PageTasks = (() => {
 
   function openForm(t, datePreset = '') {
     UI.openModal(t ? '✏️ Edytuj zadanie' : '+ Nowe zadanie', `
-      <div class="form-group"><label>Tytuł *</label><input type="text" id="tf-title" value="${UI.esc(t?.title||'')}"></div>
-      <div class="form-group"><label>Opis</label><textarea id="tf-desc" rows="2">${UI.esc(t?.description||'')}</textarea></div>
+      <div class="form-group"><label>Tytuł *</label><div style="display:flex;align-items:center;gap:6px"><input type="text" id="tf-title" value="${UI.esc(t?.title||'')}" style="flex:1">${window.Translator ? Translator.widgetHTML('tf-title') : ''}</div></div>
+      <div class="form-group"><label>Opis</label><div class="tr-field"><textarea id="tf-desc" rows="2">${UI.esc(t?.description||'')}</textarea>${window.Translator ? Translator.widgetHTML('tf-desc') : ''}</div></div>
       <div class="form-group"><label>Priorytet</label>
         <div style="display:flex;gap:12px;padding-top:8px">
           ${['urgent','high','medium','low'].map(p=>`<label style="display:flex;gap:6px;align-items:center;cursor:pointer">

@@ -177,11 +177,17 @@ window.PageCalendar = (() => {
 <div class="form-grid-2">
   <div class="form-group full">
     <label>Tytuł *</label>
-    <input type="text" id="cal-f-title" value="${UI.esc(ev?.title || '')}" placeholder="np. Spotkanie z klientem">
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="text" id="cal-f-title" value="${UI.esc(ev?.title || '')}" placeholder="np. Spotkanie z klientem" style="flex:1">
+      ${window.Translator ? Translator.widgetHTML('cal-f-title') : ''}
+    </div>
   </div>
   <div class="form-group full">
     <label>Opis (opcjonalnie)</label>
-    <textarea id="cal-f-desc" rows="2">${UI.esc(ev?.description || '')}</textarea>
+    <div class="tr-field">
+      <textarea id="cal-f-desc" rows="2">${UI.esc(ev?.description || '')}</textarea>
+      ${window.Translator ? Translator.widgetHTML('cal-f-desc') : ''}
+    </div>
   </div>
   <div class="form-group full">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer">

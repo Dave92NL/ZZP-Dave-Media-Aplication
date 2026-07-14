@@ -173,7 +173,7 @@ const PageContacts = (() => {
           <div class="form-group"><label>Status</label>
             <select id="cf-status"><option value="active" ${c.status==='active'?'selected':''}>Aktywny</option><option value="inactive" ${c.status==='inactive'?'selected':''}>Nieaktywny</option></select></div>
           <div class="form-group"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="cf-rc" ${c.btw_reverse_charge?'checked':''}> BTW Reverse Charge</label></div>
-          <div class="form-group full"><label>Notatki</label><textarea id="cf-notes" rows="3">${UI.esc(c.notes||'')}</textarea></div>
+          <div class="form-group full"><label>Notatki</label><div class="tr-field"><textarea id="cf-notes" rows="3">${UI.esc(c.notes||'')}</textarea>${window.Translator ? Translator.widgetHTML('cf-notes') : ''}</div></div>
         </div>
         <div style="margin-top:16px"><button class="btn btn-primary" onclick="PageContacts.saveContactData(${clientId})">💾 Zapisz zmiany</button></div>
       </div>`;
@@ -283,8 +283,8 @@ const PageContacts = (() => {
           </label>`).join('')}
         </div>
       </div>
-      <div class="form-group"><label>Temat</label><input type="text" id="int-subject" placeholder="Temat interakcji"></div>
-      <div class="form-group"><label>Treść</label><textarea id="int-content" rows="3" placeholder="Szczegóły…"></textarea></div>
+      <div class="form-group"><label>Temat</label><div style="display:flex;align-items:center;gap:6px"><input type="text" id="int-subject" placeholder="Temat interakcji" style="flex:1">${window.Translator ? Translator.widgetHTML('int-subject') : ''}</div></div>
+      <div class="form-group"><label>Treść</label><div class="tr-field"><textarea id="int-content" rows="3" placeholder="Szczegóły…"></textarea>${window.Translator ? Translator.widgetHTML('int-content') : ''}</div></div>
       <div class="form-group"><label>Data</label><input type="date" id="int-date" value="${new Date().toISOString().split('T')[0]}"></div>
     `, {
       footer: `<button class="btn btn-secondary" onclick="UI.closeModal()">Anuluj</button>
@@ -354,7 +354,7 @@ const PageContacts = (() => {
         <div class="form-group"><label>Waluta</label>
           <select id="nf-cur">${['EUR','USD','GBP','PLN'].map(v=>`<option ${(c?.currency||'EUR')===v?'selected':''}>${v}</option>`).join('')}</select></div>
         <div class="form-group"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="nf-rc" ${c?.btw_reverse_charge?'checked':''}> BTW Reverse Charge</label></div>
-        <div class="form-group full"><label>Notatki</label><textarea id="nf-notes" rows="2">${UI.esc(c?.notes||'')}</textarea></div>
+        <div class="form-group full"><label>Notatki</label><div class="tr-field"><textarea id="nf-notes" rows="2">${UI.esc(c?.notes||'')}</textarea>${window.Translator ? Translator.widgetHTML('nf-notes') : ''}</div></div>
       </div>
     `, {
       size: 'lg',

@@ -345,7 +345,10 @@ const PageInvoices = (() => {
             </div>
             <div class="form-group">
               <label>Notatki</label>
-              <textarea id="inv-notes" rows="2">${UI.esc(inv.notes || '')}</textarea>
+              <div class="tr-field">
+                <textarea id="inv-notes" rows="2">${UI.esc(inv.notes || '')}</textarea>
+                ${window.Translator ? Translator.widgetHTML('inv-notes') : ''}
+              </div>
             </div>
           </div>
         </div>

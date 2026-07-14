@@ -273,7 +273,10 @@ const PageExpenses = (() => {
         </div>
         <div class="form-group full">
           <label>Opis *</label>
-          <input type="text" id="ef-desc" placeholder="np. Licencja Adobe Premiere Pro" value="${UI.esc(exp?.description || '')}">
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="text" id="ef-desc" placeholder="np. Licencja Adobe Premiere Pro" value="${UI.esc(exp?.description || '')}" style="flex:1">
+            ${window.Translator ? Translator.widgetHTML('ef-desc') : ''}
+          </div>
         </div>
         <div class="form-group">
           <label>Dostawca</label>
@@ -321,7 +324,10 @@ const PageExpenses = (() => {
         </div>
         <div class="form-group full">
           <label>Notatki</label>
-          <textarea id="ef-notes" rows="2">${UI.esc(exp?.notes || '')}</textarea>
+          <div class="tr-field">
+            <textarea id="ef-notes" rows="2">${UI.esc(exp?.notes || '')}</textarea>
+            ${window.Translator ? Translator.widgetHTML('ef-notes') : ''}
+          </div>
         </div>
         </div>
       </div>

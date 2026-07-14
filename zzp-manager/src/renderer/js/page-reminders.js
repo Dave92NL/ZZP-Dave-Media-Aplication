@@ -115,11 +115,17 @@ window.PageReminders = (() => {
 <div class="form-grid-2">
   <div class="form-group full">
     <label>Tytuł *</label>
-    <input type="text" id="rem-f-title" value="${UI.esc(item?.title||'')}" placeholder="np. BTW-aangifte Q3">
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="text" id="rem-f-title" value="${UI.esc(item?.title||'')}" placeholder="np. BTW-aangifte Q3" style="flex:1">
+      ${window.Translator ? Translator.widgetHTML('rem-f-title') : ''}
+    </div>
   </div>
   <div class="form-group full">
     <label>Opis (opcjonalnie)</label>
-    <textarea id="rem-f-desc" rows="2">${UI.esc(item?.description||'')}</textarea>
+    <div class="tr-field">
+      <textarea id="rem-f-desc" rows="2">${UI.esc(item?.description||'')}</textarea>
+      ${window.Translator ? Translator.widgetHTML('rem-f-desc') : ''}
+    </div>
   </div>
   <div class="form-group">
     <label>Data *</label>

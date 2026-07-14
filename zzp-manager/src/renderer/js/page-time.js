@@ -634,9 +634,9 @@ const PageTime = (() => {
     const title = e.client_name || e.project_name || e.category || 'Wpis czasu';
     const subtitle = e.client_name ? (e.project_name || e.category || '') : (e.project_name ? e.category : '');
 
-    // „środa, 1 lipca"
+    // „środa, 1 lipca" — locale zgodne z aktualnym językiem aplikacji
     const dayLabel = new Date(e.date + 'T00:00:00')
-      .toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
+      .toLocaleDateString(window.i18n?.localeForLang ? window.i18n.localeForLang() : 'pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
 
     // Zakres godzin tylko dla wpisów z licznika (start/end); wpisy ręczne go nie mają.
     const hm = (ts) => {
@@ -770,7 +770,7 @@ const PageTime = (() => {
           <label>Zakres</label>
           <div style="display:flex;flex-direction:column;gap:6px">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
-              <input type="radio" name="exp-range" value="month" checked> Ten miesiąc (${new Date().toLocaleString('pl-PL',{month:'long',year:'numeric'})})
+              <input type="radio" name="exp-range" value="month" checked> Ten miesiąc (${new Date().toLocaleString(window.i18n?.localeForLang ? window.i18n.localeForLang() : 'pl-PL',{month:'long',year:'numeric'})})
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
               <input type="radio" name="exp-range" value="year"> Ten rok (${new Date().getFullYear()})

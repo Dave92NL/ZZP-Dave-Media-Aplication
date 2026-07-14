@@ -8,8 +8,11 @@ const UI = (() => {
     const el = document.createElement('div');
     el.className = `toast ${type}`;
 
+    // #toast-container żyje poza #page-content, więc MutationObserver z
+    // translations.js go nie widzi — tłumaczymy treść ręcznie przed wstawieniem.
+    const translated = window.i18n?.translateText ? window.i18n.translateText(message) : message;
     const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escHtml(message)}</span>`;
+    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escHtml(translated)}</span>`;
 
     container.appendChild(el);
     setTimeout(() => {

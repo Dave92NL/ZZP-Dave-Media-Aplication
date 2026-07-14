@@ -167,7 +167,10 @@ const PageMileage = (() => {
       </label>
       <div class="form-group">
         <label>Cel przejazdu</label>
-        <input type="text" id="mil-purpose" value="${UI.esc(e.purpose || '')}" placeholder="np. nagranie materiału, spotkanie z klientem">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="text" id="mil-purpose" value="${UI.esc(e.purpose || '')}" placeholder="np. nagranie materiału, spotkanie z klientem" style="flex:1">
+          ${window.Translator ? Translator.widgetHTML('mil-purpose') : ''}
+        </div>
       </div>
       <div class="form-grid-2">
         <div class="form-group">

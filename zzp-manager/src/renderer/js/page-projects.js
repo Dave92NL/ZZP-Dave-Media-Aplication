@@ -287,7 +287,7 @@ const PageProjects = (() => {
 
   async function _quickTask(projId) {
     UI.openModal('+ Nowe zadanie', `
-      <div class="form-group"><label>Tytuł *</label><input type="text" id="qt-title" placeholder="Tytuł zadania"></div>
+      <div class="form-group"><label>Tytuł *</label><div style="display:flex;align-items:center;gap:6px"><input type="text" id="qt-title" placeholder="Tytuł zadania" style="flex:1">${window.Translator ? Translator.widgetHTML('qt-title') : ''}</div></div>
       <div class="form-group"><label>Termin</label><input type="date" id="qt-due"></div>
     `, {
       footer: `<button class="btn btn-secondary" onclick="UI.closeModal()">Anuluj</button>
@@ -321,7 +321,7 @@ const PageProjects = (() => {
     const today = new Date().toISOString().split('T')[0];
     UI.openModal(isEdit ? '✏️ Edytuj projekt' : '+ Nowy projekt', `
       <div class="form-grid-2">
-        <div class="form-group full"><label>Nazwa projektu *</label><input type="text" id="pf-name" value="${UI.esc(proj?.name||'')}"></div>
+        <div class="form-group full"><label>Nazwa projektu *</label><div style="display:flex;align-items:center;gap:6px"><input type="text" id="pf-name" value="${UI.esc(proj?.name||'')}" style="flex:1">${window.Translator ? Translator.widgetHTML('pf-name') : ''}</div></div>
         <div class="form-group"><label>Klient</label>
           <select id="pf-client"><option value="">— brak —</option>
             ${allClients.map(c=>`<option value="${c.id}" ${proj?.client_id==c.id?'selected':''}>${UI.esc(c.name)}</option>`).join('')}
@@ -336,7 +336,7 @@ const PageProjects = (() => {
         <div class="form-group"><label>Stawka godzinowa (€/h)</label><input type="number" id="pf-rate" step="0.01" value="${proj?.hourly_rate||0}"></div>
         <div class="form-group"><label>Waluta</label>
           <select id="pf-cur">${['EUR','USD','GBP','PLN'].map(c=>`<option ${(proj?.currency||'EUR')===c?'selected':''}>${c}</option>`).join('')}</select></div>
-        <div class="form-group full"><label>Opis</label><textarea id="pf-desc" rows="3">${UI.esc(proj?.description||'')}</textarea></div>
+        <div class="form-group full"><label>Opis</label><div class="tr-field"><textarea id="pf-desc" rows="3">${UI.esc(proj?.description||'')}</textarea>${window.Translator ? Translator.widgetHTML('pf-desc') : ''}</div></div>
       </div>
     `, {
       size: 'lg',

@@ -64,6 +64,7 @@ window.PageNotes = (() => {
       <div class="notes-editor-toolbar">
         <input type="text" id="notes-title" class="notes-title-input" placeholder="Tytuł notatki…">
         <div style="display:flex;gap:.5rem;align-items:center">
+          ${window.Translator ? Translator.widgetHTML('notes-title') : ''}
           <button class="btn btn-sm btn-ghost" id="notes-pin-btn" title="Przypnij">📌</button>
           <button class="btn btn-sm btn-ghost" id="notes-export-md-btn" title="Eksportuj .md">⬇ .md</button>
           <button class="btn btn-sm btn-ghost" id="notes-export-pdf-btn" title="Eksportuj PDF">⬇ PDF</button>
@@ -89,6 +90,7 @@ window.PageNotes = (() => {
             <button class="md-btn" data-cmd="code" title="Kod">&lt;/&gt;</button>
             <button class="md-btn" data-cmd="link" title="Link">🔗</button>
             <button class="md-btn" data-cmd="hr" title="Linia">—</button>
+            ${window.Translator ? Translator.widgetHTML('notes-content') : ''}
           </div>
           <textarea id="notes-content" class="notes-textarea" placeholder="Pisz w Markdown…"></textarea>
         </div>
