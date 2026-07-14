@@ -11,6 +11,7 @@ const PageTime = (() => {
   let timerDurationSec = 25 * 60; // pomodoro default
   let pomodoroSessions = 0;
   let pomodoroMax = 4;
+  let pomodoroPhase = 'work'; // work | break — tick() musi wiedzieć co się właśnie skończyło
   let sessionStartWalltime = null;
 
   let projects = [];
@@ -116,6 +117,9 @@ const PageTime = (() => {
       </div>
 
       <div style="text-align:center;margin-bottom:12px">
+        <div id="timer-phase-label" style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:2px">
+          ${timerPhaseLabel()}
+        </div>
         <div id="timer-display" style="font-family:'JetBrains Mono',monospace;font-size:52px;font-weight:700;letter-spacing:2px;color:var(--text-primary);line-height:1">
           ${formatTimerDisplay()}
         </div>
@@ -218,6 +222,7 @@ const PageTime = (() => {
     timerState = 'running';
     timerInterval = setInterval(() => tick(), 500);
     updateTimerButtons();
+    updateTimerPhaseLabel();
   }
 
   function timerPause() {
@@ -226,6 +231,7 @@ const PageTime = (() => {
     clearInterval(timerInterval);
     timerState = 'paused';
     updateTimerButtons();
+    updateTimerPhaseLabel();
   }
 
   async function timerStop() {
@@ -239,7 +245,10 @@ const PageTime = (() => {
     timerPausedMs = 0;
     timerStartTs = null;
 
-    if (elapsedMin > 0) {
+    // Ręczne zatrzymanie w trakcie przerwy nie zapisuje czasu — przerwa to nie praca.
+    const wasBreak = timerMode === 'pomodoro' && pomodoroPhase === 'break';
+
+    if (elapsedMin > 0 && !wasBreak) {
       const projectId = document.getElementById('timer-project')?.value || null;
       const category = document.getElementById('timer-category')?.value || CATEGORIES[0];
       const desc = document.getElementById('timer-desc')?.value || '';
@@ -266,11 +275,13 @@ const PageTime = (() => {
 
     if (timerMode === 'pomodoro') {
       pomodoroSessions = 0;
+      pomodoroPhase = 'work';
       timerDurationSec = (parseInt(document.getElementById('pom-dur')?.value) || 25) * 60;
     }
 
     updateTimerDisplay();
     updateTimerButtons();
+    updateTimerPhaseLabel();
     updatePomodoroDots();
   }
 
@@ -283,45 +294,71 @@ const PageTime = (() => {
     if (timerMode === 'pomodoro') {
       const remaining = timerDurationSec - elapsedSec;
       if (remaining <= 0) {
-        // Pomodoro complete
-        pomodoroSessions = Math.min(pomodoroSessions + 1, pomodoroMax);
         clearInterval(timerInterval);
-        timerState = 'idle';
-        timerStartTs = null;
-        timerPausedMs = 0;
-        updatePomodoroDots();
-        updateTimerButtons();
 
-        // Notify
-        try {
-          new Notification('ZZP Manager', {
-            body: `Pomodoro ukończony (${pomodoroSessions}/${pomodoroMax}) — czas na przerwę!`
-          });
-        } catch {}
-        UI.toast(`🍅 Pomodoro #${pomodoroSessions} ukończony!`, 'success');
+        // tick() obsługuje zarówno koniec sesji pracy, jak i koniec przerwy —
+        // bez rozróżnienia fazy oba wpadały w tę samą gałąź: przerwa była
+        // traktowana jak "ukończone pomodoro" (zapisywana jako czas pracy,
+        // liczona do licznika sesji, po czym startowała KOLEJNA przerwa o tej
+        // samej długości) → nieskończona pętla zablokowana na czasie przerwy.
+        if (pomodoroPhase === 'work') {
+          pomodoroSessions = Math.min(pomodoroSessions + 1, pomodoroMax);
 
-        // Auto-save
-        const projectId = document.getElementById('timer-project')?.value || null;
-        const category = document.getElementById('timer-category')?.value || CATEGORIES[0];
-        const desc = document.getElementById('timer-desc')?.value || '';
-        window.api.time.create({
-          project_id: projectId || null, category, description: desc,
-          date: todayStr(), duration_minutes: Math.round(timerDurationSec / 60),
-          is_pomodoro: 1, is_billable: 1
-        }).then(() => refreshList()).catch(() => {});
+          try {
+            new Notification('ZZP Manager', {
+              body: `Pomodoro ukończony (${pomodoroSessions}/${pomodoroMax}) — czas na przerwę!`
+            });
+          } catch {}
+          UI.toast(`🍅 Pomodoro #${pomodoroSessions} ukończony!`, 'success');
 
-        if (pomodoroSessions >= pomodoroMax) {
-          pomodoroSessions = 0;
-          timerDurationSec = (parseInt(document.getElementById('pom-dur')?.value) || 25) * 60;
-          UI.toast('🎉 Ukończono pełny cykl Pomodoro (4 sesje)!', 'success');
+          const projectId = document.getElementById('timer-project')?.value || null;
+          const category = document.getElementById('timer-category')?.value || CATEGORIES[0];
+          const desc = document.getElementById('timer-desc')?.value || '';
+          window.api.time.create({
+            project_id: projectId || null, category, description: desc,
+            date: todayStr(), duration_minutes: Math.round(timerDurationSec / 60),
+            is_pomodoro: 1, is_billable: 1
+          }).then(() => refreshList()).catch(() => {});
+
+          if (pomodoroSessions >= pomodoroMax) {
+            pomodoroSessions = 0;
+            pomodoroPhase = 'work';
+            timerDurationSec = (parseInt(document.getElementById('pom-dur')?.value) || 25) * 60;
+            timerState = 'idle';
+            timerStartTs = null;
+            timerPausedMs = 0;
+            UI.toast('🎉 Ukończono pełny cykl Pomodoro (4 sesje)!', 'success');
+          } else {
+            const breakMin = parseInt(document.getElementById('pom-break')?.value) || 5;
+            pomodoroPhase = 'break';
+            timerDurationSec = breakMin * 60;
+            timerStartTs = Date.now();
+            timerState = 'running';
+            timerInterval = setInterval(tick, 500);
+            UI.toast(`☕ Przerwa ${breakMin} min`, 'info');
+          }
         } else {
-          const breakMin = parseInt(document.getElementById('pom-break')?.value) || 5;
-          timerDurationSec = breakMin * 60;
+          // Koniec przerwy — NIE liczy się jako sesja pracy i NIE zapisuje się
+          // jako czas pracy; od razu startuje kolejna sesja pomodoro.
+          try {
+            new Notification('ZZP Manager', { body: 'Koniec przerwy — czas wracać do pracy!' });
+          } catch {}
+          UI.toast('⏰ Koniec przerwy — wracamy do pracy!', 'info');
+
+          pomodoroPhase = 'work';
+          timerDurationSec = (parseInt(document.getElementById('pom-dur')?.value) || 25) * 60;
           timerStartTs = Date.now();
           timerState = 'running';
           timerInterval = setInterval(tick, 500);
-          UI.toast(`☕ Przerwa ${breakMin} min`, 'info');
         }
+
+        // Dopiero TERAZ, gdy timerState ma już swoją finalną wartość (running
+        // dla kolejnej fazy albo idle po pełnym cyklu) — inaczej przyciski
+        // (zwłaszcza STOP) zastygały w stanie sprzed przełączenia fazy.
+        updatePomodoroDots();
+        updateTimerButtons();
+        updateTimerPhaseLabel();
+        updateTimerDisplay();
       } else {
         document.getElementById('timer-display').textContent = formatSecs(remaining);
       }
@@ -339,12 +376,14 @@ const PageTime = (() => {
       return;
     }
     timerMode = mode;
+    pomodoroPhase = 'work';
     if (mode === 'pomodoro') {
       timerDurationSec = (parseInt(document.getElementById('pom-dur')?.value) || 25) * 60;
     } else {
       timerDurationSec = 0;
     }
     updateTimerDisplay();
+    updateTimerPhaseLabel();
   }
 
   function updatePomDuration() {
@@ -390,6 +429,16 @@ const PageTime = (() => {
   function updatePomodoroDots() {
     const el = document.getElementById('pomodoro-dots');
     if (el) el.innerHTML = renderPomodoroDots();
+  }
+
+  function timerPhaseLabel() {
+    if (timerMode !== 'pomodoro' || timerState === 'idle') return '';
+    return pomodoroPhase === 'break' ? '☕ Przerwa' : '🍅 Praca';
+  }
+
+  function updateTimerPhaseLabel() {
+    const el = document.getElementById('timer-phase-label');
+    if (el) el.textContent = timerPhaseLabel();
   }
 
   // ── Idle detection ───────────────────────────────────────

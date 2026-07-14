@@ -86,6 +86,33 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 
 ## 5. Co zrobiliśmy w tej sesji
 
+### Fix: pętla Pomodoro na przerwie + zablokowany przycisk STOP (ZROBIONE, desktop, v1.1.7)
+Zgłoszenie: po skończeniu sesji pracy i przejściu na 5-minutową przerwę licznik zapętlał się
+na przerwie; przycisk STOP był wyszarzony (nie dało się zatrzymać); po wymuszonym resecie
+czas trwania Pomodoro zostawał nadpisany długością przerwy (np. 60 min → 5 min).
+- **Przyczyna:** `tick()` w `page-time.js` nie miał pojęcia fazy (praca vs przerwa) — każde
+  odliczenie do zera trafiało w tę samą gałąź „ukończone pomodoro": inkrementowało licznik
+  sesji, zapisywało wpis czasu pracy o długości `timerDurationSec` i uruchamiało kolejną
+  „przerwę". Koniec przerwy więc też wpadał w tę gałąź — zapisywał bonusowy (błędny) wpis
+  czasu pracy o długości przerwy, inkrementował licznik sesji drugi raz, i **znowu** ustawiał
+  `timerDurationSec` na długość przerwy zamiast przywrócić czas pracy → nieskończona pętla
+  zablokowana na czasie przerwy.
+- **Drugi bug (STOP wyszarzony):** przy przejściu praca→przerwa `updateTimerButtons()` był
+  wołany, gdy `timerState` był chwilowo `'idle'` (tuż przed ponownym ustawieniem na
+  `'running'` dla przerwy) i nigdy nie wołany ponownie po tej zmianie — przyciski w DOM
+  zostawały zamrożone w konfiguracji „idle" (START aktywny, STOP wyszarzony) mimo że stan
+  w pamięci był już `'running'`.
+- **Fix (`page-time.js`):** nowy stan `pomodoroPhase` (`'work'`/`'break'`). `tick()` rozgałęzia
+  się wg fazy: koniec **pracy** → zapisz wpis, zlicz sesję, przejdź w fazę `'break'`; koniec
+  **przerwy** → NIE zapisuj jako pracę, NIE licz sesji, przywróć `timerDurationSec` z pola
+  „Pomodoro (min)" i wróć w fazę `'work'`. `updateTimerButtons()`/`updateTimerDisplay()`
+  wołane dopiero PO ustawieniu finalnego stanu (nie w połowie przełączania fazy). Ręczne
+  `timerStop()` w trakcie przerwy też nie zapisuje czasu jako pracy i resetuje fazę na
+  `'work'`. Dodano etykietę `#timer-phase-label` („🍅 Praca"/„☕ Przerwa") pod licznikiem, żeby
+  faza była widoczna. Nowe stringi dodane do `translations.js` (`DOM_MAP`).
+- Weryfikacja: `node --check` na wszystkich plikach `src/renderer/js/*.js`; ręczne uruchomienie
+  bez błędów startu.
+
 ### Mobile — Fazy A–D (pełna rozbudowa)
 - **A:** rozszerzenie schematu chmury (projects, time_entries, push_subscriptions,
   `project_id` w fakturach/kosztach) + migracja SQLite v4 + `cloud-sync.js` o projekty i czas

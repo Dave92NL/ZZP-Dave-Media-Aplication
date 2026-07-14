@@ -797,6 +797,9 @@ const DOM_MAP = {
   '📄 PDF zapisany!':          { en: '📄 PDF saved!',           nl: '📄 PDF opgeslagen!' },
   'CSV wygenerowany.':         { en: 'CSV generated.',          nl: 'CSV gegenereerd.' },
   'Nie zaznaczono żadnych wpisów.': { en: 'No entries selected.', nl: 'Geen invoeren geselecteerd.' },
+  '🍅 Praca':                  { en: '🍅 Work',                  nl: '🍅 Werk' },
+  '☕ Przerwa':                { en: '☕ Break',                 nl: '☕ Pauze' },
+  '⏰ Koniec przerwy — wracamy do pracy!': { en: '⏰ Break over — back to work!', nl: '⏰ Pauze voorbij — terug aan het werk!' },
   '⏳ Analizuję…':             { en: '⏳ Analysing…',           nl: '⏳ Analyseren…' },
 
   // ── app.js (PIN / onboarding / tray) ────────────────────────
