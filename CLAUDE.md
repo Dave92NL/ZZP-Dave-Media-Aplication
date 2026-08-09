@@ -312,8 +312,20 @@ Storage (w JSON referencja `receipt_storage_path`). Import/przywracanie: poza za
 Trasa w `main.js`, pozycja w `more.js` (`cloud` → `page:'backup'`). Bez zmian CSS (reużyte
 `.info-box/.detail-block/.totals-row/.back-btn`).
 
+#### Raporty — mobile (ZROBIONE, etap 2)
+Menu → „Raporty" (trasa `reports`, `src/pages/reports.js`). Zakładki okresu **Miesiąc / Kwartał /
+Rok** (`.seg-tabs`) + picker (miesiąc/kwartał + rok, lata z danych). **Podsumowanie P&L** (karty 2×2:
+Przychód opłacony / Koszty / Zysk netto / Marża %) + **Koszty wg kategorii** jako **poziomy ranking
+słupkowy** (posortowane malejąco, jeden kolor `--accent-orange`, kwota + udział %). Przychód liczony
+z faktur opłaconych (`incomeDate`, parytet z Finansami); zakres okresu liczony lokalnie
+(`inPeriod`). **Uwaga (dataviz):** zrezygnowano z donuta — walidator palety (`scripts/validate_palette.js`)
+odrzucił kolory kategorii dla dowolnej kolejności wycinków (CVD), a ranking jednobarwny jest
+czytelniejszy na telefonie i identyfikuje kategorie etykietą, nie kolorem. Style `.rep-cat-*`/`.rep-bar*`/
+`.rep-period-label` w `main.css`. Reużywa `aggregate.sumBy`, `format`, `icons`, `.stat-grid`/`.panel`.
+Pominięte (łatwe do dołożenia): przychód wg klienta, godziny+billable, tabela miesięczna, eksport.
+
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
-Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Raporty**, **Eksport danych**,
+Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Eksport danych**,
 **Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy). Pełny backup wszystkiego
 (też dane tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 

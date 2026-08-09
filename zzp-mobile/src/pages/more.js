@@ -18,7 +18,7 @@ const GROUPS = [
     { icon: 'file', label: 'Faktury', page: 'invoices' },
     { icon: 'clock', label: 'Czas pracy', page: 'time' },
     { icon: 'chart', label: 'Finanse', page: 'finance' },
-    { icon: 'activity', label: 'Raporty', soon: true },
+    { icon: 'activity', label: 'Raporty', page: 'reports' },
     { icon: 'download', label: 'Eksport danych', soon: true },
     { icon: 'settings', label: 'Ustawienia', soon: true },
     { icon: 'cloud', label: 'Kopia zapasowa', page: 'backup' }
