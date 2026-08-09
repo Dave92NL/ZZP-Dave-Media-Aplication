@@ -299,9 +299,23 @@ zapłaty per kwartał + suma roczna) oraz **struktura przychodu** (zwykły vs re
 dla AdSense/Google Ireland). Przychód liczony z faktur opłaconych (`incomeDate` = paid_date/issue_date).
 Style `.fin-vat-*`/`.fin-bar*`/`.fin-legend2` w `main.css`. Reużywa `charts.js`, `aggregate.sumBy`, `icons.js`.
 
+#### Kopia zapasowa — mobile (ZROBIONE, etap 2)
+Menu → „Kopia zapasowa" (trasa `backup`) eksportuje **dane z chmury** do jednego pliku JSON i
+udostępnia go (Web Share → np. Google Drive) lub pobiera. `src/data/backup.js` (`buildCloudBackup`)
+robi `supabase.from(t).select('*')` dla `BACKUP_TABLES` = `clients, projects, invoices,
+invoice_items, expenses, time_entries, mileage_entries` (RLS zawęża do użytkownika); zwraca manifest
+`{app,kind,version,exported_at,user_email,counts,total,errors?,tables}`. `src/pages/backup.js`:
+dwuetapowo — „Utwórz kopię" (async build) → „Udostępnij / zapisz plik" wywołuje `navigator.share
+({files})` **synchronicznie w geście** (wymóg iOS; brak `await` tuż przed share), fallback do
+`<a download>`. Pokazuje liczby rekordów per tabela. Paragony (pliki) NIE są w kopii — zostają w
+Storage (w JSON referencja `receipt_storage_path`). Import/przywracanie: poza zakresem (przyszłość).
+Trasa w `main.js`, pozycja w `more.js` (`cloud` → `page:'backup'`). Bez zmian CSS (reużyte
+`.info-box/.detail-block/.totals-row/.back-btn`).
+
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
 Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Raporty**, **Eksport danych**,
-**Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy), **Kopia zapasowa**.
+**Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy). Pełny backup wszystkiego
+(też dane tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 
 ### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
 Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ

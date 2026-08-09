@@ -21,7 +21,7 @@ const GROUPS = [
     { icon: 'activity', label: 'Raporty', soon: true },
     { icon: 'download', label: 'Eksport danych', soon: true },
     { icon: 'settings', label: 'Ustawienia', soon: true },
-    { icon: 'cloud', label: 'Kopia zapasowa', soon: true }
+    { icon: 'cloud', label: 'Kopia zapasowa', page: 'backup' }
   ]
 ];
 
