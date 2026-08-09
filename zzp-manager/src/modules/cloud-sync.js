@@ -430,6 +430,38 @@ async function pushLocalChanges() {
     }
   }
 
+  // 7. Profil firmy (dane sprzedawcy) — jeden globalny wiersz; telefon go czyta.
+  //    Wypychamy tylko przy zmianie (sygnatura w settings), by nie pisać co heartbeat.
+  try {
+    const prof = db.prepare('SELECT * FROM company_profile WHERE id = 1').get();
+    if (prof) {
+      const fields = {
+        name: prof.name || '', address: prof.address || '', postcode: prof.postcode || '',
+        city: prof.city || '', country: prof.country || '', kvk_number: prof.kvk_number || '',
+        btw_number: prof.btw_number || '', iban: prof.iban || '', email: prof.email || '',
+        phone: prof.phone || '', invoice_footer: prof.invoice_footer || ''
+      };
+      const sig = JSON.stringify(fields);
+      const changed = settings.get('profile_pushed_sig') !== sig;
+      if (changed || !prof.cloud_id) {
+        const payload = { ...fields, origin: 'desktop', updated_at: new Date().toISOString() };
+        let cloudId = prof.cloud_id;
+        if (cloudId) {
+          const { error } = await client.from('company_profile').update(payload).eq('id', cloudId);
+          if (error) throw error;
+        } else {
+          const { data, error } = await client.from('company_profile').insert(payload).select('id').single();
+          if (error) throw error;
+          cloudId = data.id;
+          db.prepare('UPDATE company_profile SET cloud_id = ? WHERE id = 1').run(cloudId);
+        }
+        settings.set('profile_pushed_sig', sig);
+      }
+    }
+  } catch (err) {
+    errors.push(`Profil firmy: ${err.message}`);
+  }
+
   const totalPushed = pushedClients + pushedProjects + pushedInvoices + pushedExpenses + pushedTimeEntries + pushedMileage + pushedDeletions;
   _recordHistory(db, 'push', totalPushed, 0, errors.length ? 'error' : 'success', errors.join('; '));
   settings.set('sync_last_push', String(Date.now()));

@@ -332,7 +332,36 @@ getDisplayName/getCompany`, kształt `{ displayName, company:{…} }`, `company`
 kod/miasto/kraj/KvK/BTW/IBAN/email/telefon). Wpięcia: `dashboard.js` i `more.js` — powitanie
 „Witaj, {displayName}" (fallback: część e-maila); `invoiceDetail.js` — podgląd faktury bierze dane
 sprzedawcy z `getCompany()` zamiast statycznego `COMPANY`. Reużyte `.card-form/.form-group/.btn`.
-NIE synchronizowane z chmurą/desktopem (osobna kopia na telefonie).
+`displayName` NIE jest synchronizowane (osobna kopia na telefonie); **dane firmy są teraz
+pobierane z komputera** — patrz sekcja niżej.
+
+### Sync profilu firmy desktop → chmura → mobile (ZROBIONE)
+Dane sprzedawcy (firma na fakturze) pobierają się na telefonie **z aplikacji na komputerze**
+zamiast ręcznie wpisanej lokalnej kopii. Jednokierunkowo: **komputer → chmura → telefon**
+(edycja profilu tylko na desktopie; telefon read-only). `displayName` (powitanie) zostaje
+ustawieniem lokalnym telefonu.
+- **Chmura:** nowa tabela `public.company_profile` (jeden globalny wiersz, RLS `authenticated_all`
+  jak reszta). Migracja addytywna `zzp-manager/docs/supabase-migration-company-profile.sql`
+  (uruchomić w Supabase SQL Editor, projekt `mrmyznqentpabkrtybah`); wzorcowy `docs/supabase-schema.sql`
+  też zawiera tabelę. Pola: name/address/postcode/city/country/kvk_number/btw_number/iban/email/
+  phone/invoice_footer/origin/updated_at.
+- **Desktop:** migracja SQLite **v10** (`company_profile.cloud_id TEXT`, `db.js getMigrations()`).
+  `cloud-sync.js` — po 6 tabelach `_pushCompanyProfile`: czyta wiersz `company_profile` (id=1),
+  push jak inne `_push*` (`cloud_id` → update, inaczej insert + zapis `cloud_id`). **Sygnatura
+  `profile_pushed_sig`** (settings) zapobiega wysyłce przy każdym heartbeacie co 15 s — push tylko
+  gdy pola się zmieniły lub brak `cloud_id`. Błąd (np. brak tabeli w chmurze) → `errors[]`, nie
+  psuje reszty synchronizacji.
+- **Mobile:** `src/data/settings.js` `getCompany()` **cloud-first**: `supabase.from('company_profile')
+  .select('*').limit(1).maybeSingle()` → cache do IndexedDB `meta`/`cloudCompany` → scalone nad
+  `COMPANY`. Fallback offline: cache → lokalne `appSettings.company` → `COMPANY`. `refreshCompany()`
+  wymusza ponowne pobranie (przycisk „🔄 Odśwież z komputera"). `src/pages/settings.js` — sekcja
+  „Dane firmy" **tylko do odczytu** (`.detail-block`/`.totals-row`, puste pola pomijane) + notka
+  „pobierane z komputera" + przycisk odśwież; zapisuje już tylko `displayName`. `invoiceDetail.js`
+  bez zmian (już `await getCompany()`, teraz źródłem chmura). `companyProfile.js` `COMPANY` = już
+  tylko domyślny szablon/fallback.
+- **Działania właściciela:** (1) uruchomić migrację SQL w Supabase; (2) `git pull` + restart desktopu
+  (migracja v10 sama się wykona) → potwierdzić dane firmy w Ustawieniach desktopu → uruchomić
+  synchronizację (push wyśle profil); (3) mobile auto-deploy z `main` — odświeżyć PWA.
 
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
 Ostatni placeholder „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Eksport danych** (można oprzeć

@@ -1,7 +1,8 @@
-// Dane sprzedawcy (Twoja firma) na potrzeby podglądu dokumentu faktury na telefonie.
-// Desktop trzyma te dane w ustawieniach (SQLite) i NIE synchronizuje ich do chmury,
-// dlatego telefon musi mieć własną kopię. Uzupełnij poniższe pola swoimi danymi —
-// puste pola po prostu nie pokażą się w podglądzie (nic nie jest zmyślane).
+// Dane sprzedawcy (Twoja firma) — DOMYŚLNY SZABLON / FALLBACK do podglądu faktury.
+// Źródłem prawdy jest teraz CHMURA (tabela `company_profile`) zasilana z aplikacji na
+// komputerze; telefon pobiera je przez `getCompany()` w `src/data/settings.js`. Te pola
+// służą tylko jako wartości domyślne, gdy chmura jest pusta i nie ma kopii offline
+// (puste pola po prostu nie pokażą się w podglądzie — nic nie jest zmyślane).
 export const COMPANY = {
   name: 'Dave Media YT',
   address: '',       // np. 'Voorbeeldstraat 1'
