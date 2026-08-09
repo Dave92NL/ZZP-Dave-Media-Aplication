@@ -1,17 +1,17 @@
 import { currentParam, navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml, todayStr } from '../lib/format.js';
 import * as repo from '../data/repo.js';
-import { COMPANY } from '../lib/companyProfile.js';
+import { getCompany } from '../data/settings.js';
 import { icon } from '../lib/icons.js';
 
 // Stylizowany podgląd dokumentu faktury (odpowiednik generowanego PDF na desktopie).
-function _invoiceDocumentHTML(inv, client, items) {
+function _invoiceDocumentHTML(inv, client, items, company) {
   const seller = [
-    COMPANY.address,
-    [COMPANY.postcode, COMPANY.city].filter(Boolean).join(' '),
-    COMPANY.country,
-    COMPANY.btw_number ? `BTW: ${COMPANY.btw_number}` : '',
-    COMPANY.kvk_number ? `KvK: ${COMPANY.kvk_number}` : ''
+    company.address,
+    [company.postcode, company.city].filter(Boolean).join(' '),
+    company.country,
+    company.btw_number ? `BTW: ${company.btw_number}` : '',
+    company.kvk_number ? `KvK: ${company.kvk_number}` : ''
   ].filter(Boolean).map(l => `<div>${escHtml(l)}</div>`).join('');
 
   const buyer = [
@@ -37,7 +37,7 @@ function _invoiceDocumentHTML(inv, client, items) {
     <div class="invoice-doc">
       <div class="invoice-doc-head">
         <div class="invoice-doc-seller">
-          <div class="invoice-doc-seller-name">${escHtml(COMPANY.name)}</div>
+          <div class="invoice-doc-seller-name">${escHtml(company.name)}</div>
           ${seller}
         </div>
         <div class="invoice-doc-title">
@@ -72,7 +72,7 @@ function _invoiceDocumentHTML(inv, client, items) {
       </div>
 
       ${inv.btw_reverse_charge ? '<div class="invoice-doc-note">BTW verlegd — reverse charge (art. 196 BTW-richtlijn / art. 12 Wet OB).</div>' : ''}
-      ${COMPANY.iban ? `<div class="invoice-doc-note">Gelieve te betalen op IBAN ${escHtml(COMPANY.iban)} t.n.v. ${escHtml(COMPANY.name)}.</div>` : ''}
+      ${company.iban ? `<div class="invoice-doc-note">Gelieve te betalen op IBAN ${escHtml(company.iban)} t.n.v. ${escHtml(company.name)}.</div>` : ''}
     </div>`;
 }
 
@@ -105,6 +105,7 @@ export async function load() {
 
     const badge = STATUS_BADGES[inv.status] || STATUS_BADGES.draft;
     const client = inv.clients || {};
+    const company = await getCompany();
     const items = (inv.invoice_items || []).sort((a, b) => a.sort_order - b.sort_order);
     const numberLabel = inv._pending ? '⏳ oczekująca' : escHtml(inv.invoice_number);
     const pendingBanner = inv._pending
@@ -120,7 +121,7 @@ export async function load() {
       </div>
 
       <h3 class="section-title">Podgląd dokumentu</h3>
-      ${_invoiceDocumentHTML(inv, client, items)}
+      ${_invoiceDocumentHTML(inv, client, items, company)}
 
       <h3 class="section-title">Klient</h3>
       <div class="detail-block">

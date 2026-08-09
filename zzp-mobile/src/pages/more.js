@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { signOut, getSession } from '../auth.js';
 import { enablePush, pushSupported } from '../push.js';
 import { checkForUpdateNow } from '../lib/appUpdate.js';
+import { getDisplayName } from '../data/settings.js';
 import { icon } from '../lib/icons.js';
 
 const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -20,7 +21,7 @@ const GROUPS = [
     { icon: 'chart', label: 'Finanse', page: 'finance' },
     { icon: 'activity', label: 'Raporty', page: 'reports' },
     { icon: 'download', label: 'Eksport danych', soon: true },
-    { icon: 'settings', label: 'Ustawienia', soon: true },
+    { icon: 'settings', label: 'Ustawienia', page: 'settings' },
     { icon: 'cloud', label: 'Kopia zapasowa', page: 'backup' }
   ]
 ];
@@ -33,6 +34,8 @@ export async function load() {
     const session = await getSession();
     email = session?.user?.email || '';
     if (email) name = cap(email.split('@')[0].replace(/[._]/g, ' ').split(' ')[0]);
+    const custom = (await getDisplayName()).trim();
+    if (custom) name = custom; // nazwa z Ustawień ma pierwszeństwo
   } catch { /* offline */ }
 
   const rowsHtml = (items) => items.map(i => `
