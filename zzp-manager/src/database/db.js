@@ -421,6 +421,11 @@ function getMigrations() {
     // Migration 9 — przerwa we wpisie czasu (godzinówka jak w efakturze)
     [9, [
       `ALTER TABLE time_entries ADD COLUMN break_minutes INTEGER DEFAULT 0`
+    ]],
+
+    // Migration 10 — mapowanie profilu firmy do chmury (desktop → chmura → telefon)
+    [10, [
+      `ALTER TABLE company_profile ADD COLUMN cloud_id TEXT`
     ]]
   ];
 }

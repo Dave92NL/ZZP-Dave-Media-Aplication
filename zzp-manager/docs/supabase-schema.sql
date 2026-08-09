@@ -22,6 +22,7 @@ drop table if exists public.mileage_entries cascade;
 drop table if exists public.projects cascade;
 drop table if exists public.clients cascade;
 drop table if exists public.push_subscriptions cascade;
+drop table if exists public.company_profile cascade;
 
 create table public.clients (
   id uuid primary key default gen_random_uuid(),
@@ -164,6 +165,24 @@ create table public.push_subscriptions (
   created_at timestamptz default now()
 );
 
+-- Profil firmy (dane sprzedawcy) — jeden globalny wiersz; desktop wypycha, telefon czyta.
+create table public.company_profile (
+  id uuid primary key default gen_random_uuid(),
+  name text default '',
+  address text default '',
+  postcode text default '',
+  city text default '',
+  country text default 'Nederland',
+  kvk_number text default '',
+  btw_number text default '',
+  iban text default '',
+  email text default '',
+  phone text default '',
+  invoice_footer text default '',
+  origin text default 'desktop',
+  updated_at timestamptz default now()
+);
+
 alter table public.clients enable row level security;
 alter table public.projects enable row level security;
 alter table public.time_entries enable row level security;
@@ -172,6 +191,7 @@ alter table public.push_subscriptions enable row level security;
 alter table public.invoices enable row level security;
 alter table public.invoice_items enable row level security;
 alter table public.expenses enable row level security;
+alter table public.company_profile enable row level security;
 
 -- Jednoosobowa działalność — każdy zalogowany użytkownik (czyli Ty, z desktopu i telefonu)
 -- ma pełny dostęp. Wystarczające zabezpieczenie dla użytku jednoosobowego.
@@ -183,6 +203,7 @@ create policy "authenticated_all" on public.expenses for all using (auth.role() 
 create policy "authenticated_all" on public.time_entries for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.mileage_entries for all using (auth.role() = 'authenticated');
 create policy "authenticated_all" on public.push_subscriptions for all using (auth.role() = 'authenticated');
+create policy "authenticated_all" on public.company_profile for all using (auth.role() = 'authenticated');
 
 -- ── Storage (bucket "receipts") — OSOBNY system RLS, niezależny od tabel powyżej ──
 -- Bez tej polityki upload zdjęć paragonów kończy się błędem
