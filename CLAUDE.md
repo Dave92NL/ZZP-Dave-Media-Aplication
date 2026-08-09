@@ -324,10 +324,20 @@ czytelniejszy na telefonie i identyfikuje kategorie etykietą, nie kolorem. Styl
 `.rep-period-label` w `main.css`. Reużywa `aggregate.sumBy`, `format`, `icons`, `.stat-grid`/`.panel`.
 Pominięte (łatwe do dołożenia): przychód wg klienta, godziny+billable, tabela miesięczna, eksport.
 
+#### Ustawienia — mobile (ZROBIONE, etap 2)
+Menu → „Ustawienia" (trasa `settings`, `src/pages/settings.js`). Zapis **lokalny na urządzeniu**
+(IndexedDB `meta`, klucz `appSettings`) przez `src/data/settings.js` (`getSettings/saveSettings/
+getDisplayName/getCompany`, kształt `{ displayName, company:{…} }`, `company` domyślnie z
+`companyProfile.COMPANY`). Pola: **nazwa użytkownika** (powitanie) + **dane firmy** (nazwa/adres/
+kod/miasto/kraj/KvK/BTW/IBAN/email/telefon). Wpięcia: `dashboard.js` i `more.js` — powitanie
+„Witaj, {displayName}" (fallback: część e-maila); `invoiceDetail.js` — podgląd faktury bierze dane
+sprzedawcy z `getCompany()` zamiast statycznego `COMPANY`. Reużyte `.card-form/.form-group/.btn`.
+NIE synchronizowane z chmurą/desktopem (osobna kopia na telefonie).
+
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
-Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Eksport danych**,
-**Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy). Pełny backup wszystkiego
-(też dane tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
+Ostatni placeholder „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Eksport danych** (można oprzeć
+na `data/backup.js` — np. CSV per tabela / udostępnienie). Pełny backup wszystkiego (też dane
+tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 
 ### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
 Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ
