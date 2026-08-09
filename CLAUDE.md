@@ -164,6 +164,9 @@ Push kosztów kończył się błędem `mime type text/plain;charset=UTF-8 is not
 
 ### Wybór roku na listach mobilnych (ZROBIONE)
 Listy faktur i kosztów na telefonie dostały **filtr roku** (jak na desktopie): `expenseList.js`/`invoiceList.js` budują listę lat z danych (`date` / `issue_date`), select „Rok" + opcja „Wszystkie lata", domyślnie bieżący rok (albo najnowszy z danymi), podsumowanie (liczba + suma, faktury też „opłacone"). Wybór roku trzymany w zmiennej modułu — przeżywa auto-odświeżanie. Styl `.list-filter-bar` w `main.css`.
+**Po redesignie:** filtr roku na liście faktur został (nieumyślnie) zdjęty przy wprowadzaniu zakładek
+statusów; **przywrócony** — `invoiceList.js` ma `_year` + `yearsFrom(issue_date)` + `matchYear`
+działające łącznie z zakładkami statusów i wyszukiwarką (Koszty miały filtr cały czas).
 
 ### Edycja wpisów czasu pracy w mobile (ZROBIONE)
 Wpisy na liście „Ostatnie wpisy" (strona Czas pracy) są teraz **klikalne** → otwierają inline formularz edycji (kategoria, projekt, data, godziny, opis + widget tłumaczenia, rozliczalne) z przyciskami **Zapisz zmiany / Anuluj / Usuń wpis**.
