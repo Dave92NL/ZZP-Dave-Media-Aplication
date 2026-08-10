@@ -405,13 +405,9 @@ async function exportPDF(id, win) {
   _registerPdfFonts(doc);
   const stream = fs.createWriteStream(outputPath);
 
-  // QR EPC (SEPA) — skan w aplikacji bankowej wypełnia przelew.
-  // Tylko dla EUR, z IBAN-em i dodatnią kwotą; inaczej stopka bez QR.
-  const qrBuffer = await _buildEpcQrBuffer(invoice, profile);
-
   await new Promise((resolve, reject) => {
     doc.pipe(stream);
-    renderInvoicePDF(doc, invoice, profile, qrBuffer);
+    renderInvoicePDF(doc, invoice, profile);
     doc.end();
     stream.on('finish', resolve);
     stream.on('error', reject);
@@ -425,43 +421,6 @@ async function exportPDF(id, win) {
   }
 
   return outputPath;
-}
-
-// ── EPC QR (SEPA credit transfer) ───────────────────────────
-// Format EPC069-12 v002: skan kodu w aplikacji bankowej wypełnia
-// przelew (odbiorca, IBAN, kwota, tytuł). Działa tylko dla EUR.
-async function _buildEpcQrBuffer(invoice, profile) {
-  try {
-    const iban = String(profile.iban || '').replace(/\s+/g, '');
-    const name = String(profile.name || '').trim();
-    const amount = Number(invoice.total) || 0;
-    const currency = invoice.currency || 'EUR';
-    if (!iban || !name || amount <= 0 || currency !== 'EUR') return null;
-
-    const payload = [
-      'BCD',                                   // service tag
-      '002',                                   // wersja (BIC opcjonalny)
-      '1',                                     // kodowanie: UTF-8
-      'SCT',                                   // SEPA Credit Transfer
-      '',                                      // BIC (puste w v002)
-      name.slice(0, 70),                       // odbiorca
-      iban,                                    // IBAN
-      'EUR' + amount.toFixed(2),               // kwota
-      '',                                      // purpose
-      '',                                      // remittance (structured)
-      ('Factuur ' + invoice.invoice_number).slice(0, 140) // tytuł przelewu
-    ].join('\n');
-
-    const QRCode = require('qrcode');
-    return await QRCode.toBuffer(payload, {
-      errorCorrectionLevel: 'M',
-      type: 'png',
-      margin: 0,
-      width: 220
-    });
-  } catch {
-    return null; // brak QR nie blokuje eksportu PDF
-  }
 }
 
 // ── Dutch format helpers ────────────────────────────────────
@@ -482,7 +441,7 @@ function fmtAmt(amount) {
 }
 
 // ── PDF renderer (Dutch layout matching sample) ─────────────
-function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
+function renderInvoicePDF(doc, invoice, profile) {
   const M = 40, PW = 595, PH = 842, W = PW - M * 2;
   const DARK   = '#1A1A2A';
   const GRAY   = '#555555';
@@ -707,23 +666,8 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     ' van ' + (profile.name || '') +
     ' onder vermelding van het factuurnummer: ' + invoice.invoice_number;
 
-  // Tekst zajmuje lewą część; QR EPC (jeśli jest) — prawą
-  const textW = qrBuffer ? Math.floor(W * 0.55) : Math.floor(W * 0.70);
   doc.font('INV').fontSize(8).fillColor(GRAY)
-    .text(payText, M, footY + 8, { width: textW, align: 'left' });
-
-  if (qrBuffer) {
-    const QR_S = 52;
-    const qrX = M + textW + 14;
-    try {
-      doc.image(qrBuffer, qrX, footY + 6, { width: QR_S, height: QR_S });
-      doc.font('INV-Bold').fontSize(7).fillColor(DARK)
-        .text('Betaal met QR-code', qrX + QR_S + 8, footY + 10, { width: PW - M - qrX - QR_S - 8, lineBreak: false });
-      doc.font('INV').fontSize(6.5).fillColor(LGRAY)
-        .text('Scan met een bankieren-app om de overboeking te starten. Let op: niet alle banken ondersteunen de EPC QR.',
-          qrX + QR_S + 8, footY + 20, { width: PW - M - qrX - QR_S - 12 });
-    } catch { /* uszkodzony bufor QR nie blokuje PDF */ }
-  }
+    .text(payText, M, footY + 8, { width: Math.floor(W * 0.70), align: 'left' });
 
   doc.font('INV').fontSize(8).fillColor(LGRAY)
     .text('Pagina 1 / 1', M, PH - 25, { width: W, align: 'center', lineBreak: false });
@@ -903,7 +847,7 @@ async function exportUBL(id, win) {
 }
 
 // ── Podgląd na żywo: renderuje PDF z NIEZAPISANYCH danych formularza do bufora ──
-// Zwraca data: URL do osadzenia w viewerze (reużywa renderInvoicePDF + QR EPC).
+// Zwraca data: URL do osadzenia w viewerze (reużywa renderInvoicePDF).
 async function renderPreviewPDF(data) {
   const db = getDb();
   const profile = require('./settings').getProfile();
@@ -945,7 +889,6 @@ async function renderPreviewPDF(data) {
     client_vat: client.vat_number || ''
   };
 
-  const qr = await _buildEpcQrBuffer(invoice, profile);
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
   _registerPdfFonts(doc);
@@ -954,7 +897,7 @@ async function renderPreviewPDF(data) {
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => resolve('data:application/pdf;base64,' + Buffer.concat(chunks).toString('base64')));
     doc.on('error', reject);
-    try { renderInvoicePDF(doc, invoice, profile, qr); doc.end(); } catch (e) { reject(e); }
+    try { renderInvoicePDF(doc, invoice, profile); doc.end(); } catch (e) { reject(e); }
   });
 }
 
@@ -963,7 +906,6 @@ async function renderSavedPreviewPDF(id) {
   const invoice = getById(id);
   if (!invoice) throw new Error('Faktura nie znaleziona.');
   const profile = require('./settings').getProfile();
-  const qr = await _buildEpcQrBuffer(invoice, profile);
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
   _registerPdfFonts(doc);
@@ -972,7 +914,7 @@ async function renderSavedPreviewPDF(id) {
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => resolve('data:application/pdf;base64,' + Buffer.concat(chunks).toString('base64')));
     doc.on('error', reject);
-    try { renderInvoicePDF(doc, invoice, profile, qr); doc.end(); } catch (e) { reject(e); }
+    try { renderInvoicePDF(doc, invoice, profile); doc.end(); } catch (e) { reject(e); }
   });
 }
 

@@ -86,6 +86,15 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 
 ## 5. Co zrobiliśmy w tej sesji
 
+### Usunięto kod QR EPC z faktury (ZROBIONE, desktop, v1.1.9)
+Na życzenie użytkownika: kod QR do płatności SEPA zniknął z generowanej faktury PDF
+(zapis, żywy podgląd, podgląd zapisanej faktury — wszystkie trzy przez wspólne
+`renderInvoicePDF`). Usunięte razem z tym: `_buildEpcQrBuffer()`, parametr `qrBuffer`
+funkcji `renderInvoicePDF`, wywołania budujące QR w `exportPDF`/`renderPreviewPDF`/
+`renderSavedPreviewPDF`, oraz zależność `qrcode` z `package.json` (`npm uninstall qrcode`).
+Stopka faktury ma teraz z powrotem pełną szerokość na tekst płatności (70% zamiast 55%
+gdy był QR).
+
 ### Fix: nachodzące na siebie napisy na fakturze PDF (ZROBIONE, desktop, v1.1.8)
 Zgłoszenie ze zrzutem ekranu: etykieta „BTW ID-nummer" nachodziła na wartość obok, a
 pierwsza (zawinięta) linia adresu klienta nachodziła na kolejną linię adresu.
