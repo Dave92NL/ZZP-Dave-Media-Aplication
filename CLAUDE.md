@@ -86,6 +86,28 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 
 ## 5. Co zrobiliśmy w tej sesji
 
+### Fix: nachodzące na siebie napisy na fakturze PDF (ZROBIONE, desktop, v1.1.8)
+Zgłoszenie ze zrzutem ekranu: etykieta „BTW ID-nummer" nachodziła na wartość obok, a
+pierwsza (zawinięta) linia adresu klienta nachodziła na kolejną linię adresu.
+`renderInvoicePDF(doc, invoice, profile, qrBuffer)` w `src/modules/invoices.js:485` to
+jedna wspólna funkcja rysująca fakturę — woła ją zapis do pliku, żywy podgląd formularza i
+podgląd zapisanej faktury, więc jedna poprawka naprawia wszystkie trzy ścieżki.
+- **Nakładka etykieta/wartość:** kolumna etykiet w bloku sprzedawcy miała jedną stałą
+  szerokość (`lblW = 72`) dla wszystkich 4 etykiet, a „BTW ID-nummer" pogrubioną czcionką
+  9pt jest szersze niż 72pt. Fix: `lblW` liczone dynamicznie przez `doc.widthOfString(...)`
+  z najdłuższej etykiety + 6pt marginesu — samo się dostosuje, gdy etykiety faktury zaczną
+  się zmieniać wg języka (planowane NL/EN/PL, patrz backlog).
+- **Nakładka linii adresu:** pętla po liniach adresu klienta przesuwała kursor `clY` o
+  stały krok (12pt), mimo że `{ width: 200 }` każe pdfkit zawijać długie linie na 2+
+  wizualne wiersze — `{ lineBreak: false }` **nie** wyłącza zawijania, gdy podane jest
+  `width` (zweryfikowane w źródłach zainstalowanego pdfkit, `_text`/`LineWrapper`). Fix:
+  krok liczony przez `doc.heightOfString(line, { width: 200 })` — realna wysokość
+  narysowanego (ew. zawiniętego) tekstu, nie stała. Ten sam fix zastosowany też do nazwy
+  klienta nad adresem (ta sama klasa błędu).
+- Zweryfikowane wizualnie: samodzielny skrypt renderujący te same dwa bloki realnymi
+  danymi (Google Ireland Limited, długi adres i numer BTW) przez pdfkit, PDF wyrenderowany
+  do PNG (Windows `Windows.Data.Pdf` WinRT), obejrzany — brak nachodzenia.
+
 ### Fix: pętla Pomodoro na przerwie + zablokowany przycisk STOP (ZROBIONE, desktop, v1.1.7)
 Zgłoszenie: po skończeniu sesji pracy i przejściu na 5-minutową przerwę licznik zapętlał się
 na przerwie; przycisk STOP był wyszarzony (nie dało się zatrzymać); po wymuszonym resecie

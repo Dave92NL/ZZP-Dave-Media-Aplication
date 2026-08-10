@@ -499,7 +499,13 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     .text('Nr ' + invoice.invoice_number, M, 76, { lineBreak: false });
 
   // Company block (centre)
-  const coX = 205, lblW = 72, valX = coX + lblW;
+  const coX = 205;
+  doc.font('INV-Bold').fontSize(9);
+  // Zmierzona szerokość zamiast stałej — "BTW ID-nummer" jest szersze niż dawne 72pt,
+  // co powodowało nachodzenie na wartość obok. Dynamiczny pomiar sam się dostosuje,
+  // gdy etykiety zaczną się zmieniać wg języka faktury (planowane NL/EN/PL).
+  const lblW = Math.max(...['BTW ID-nummer', 'KVK-nummer', 'Tel.:', 'E-mail'].map(l => doc.widthOfString(l))) + 6;
+  const valX = coX + lblW;
   let cy = 42;
 
   doc.font('INV-Bold').fontSize(9).fillColor(DARK)
@@ -562,9 +568,12 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
 
   let clY = secY + 15;
   const clientDisplayName = invoice.company_name || invoice.client_name || '';
+  // `{ width: 200 }` sprawia, że pdfkit zawija długi tekst na 2+ linie — { lineBreak: false }
+  // tego NIE wyłącza w tej wersji pdfkit. Kursor musi więc rosnąć o faktyczną (zmierzoną),
+  // nie stałą, wysokość — inaczej kolejna linia nachodzi na zawinięty tekst.
   doc.font('INV-Bold').fontSize(10).fillColor(DARK)
-    .text(clientDisplayName, M, clY, { width: 200, lineBreak: false });
-  clY += 14;
+    .text(clientDisplayName, M, clY, { width: 200 });
+  clY += doc.heightOfString(clientDisplayName, { width: 200 }) + 4;
 
   doc.font('INV').fontSize(9).fillColor(GRAY);
   const buyLines = [
@@ -573,8 +582,8 @@ function renderInvoicePDF(doc, invoice, profile, qrBuffer = null) {
     invoice.client_country
   ].filter(l => l && l.trim());
   for (const line of buyLines) {
-    doc.text(line, M, clY, { width: 200, lineBreak: false });
-    clY += 12;
+    doc.text(line, M, clY, { width: 200 });
+    clY += doc.heightOfString(line, { width: 200 }) + 3;
   }
   if (invoice.client_vat) {
     doc.font('INV-Bold').fontSize(9).fillColor(DARK)
