@@ -19,6 +19,9 @@ import * as clientsPage from './pages/clients.js';
 import * as timeTrackingPage from './pages/timeTracking.js';
 import * as mileagePage from './pages/mileage.js';
 import * as financePage from './pages/finance.js';
+import * as reportsPage from './pages/reports.js';
+import * as backupPage from './pages/backup.js';
+import * as settingsPage from './pages/settings.js';
 import * as morePage from './pages/more.js';
 
 registerRoutes({
@@ -35,6 +38,9 @@ registerRoutes({
   time: timeTrackingPage.load,
   mileage: mileagePage.load,
   finance: financePage.load,
+  reports: reportsPage.load,
+  backup: backupPage.load,
+  settings: settingsPage.load,
   more: morePage.load
 });
 

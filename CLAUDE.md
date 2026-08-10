@@ -269,6 +269,9 @@ Push kosztów kończył się błędem `mime type text/plain;charset=UTF-8 is not
 
 ### Wybór roku na listach mobilnych (ZROBIONE)
 Listy faktur i kosztów na telefonie dostały **filtr roku** (jak na desktopie): `expenseList.js`/`invoiceList.js` budują listę lat z danych (`date` / `issue_date`), select „Rok" + opcja „Wszystkie lata", domyślnie bieżący rok (albo najnowszy z danymi), podsumowanie (liczba + suma, faktury też „opłacone"). Wybór roku trzymany w zmiennej modułu — przeżywa auto-odświeżanie. Styl `.list-filter-bar` w `main.css`.
+**Po redesignie:** filtr roku na liście faktur został (nieumyślnie) zdjęty przy wprowadzaniu zakładek
+statusów; **przywrócony** — `invoiceList.js` ma `_year` + `yearsFrom(issue_date)` + `matchYear`
+działające łącznie z zakładkami statusów i wyszukiwarką (Koszty miały filtr cały czas).
 
 ### Edycja wpisów czasu pracy w mobile (ZROBIONE)
 Wpisy na liście „Ostatnie wpisy" (strona Czas pracy) są teraz **klikalne** → otwierają inline formularz edycji (kategoria, projekt, data, godziny, opis + widget tłumaczenia, rozliczalne) z przyciskami **Zapisz zmiany / Anuluj / Usuń wpis**.
@@ -318,9 +321,74 @@ zapłaty per kwartał + suma roczna) oraz **struktura przychodu** (zwykły vs re
 dla AdSense/Google Ireland). Przychód liczony z faktur opłaconych (`incomeDate` = paid_date/issue_date).
 Style `.fin-vat-*`/`.fin-bar*`/`.fin-legend2` w `main.css`. Reużywa `charts.js`, `aggregate.sumBy`, `icons.js`.
 
+#### Kopia zapasowa — mobile (ZROBIONE, etap 2)
+Menu → „Kopia zapasowa" (trasa `backup`) eksportuje **dane z chmury** do jednego pliku JSON i
+udostępnia go (Web Share → np. Google Drive) lub pobiera. `src/data/backup.js` (`buildCloudBackup`)
+robi `supabase.from(t).select('*')` dla `BACKUP_TABLES` = `clients, projects, invoices,
+invoice_items, expenses, time_entries, mileage_entries` (RLS zawęża do użytkownika); zwraca manifest
+`{app,kind,version,exported_at,user_email,counts,total,errors?,tables}`. `src/pages/backup.js`:
+dwuetapowo — „Utwórz kopię" (async build) → „Udostępnij / zapisz plik" wywołuje `navigator.share
+({files})` **synchronicznie w geście** (wymóg iOS; brak `await` tuż przed share), fallback do
+`<a download>`. Pokazuje liczby rekordów per tabela. Paragony (pliki) NIE są w kopii — zostają w
+Storage (w JSON referencja `receipt_storage_path`). Import/przywracanie: poza zakresem (przyszłość).
+Trasa w `main.js`, pozycja w `more.js` (`cloud` → `page:'backup'`). Bez zmian CSS (reużyte
+`.info-box/.detail-block/.totals-row/.back-btn`).
+
+#### Raporty — mobile (ZROBIONE, etap 2)
+Menu → „Raporty" (trasa `reports`, `src/pages/reports.js`). Zakładki okresu **Miesiąc / Kwartał /
+Rok** (`.seg-tabs`) + picker (miesiąc/kwartał + rok, lata z danych). **Podsumowanie P&L** (karty 2×2:
+Przychód opłacony / Koszty / Zysk netto / Marża %) + **Koszty wg kategorii** jako **poziomy ranking
+słupkowy** (posortowane malejąco, jeden kolor `--accent-orange`, kwota + udział %). Przychód liczony
+z faktur opłaconych (`incomeDate`, parytet z Finansami); zakres okresu liczony lokalnie
+(`inPeriod`). **Uwaga (dataviz):** zrezygnowano z donuta — walidator palety (`scripts/validate_palette.js`)
+odrzucił kolory kategorii dla dowolnej kolejności wycinków (CVD), a ranking jednobarwny jest
+czytelniejszy na telefonie i identyfikuje kategorie etykietą, nie kolorem. Style `.rep-cat-*`/`.rep-bar*`/
+`.rep-period-label` w `main.css`. Reużywa `aggregate.sumBy`, `format`, `icons`, `.stat-grid`/`.panel`.
+Pominięte (łatwe do dołożenia): przychód wg klienta, godziny+billable, tabela miesięczna, eksport.
+
+#### Ustawienia — mobile (ZROBIONE, etap 2)
+Menu → „Ustawienia" (trasa `settings`, `src/pages/settings.js`). Zapis **lokalny na urządzeniu**
+(IndexedDB `meta`, klucz `appSettings`) przez `src/data/settings.js` (`getSettings/saveSettings/
+getDisplayName/getCompany`, kształt `{ displayName, company:{…} }`, `company` domyślnie z
+`companyProfile.COMPANY`). Pola: **nazwa użytkownika** (powitanie) + **dane firmy** (nazwa/adres/
+kod/miasto/kraj/KvK/BTW/IBAN/email/telefon). Wpięcia: `dashboard.js` i `more.js` — powitanie
+„Witaj, {displayName}" (fallback: część e-maila); `invoiceDetail.js` — podgląd faktury bierze dane
+sprzedawcy z `getCompany()` zamiast statycznego `COMPANY`. Reużyte `.card-form/.form-group/.btn`.
+`displayName` NIE jest synchronizowane (osobna kopia na telefonie); **dane firmy są teraz
+pobierane z komputera** — patrz sekcja niżej.
+
+### Sync profilu firmy desktop → chmura → mobile (ZROBIONE)
+Dane sprzedawcy (firma na fakturze) pobierają się na telefonie **z aplikacji na komputerze**
+zamiast ręcznie wpisanej lokalnej kopii. Jednokierunkowo: **komputer → chmura → telefon**
+(edycja profilu tylko na desktopie; telefon read-only). `displayName` (powitanie) zostaje
+ustawieniem lokalnym telefonu.
+- **Chmura:** nowa tabela `public.company_profile` (jeden globalny wiersz, RLS `authenticated_all`
+  jak reszta). Migracja addytywna `zzp-manager/docs/supabase-migration-company-profile.sql`
+  (uruchomić w Supabase SQL Editor, projekt `mrmyznqentpabkrtybah`); wzorcowy `docs/supabase-schema.sql`
+  też zawiera tabelę. Pola: name/address/postcode/city/country/kvk_number/btw_number/iban/email/
+  phone/invoice_footer/origin/updated_at.
+- **Desktop:** migracja SQLite **v10** (`company_profile.cloud_id TEXT`, `db.js getMigrations()`).
+  `cloud-sync.js` — po 6 tabelach `_pushCompanyProfile`: czyta wiersz `company_profile` (id=1),
+  push jak inne `_push*` (`cloud_id` → update, inaczej insert + zapis `cloud_id`). **Sygnatura
+  `profile_pushed_sig`** (settings) zapobiega wysyłce przy każdym heartbeacie co 15 s — push tylko
+  gdy pola się zmieniły lub brak `cloud_id`. Błąd (np. brak tabeli w chmurze) → `errors[]`, nie
+  psuje reszty synchronizacji.
+- **Mobile:** `src/data/settings.js` `getCompany()` **cloud-first**: `supabase.from('company_profile')
+  .select('*').limit(1).maybeSingle()` → cache do IndexedDB `meta`/`cloudCompany` → scalone nad
+  `COMPANY`. Fallback offline: cache → lokalne `appSettings.company` → `COMPANY`. `refreshCompany()`
+  wymusza ponowne pobranie (przycisk „🔄 Odśwież z komputera"). `src/pages/settings.js` — sekcja
+  „Dane firmy" **tylko do odczytu** (`.detail-block`/`.totals-row`, puste pola pomijane) + notka
+  „pobierane z komputera" + przycisk odśwież; zapisuje już tylko `displayName`. `invoiceDetail.js`
+  bez zmian (już `await getCompany()`, teraz źródłem chmura). `companyProfile.js` `COMPANY` = już
+  tylko domyślny szablon/fallback.
+- **Działania właściciela:** (1) uruchomić migrację SQL w Supabase; (2) `git pull` + restart desktopu
+  (migracja v10 sama się wykona) → potwierdzić dane firmy w Ustawieniach desktopu → uruchomić
+  synchronizację (push wyśle profil); (3) mobile auto-deploy z `main` — odświeżyć PWA.
+
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
-Na razie placeholdery „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Raporty**, **Eksport danych**,
-**Ustawienia** (m.in. nazwa użytkownika do powitania, dane firmy), **Kopia zapasowa**.
+Ostatni placeholder „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Eksport danych** (można oprzeć
+na `data/backup.js` — np. CSV per tabela / udostępnienie). Pełny backup wszystkiego (też dane
+tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 
 ### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
 Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ

@@ -22,6 +22,16 @@ const TABS = [
 let _status = 'all';
 let _search = '';
 let _searchOpen = false;
+let _year = null; // null = jeszcze nieustalony; 'all' = wszystkie lata
+
+function yearsFrom(rows) {
+  const years = new Set();
+  for (const r of rows) {
+    const y = String(r.issue_date || '').slice(0, 4);
+    if (/^\d{4}$/.test(y)) years.add(y);
+  }
+  return [...years].sort((a, b) => b.localeCompare(a));
+}
 
 export async function load() {
   const el = document.getElementById('page-content');
@@ -38,6 +48,10 @@ export async function load() {
       </div>
       <div class="seg-tabs" id="inv-tabs">
         ${TABS.map(t => `<button class="seg-tab${t.key === _status ? ' active' : ''}" data-status="${t.key}">${t.label}</button>`).join('')}
+      </div>
+      <div class="list-filter-bar">
+        <label for="inv-year">Rok</label>
+        <select id="inv-year"></select>
       </div>
       <div id="inv-summary" class="summary-box hidden"></div>
       <div id="inv-list-wrap"><p class="text-muted">Ładowanie…</p></div>
@@ -74,7 +88,22 @@ export async function load() {
   });
   searchInput.addEventListener('input', () => { _search = searchInput.value; renderList(); });
 
+  // Filtr roku (jak na liście Kosztów)
+  const years = yearsFrom(data);
+  const thisYear = String(new Date().getFullYear());
+  if (_year === null) _year = years.includes(thisYear) ? thisYear : (years[0] || 'all');
+  if (_year !== 'all' && !years.includes(_year)) _year = years[0] || 'all';
+  const yearSel = document.getElementById('inv-year');
+  yearSel.innerHTML = `<option value="all">Wszystkie lata</option>` +
+    years.map(y => `<option value="${y}"${y === _year ? ' selected' : ''}>${y}</option>`).join('');
+  if (_year === 'all') yearSel.value = 'all';
+  yearSel.addEventListener('change', () => { _year = yearSel.value; renderList(); });
+
   renderList();
+
+  function matchYear(inv) {
+    return _year === 'all' || String(inv.issue_date || '').slice(0, 4) === _year;
+  }
 
   function matchStatus(inv) {
     if (_status === 'all') return true;
@@ -93,7 +122,7 @@ export async function load() {
   }
 
   function renderList() {
-    const rows = data.filter(i => matchStatus(i) && matchSearch(i));
+    const rows = data.filter(i => matchYear(i) && matchStatus(i) && matchSearch(i));
     const summary = document.getElementById('inv-summary');
 
     if (rows.length) {

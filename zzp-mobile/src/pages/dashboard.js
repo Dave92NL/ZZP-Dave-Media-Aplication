@@ -2,6 +2,7 @@ import { fmtEur, escHtml } from '../lib/format.js';
 import { navigate } from '../router.js';
 import * as repo from '../data/repo.js';
 import { getSession } from '../auth.js';
+import { getDisplayName } from '../data/settings.js';
 import { icon } from '../lib/icons.js';
 import { areaSparkline, groupedBars } from '../lib/charts.js';
 import {
@@ -15,6 +16,8 @@ let _range = 6; // liczba miesięcy na wykresie „Przegląd miesięczny"
 
 async function resolveName() {
   try {
+    const name = (await getDisplayName()).trim();
+    if (name) return name; // ustawiona ręcznie w Ustawieniach ma pierwszeństwo
     const session = await getSession();
     const email = session?.user?.email || '';
     if (email) return cap(email.split('@')[0].replace(/[._]/g, ' ').split(' ')[0]);

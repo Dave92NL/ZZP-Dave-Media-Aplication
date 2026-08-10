@@ -503,6 +503,28 @@ input:focus, select:focus, textarea:focus {
 .fin-bar-fill { height: 100%; background: var(--accent-green); }
 .fin-legend2 { display: flex; flex-direction: column; gap: 6px; }
 
+/* ── Raporty (etykieta okresu + ranking kategorii) ──── */
+.rep-period-label {
+  font-size: 13px; color: var(--text-muted); font-weight: 600;
+  text-transform: capitalize; margin-bottom: 12px;
+}
+.rep-cat-list { display: flex; flex-direction: column; gap: 13px; }
+.rep-cat-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-bottom: 6px;
+}
+.rep-cat-name { font-size: 14px; font-weight: 600; }
+.rep-cat-amt { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.rep-cat-pct { color: var(--text-muted); font-size: 12px; margin-left: 6px; }
+.rep-bar {
+  height: 8px; background: var(--bg-tertiary);
+  border-radius: var(--radius-pill); overflow: hidden;
+}
+.rep-bar-fill {
+  height: 100%; background: var(--accent-orange);
+  border-radius: var(--radius-pill);
+}
+
 /* Chart legend */
 .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
