@@ -26,6 +26,24 @@ function toCsv(rows) {
   return '﻿' + [cols.join(';'), ...rows.map(r => cols.map(c => cell(r[c])).join(';'))].join('\r\n');
 }
 
+// Pole daty per tabela; clients/projects nie są filtrowane, pozycje faktur idą za fakturą.
+const DATE_FIELD = { invoices: 'issue_date', expenses: 'date', time_entries: 'date', mileage_entries: 'date' };
+
+function inPeriod(d, year, q) {
+  if (!year) return true;
+  if (!d || d.slice(0, 4) !== year) return false;
+  return !q || Math.ceil(Number(d.slice(5, 7)) / 3) === Number(q);
+}
+function filterTables(tables, year, q) {
+  const out = { ...tables };
+  for (const [t, f] of Object.entries(DATE_FIELD)) out[t] = (tables[t] || []).filter(r => inPeriod(r[f], year, q));
+  const ids = new Set(out.invoices.map(i => i.id));
+  out.invoice_items = (tables.invoice_items || []).filter(r => !year || ids.has(r.invoice_id));
+  return out;
+}
+
+const YEARS = [0, 1, 2, 3, 4].map(i => new Date().getFullYear() - i);
+
 // Pliki trzymamy w scope modułu — share() musi iść synchronicznie w geście (iOS).
 let _files = [];
 
@@ -38,6 +56,10 @@ export async function load() {
       <div class="info-box">Tworzy osobny plik <strong>CSV</strong> (Excel) dla każdej tabeli:
         klienci, projekty, faktury, koszty, czas pracy i kilometrówka. Dla pełnej kopii do
         przywrócenia użyj „Kopia zapasowa".</div>
+      <div class="form-group"><label>Rok</label>
+        <select id="ex-year"><option value="">Wszystkie lata</option>${YEARS.map(y => `<option value="${y}">${y}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Okres</label>
+        <select id="ex-q"><option value="">Cały rok</option><option value="1">Kwartał 1</option><option value="2">Kwartał 2</option><option value="3">Kwartał 3</option><option value="4">Kwartał 4</option></select></div>
       <div id="ex-offline" class="error-msg hidden">⚠️ Eksport wymaga połączenia z internetem.</div>
       <button class="btn btn-primary btn-block" id="ex-create">📄 Przygotuj pliki CSV</button>
       <button class="btn btn-accent-blue btn-block hidden" id="ex-share" style="margin-top:10px">📤 Udostępnij / zapisz pliki</button>
@@ -60,10 +82,14 @@ export async function load() {
     createBtn.textContent = '⏳ Przygotowanie…';
     try {
       const b = await buildCloudBackup();
+      const year = document.getElementById('ex-year').value;
+      const q = year ? document.getElementById('ex-q').value : '';
+      const tables = filterTables(b.tables, year, q);
+      const tag = year ? `${year}${q ? '-Q' + q : ''}` : todayStr();
       _files = Object.keys(LABELS)
-        .filter(t => b.tables[t]?.length)
-        .map(t => new File([toCsv(b.tables[t])], `zzp-${t}-${todayStr()}.csv`, { type: 'text/csv' }));
-      if (!_files.length) throw new Error('Brak danych do wyeksportowania.');
+        .filter(t => tables[t]?.length)
+        .map(t => new File([toCsv(tables[t])], `zzp-${t}-${tag}.csv`, { type: 'text/csv' }));
+      if (!_files.length) throw new Error('Brak danych w wybranym okresie.');
       setStatus(`✅ Gotowe pliki (${_files.length}):<br>${_files.map(f => escHtml(f.name)).join('<br>')}`);
       shareBtn.classList.remove('hidden');
       createBtn.classList.add('hidden');

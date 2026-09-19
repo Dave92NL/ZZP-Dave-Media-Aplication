@@ -97,6 +97,14 @@ liniami, serif systemowy (`ui-serif`) na tytułach i kwotach, statusy jako obrys
   Reguły kosztów (`.cost-*`, `.cat-*`, `.donut-wrap`) zduplikowane pod `data-ui="ledger"`.
 - Podgląd projektu: Artifact „Księga ZZP". Build OK; ekrany za logowaniem nie sprawdzane w przeglądarce (brak `.env.local`) — potwierdzić na telefonie.
 
+### Mobile: pulpit „jedna liczba" + przycisk „+" (ZROBIONE, niewdrożone)
+Tylko Nowoczesny i Księga (`isModern()`); Oryginalny bez zmian. `dashboard.js`: `focusHeadHtml/bindFocusHead` —
+wskaźnik z przełącznikiem Do zapłaty · Zysk · Przychód (`_metric`, domyślnie „Do zapłaty" gdy są otwarte faktury
+`sent/overdue`; „po terminie" = `overdue` lub `due_date` < dziś) + linia Przychód/Koszty/VAT zamiast 4 kafelków;
+dawne „Szybkie akcje" znikają. `nav.js`: `TABS_MODERN` = Pulpit · Faktury · **+** · Koszty · Więcej (Finanse w menu Więcej,
+`finance` w `MORE_PAGES_MODERN`); „+" otwiera arkusz `#add-sheet` z 4 akcjami. Style `.fd-*`, `.nav-plus*`, `.add-*` w `main.css`
+(tokeny, więc oba motywy), override'y Księgi w `ledger.css`. Zweryfikowane tylko na stronie testowej (Księga Papier); ekrany za logowaniem — na telefonie.
+
 ### Mobile: drugi motyw „Nowoczesny" (jasny/ciemny/systemowy) (ZROBIONE)
 W Ustawieniach → „🎨 Wygląd aplikacji": **Oryginalny** (dotychczasowy ciemny wygląd, bez zmian —
 domyślny) albo **Nowoczesny** (biała/granatowa paleta, niebieski akcent, wg referencji) z kolorystyką
@@ -436,6 +444,7 @@ ustawieniem lokalnym telefonu.
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
 **Eksport danych — ZROBIONE** (`pages/exportData.js`, trasa `export`, wpis w `more.js`): CSV (średnik + BOM, Excel PL/NL)
 per tabela z `buildCloudBackup()`, udostępnienie przez Web Share (wiele plików) z fallbackiem pobierania. Niewdrożone/nieprzetestowane na telefonie.
+Filtr rok + kwartał (faktury po `issue_date`, koszty/czas/km po `date`, pozycje faktur za fakturą; klienci/projekty bez filtra).
 Obsługa „🔒 Wkrótce" w `more.js` została (brak już użytkowników). Pełny backup wszystkiego (też dane
 tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 

@@ -263,3 +263,46 @@ html[data-ui="ledger"] .cat-main { flex: 1; min-width: 0; }
 html[data-ui="ledger"] .cat-name { font-size: 14px; font-weight: 600; }
 html[data-ui="ledger"] .cat-pct { font-size: 12px; color: var(--text-muted); }
 html[data-ui="ledger"] .cat-amt { font-size: 15px; }
+
+/* ── Drobne elementy: bez pigułek i kółek ──────────────────── */
+html[data-ui="ledger"] .hero-delta,
+html[data-ui="ledger"] .hero-delta.up,
+html[data-ui="ledger"] .hero-delta.down { background: transparent; padding: 0; border-radius: 0; }
+html[data-ui="ledger"] .icon-btn {
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-primary);
+}
+html[data-ui="ledger"] .chip-select {
+  border-radius: 2px;
+  background: transparent;
+}
+html[data-ui="ledger"] .qa-btn {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-ui="ledger"] .qa-btn:active { transform: none; background: var(--bg-hover); }
+html[data-ui="ledger"] .summary-box {
+  background: transparent;
+  border: 0;
+  border-block: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-ui="ledger"] .summary-box > div {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 10px 0;
+}
+
+/* ── Pulpit „jedna liczba" + „+" w Księdze ─────────────────── */
+html[data-ui="ledger"] .fd-hero { border-top: 2px solid var(--text-primary); padding-top: 12px; margin-top: 14px; }
+html[data-ui="ledger"] .fd-big { font-family: var(--serif); font-weight: 400; font-size: 58px; }
+html[data-ui="ledger"] .fd-line dd { font-family: var(--serif); font-weight: 400; font-size: 18px; }
+html[data-ui="ledger"] .nav-plus { border-radius: 2px; box-shadow: none; color: var(--ink-on-accent); }
+html[data-ui="ledger"] .add-sheet { border-radius: 0; border-top: 2px solid var(--text-primary); }

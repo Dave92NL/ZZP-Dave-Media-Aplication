@@ -107,6 +107,61 @@ function recentInvoicesHtml(invoices) {
     ${rows}`;
 }
 
+// ── Pulpit „jedna liczba" (Nowoczesny i Księga) ─────────────────────────────
+let _metric = null; // 'due' | 'profit' | 'income'; null = wybór domyślny przy pierwszym rysowaniu
+
+const plural = (n, one, few, many) =>
+  n === 1 ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? few : many;
+
+// Faktury otwarte = wysłane/przeterminowane; „po terminie" także wysłana z minionym terminem.
+function openInvoices(invoices, now) {
+  const today = now.toISOString().slice(0, 10);
+  const open = invoices.filter(i => !i._pending && (i.status === 'sent' || i.status === 'overdue'));
+  const late = open.filter(i => i.status === 'overdue' || (i.due_date && String(i.due_date) < today));
+  return { open, late };
+}
+
+function focusMetric(d, key) {
+  const { open, late } = openInvoices(d.invoices, d.now);
+  if (key === 'profit') return { v: d.profit, delta: pctChange(d.profit, d.prevProfit), sub: `vs ${cap(d.months[d.months.length - 2]?.long || '')}` };
+  if (key === 'income') return { v: d.income, delta: pctChange(d.income, d.prevIncome), sub: `vs ${cap(d.months[d.months.length - 2]?.long || '')}` };
+  const total = open.reduce((s, i) => s + Number(i.total_eur ?? i.total ?? 0), 0);
+  return { v: total, delta: null, sub: `${open.length} ${plural(open.length, 'faktura otwarta', 'faktury otwarte', 'faktur otwartych')}`, late };
+}
+
+function focusBodyHtml(d, key) {
+  const m = focusMetric(d, key);
+  const dl = m.delta != null ? deltaPill(m.delta, { big: true }) : '';
+  const lateHtml = m.late?.length
+    ? `<div class="fd-alert">● ${m.late.length} po terminie</div>` : '';
+  return `<div class="fd-big">${fmtEur(m.v)}</div>
+    <div class="fd-delta">${dl}<span class="hero-sub">${escHtml(m.sub)}</span></div>${lateHtml}`;
+}
+
+function focusHeadHtml(d) {
+  if (!_metric) _metric = openInvoices(d.invoices, d.now).open.length ? 'due' : 'profit';
+  const seg = [['due', 'Do zapłaty'], ['profit', 'Zysk'], ['income', 'Przychód']]
+    .map(([k, l]) => `<button type="button" class="fd-seg-btn${k === _metric ? ' active' : ''}" data-metric="${k}">${l}</button>`).join('');
+  return `
+    <section class="fd-hero">
+      <div class="fd-seg">${seg}</div>
+      <div id="fd-body">${focusBodyHtml(d, _metric)}</div>
+    </section>
+    <dl class="fd-line">
+      <div><dt>Przychód</dt><dd>${fmtEur(d.income)}</dd></div>
+      <div><dt>Koszty</dt><dd>${fmtEur(d.costs)}</dd></div>
+      <div><dt>VAT</dt><dd>${fmtEur(d.vatDue)}</dd></div>
+    </dl>`;
+}
+
+function bindFocusHead(wrap, d) {
+  wrap.querySelectorAll('.fd-seg-btn').forEach(btn => btn.addEventListener('click', () => {
+    _metric = btn.dataset.metric;
+    wrap.querySelectorAll('.fd-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('fd-body').innerHTML = focusBodyHtml(d, _metric);
+  }));
+}
+
 function renderDashboard(wrap, d) {
   const { now, months, revSeries, costSeries, income, prevIncome, costs, prevCosts, profit, prevProfit, vatDue, invoices } = d;
   const monthLong = cap(now.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }));
@@ -114,6 +169,9 @@ function renderDashboard(wrap, d) {
 
   const qa = (id, cls, ic, label) =>
     `<button class="qa-btn" id="${id}"><span class="qa-icon ${cls}">${icon(ic, { size: 22 })}</span><span class="qa-label">${label}</span></button>`;
+
+  const focus = isModern();
+  const focusHtml = focus ? focusHeadHtml(d) : '';
 
   wrap.innerHTML = `
     <div class="greeting">
@@ -124,7 +182,7 @@ function renderDashboard(wrap, d) {
       <button class="icon-btn" id="dash-bell" aria-label="Powiadomienia">${icon('bell', { size: 20 })}</button>
     </div>
 
-    <div class="hero-card">
+    ${focus ? focusHtml : `<div class="hero-card">
       <div class="hero-label">Przychód netto</div>
       <div class="hero-value">${fmtEur(income)}</div>
       <div class="hero-meta">
@@ -159,7 +217,7 @@ function renderDashboard(wrap, d) {
         <div class="stat-card-value">${fmtEur(vatDue)}</div>
         <div class="stat-card-delta"><span class="text-muted">${escHtml(cap(now.toLocaleDateString('pl-PL', { month: 'long' })))}</span></div>
       </div>
-    </div>
+    </div>`}
 
     <div class="panel" id="dash-overview">
       <div class="panel-head">
@@ -189,19 +247,20 @@ function renderDashboard(wrap, d) {
 
     ${isModern() ? recentInvoicesHtml(invoices) : ''}
 
-    <h3 class="section-title">Szybkie akcje</h3>
+    ${focus ? '' : `<h3 class="section-title">Szybkie akcje</h3>
     <div class="quick-actions">
       ${qa('qa-invoice', 'purple', 'filePlus', 'Nowa faktura')}
       ${qa('qa-expense', 'green', 'camera', 'Skanuj paragon')}
       ${qa('qa-time', 'orange', 'play', 'Start czasu')}
       ${qa('qa-mileage', 'blue', 'car', 'Dodaj kilometrówkę')}
-    </div>
+    </div>`}
   `;
+  if (focus) bindFocusHead(wrap, d);
 
-  document.getElementById('qa-invoice').addEventListener('click', () => navigate('new-invoice'));
-  document.getElementById('qa-expense').addEventListener('click', () => navigate('add-expense'));
-  document.getElementById('qa-time').addEventListener('click', () => navigate('time'));
-  document.getElementById('qa-mileage').addEventListener('click', () => navigate('mileage'));
+  document.getElementById('qa-invoice')?.addEventListener('click', () => navigate('new-invoice'));
+  document.getElementById('qa-expense')?.addEventListener('click', () => navigate('add-expense'));
+  document.getElementById('qa-time')?.addEventListener('click', () => navigate('time'));
+  document.getElementById('qa-mileage')?.addEventListener('click', () => navigate('mileage'));
   document.getElementById('dash-bell').addEventListener('click', () => navigate('more'));
   document.getElementById('dash-all-inv')?.addEventListener('click', () => navigate('invoices'));
   wrap.querySelectorAll('.row-card[data-inv]').forEach(card =>

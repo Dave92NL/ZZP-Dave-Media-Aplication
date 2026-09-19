@@ -14,10 +14,36 @@ const TABS = [
 const TABS_MODERN = [
   { page: 'dashboard', icon: 'home', label: 'Pulpit' },
   { page: 'invoices', icon: 'file', label: 'Faktury' },
+  { plus: true },
   { page: 'expenses', icon: 'wallet', label: 'Koszty' },
-  { page: 'finance', icon: 'chart', label: 'Finanse' },
   { page: 'more', icon: 'menu', label: 'Więcej' }
 ];
+
+// Akcje arkusza „+" (te same co dawne „Szybkie akcje" na pulpicie).
+const ADD_ACTIONS = [
+  { page: 'new-invoice', label: 'Nowa faktura' },
+  { page: 'add-expense', label: 'Dodaj koszt / skan paragonu' },
+  { page: 'time', label: 'Start czasu pracy' },
+  { page: 'mileage', label: 'Kilometrówka' }
+];
+
+function openAddSheet() {
+  if (document.getElementById('add-sheet')) return;
+  const el = document.createElement('div');
+  el.id = 'add-sheet';
+  el.className = 'add-scrim';
+  el.innerHTML = `<div class="add-sheet" role="dialog" aria-label="Dodaj">
+    <div class="add-sheet-title">Dodaj</div>
+    ${ADD_ACTIONS.map(a => `<button type="button" class="add-sheet-item" data-page="${a.page}"><span>${a.label}</span><span class="add-sheet-chev">›</span></button>`).join('')}
+  </div>`;
+  const close = () => el.remove();
+  el.addEventListener('click', (e) => {
+    if (e.target === el) return close();
+    const b = e.target.closest('[data-page]');
+    if (b) { close(); navigate(b.dataset.page); }
+  });
+  document.body.appendChild(el);
+}
 
 // Podstrony docierane z „Menu" — podświetlają zakładkę „Menu".
 const MORE_PAGES = new Set([
@@ -25,7 +51,7 @@ const MORE_PAGES = new Set([
 ]);
 // W Nowoczesnym „Koszty" ma własną zakładkę, a „Czas" trafia pod „Więcej".
 const MORE_PAGES_MODERN = new Set([
-  'projects', 'clients', 'mileage', 'add-expense', 'new-invoice', 'more', 'time', 'reports', 'backup', 'export', 'settings'
+  'projects', 'clients', 'mileage', 'add-expense', 'new-invoice', 'more', 'time', 'reports', 'backup', 'export', 'settings', 'finance'
 ]);
 
 let _last = { page: null, hidden: false };
@@ -48,6 +74,7 @@ export function renderNav(currentPage, hidden) {
   el.classList.remove('hidden');
 
   el.innerHTML = tabs.map(t => {
+    if (t.plus) return `<div class="nav-plus-wrap"><button class="nav-plus" id="nav-plus" aria-label="Dodaj">+</button></div>`;
     const active = t.page === currentPage || (t.page === 'more' && morePages.has(currentPage));
     return `
       <button class="nav-tab${active ? ' active' : ''}" data-page="${t.page}">
@@ -56,6 +83,7 @@ export function renderNav(currentPage, hidden) {
       </button>`;
   }).join('');
 
+  document.getElementById('nav-plus')?.addEventListener('click', openAddSheet);
   el.querySelectorAll('.nav-tab[data-page]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.page));
   });
