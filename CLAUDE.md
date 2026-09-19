@@ -86,6 +86,34 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 
 ## 5. Co zrobiliśmy w tej sesji
 
+### Mobile: drugi motyw „Nowoczesny" (jasny/ciemny/systemowy) (ZROBIONE)
+W Ustawieniach → „🎨 Wygląd aplikacji": **Oryginalny** (dotychczasowy ciemny wygląd, bez zmian —
+domyślny) albo **Nowoczesny** (biała/granatowa paleta, niebieski akcent, wg referencji) z kolorystyką
+Jasna/Ciemna/Systemowa. Tylko `zzp-mobile`; desktop bez zmian.
+- **Mechanizm:** `src/lib/theme.js` ustawia na `<html>` `data-ui="original|modern"` i
+  `data-scheme="light|dark"` (Systemowa liczona z `prefers-color-scheme`, reaguje na zmianę OS),
+  `color-scheme` (tylko w Nowoczesnym) i runtime'owy `<meta theme-color>`. Zdarzenie `zzp-theme` po zmianie.
+- **Zapis (offline):** źródło prawdy `settings.js` → `appSettings.theme` w IndexedDB; **lustro w
+  `localStorage` (`zzp-theme`)** czytane przez inline skrypt w `index.html` przed pierwszym renderem
+  (brak błysku). Uwaga: `saveSettings` przepisuje tylko znane pola — nowe pole trzeba dodać w
+  `getSettings()` i w merge.
+- **CSS:** `src/styles/modern.css` (import po `main.css`), wszystko pod `html[data-ui="modern"]`.
+  Nadpisuje **istniejące tokeny** (`--bg-*`, `--text-*`, `--accent-*`, `--shadow-*`, promienie), więc
+  komponenty przebarwiają się same; `main.css` **nietknięty** → Oryginalny wizualnie identyczny.
+  „Primary" to `--accent-orange` (main.css używa go dla przycisków/FAB/aktywnych zakładek) —
+  w Nowoczesnym przemapowany na niebieski (wraz z dekoracyjnym pomarańczem — świadomie, jeden akcent).
+  **Pułapka specyficzności:** reguły `html[data-ui] .x` są mocniejsze niż `.x.active` z main.css —
+  stany (`.seg-tab.active`) trzeba w modern.css nadpisywać jawnie.
+- **Zmiany układu tylko w Nowoczesnym:** dolna nawigacja Pulpit/Faktury/Koszty/Finanse/Więcej
+  (`nav.js`, „Czas pracy" jest w menu Więcej); Koszty: podsumowanie miesiąca + zmiana vs poprzedni
+  miesiąc + donut kategorii (`charts.js` `donut()`, filtr miesiąca w `expenseList.js`); Pulpit:
+  „Ostatnie faktury"; etykieta „Zapłacona" zamiast „Opłacona"; formularz „Dodaj koszt" na karcie
+  (`.form-surface`, bez wpływu na Oryginalny). Status „Oczekująca" z referencji nie istnieje w danych — pominięty.
+- **Weryfikacja:** `npm run build` OK; wygląd sprawdzony na stronie testowej z prawdziwym CSS/ikonami/
+  wykresami w 375×812 (Modern Light, Modern Dark, Oryginalny). Ekrany za logowaniem nie były
+  uruchamiane end-to-end (brak `.env.local` z kluczami Supabase w tym środowisku) — potwierdzić na telefonie.
+  Nowy CSS dotrze do zainstalowanej PWA po „Odśwież" na pasku aktualizacji.
+
 ### Usunięto kod QR EPC z faktury (ZROBIONE, desktop, v1.1.9)
 Na życzenie użytkownika: kod QR do płatności SEPA zniknął z generowanej faktury PDF
 (zapis, żywy podgląd, podgląd zapisanej faktury — wszystkie trzy przez wspólne

@@ -14,6 +14,7 @@ export async function load() {
     <div class="page">
       <h1 class="page-title">${_editId ? '✏️ Edytuj koszt' : '📷 Dodaj koszt'}</h1>
 
+      <div class="form-surface">
       <div class="form-group">
         <label>Kategoria</label>
         <select id="exp-category">
@@ -56,6 +57,7 @@ export async function load() {
         <div id="exp-photo-preview" class="photo-preview hidden">
           <img id="exp-photo-img" alt="Podgląd paragonu">
         </div>
+      </div>
       </div>
 
       <div id="exp-error" class="error-msg hidden"></div>

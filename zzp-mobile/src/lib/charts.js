@@ -117,6 +117,31 @@ export function progressRing(fraction, { size = 200, stroke = 14, color = 'var(-
 </svg>`;
 }
 
+// ── Wykres pierścieniowy (donut) ─────────────────────────────────────────────
+// segments: [{ value, color }] — color jako 'var(--…)' (trafia do style=, nie do atrybutu).
+// Rysowany od godziny 12 (obrót -90° na <g>); pusty zestaw → sam tor.
+export function donut(segments, { size = 120, stroke = 16, track = 'var(--bg-tertiary)', label = 'Struktura kosztów' } = {}) {
+  const total = segments.reduce((s, x) => s + (x.value > 0 ? x.value : 0), 0);
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const cx = size / 2, cy = size / 2;
+  let acc = 0;
+  const arcs = total > 0 ? segments.filter(s => s.value > 0).map(s => {
+    const len = (s.value / total) * c;
+    const arc = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" style="stroke:${s.color}" stroke-width="${stroke}"
+      stroke-dasharray="${len.toFixed(2)} ${(c - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}"/>`;
+    acc += len;
+    return arc;
+  }).join('') : '';
+  return `
+<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="${label}">
+  <g transform="rotate(-90 ${cx} ${cy})">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" style="stroke:${track}" stroke-width="${stroke}"/>
+    ${arcs}
+  </g>
+</svg>`;
+}
+
 // ── pomocnicze ───────────────────────────────────────────────────────────────
 function roundedTopRect(x, y, w, h, r, fill) {
   if (h <= 0) return '';

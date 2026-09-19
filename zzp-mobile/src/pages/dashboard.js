@@ -1,9 +1,10 @@
-import { fmtEur, escHtml } from '../lib/format.js';
+import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
 import { navigate } from '../router.js';
 import * as repo from '../data/repo.js';
 import { getSession } from '../auth.js';
 import { getDisplayName } from '../data/settings.js';
 import { icon } from '../lib/icons.js';
+import { isModern } from '../lib/theme.js';
 import { areaSparkline, groupedBars } from '../lib/charts.js';
 import {
   sumBy, lastNMonths, revenueByMonth, costsByMonth, pctChange, formatDelta
@@ -65,14 +66,49 @@ export async function load() {
     const monthExp = expenses.filter(e => String(e.date || '').startsWith(ymNow));
     const vatDue = sumBy(monthInv, i => i.btw_amount) - sumBy(monthExp, e => e.btw_deductible ? e.btw_amount : 0);
 
-    renderDashboard(wrap, { now, months, revSeries, costSeries, income, prevIncome, costs, prevCosts, profit, prevProfit, vatDue });
+    renderDashboard(wrap, { now, months, revSeries, costSeries, income, prevIncome, costs, prevCosts, profit, prevProfit, vatDue, invoices });
   } catch (err) {
     wrap.innerHTML = `<p class="error-msg">Błąd wczytywania pulpitu: ${escHtml(err.message)}</p>`;
   }
 }
 
+const RECENT_STATUS = {
+  draft: ['Szkic', 'pill-muted'], sent: ['Wysłana', 'pill-blue'], paid: ['Zapłacona', 'pill-green'],
+  overdue: ['Przeterminowana', 'pill-red'], cancelled: ['Anulowana', 'pill-muted']
+};
+
+// „Ostatnie faktury" — tylko motyw Nowoczesny; klik w wiersz → szczegóły faktury.
+function recentInvoicesHtml(invoices) {
+  const last = [...invoices]
+    .filter(i => !i._pending)
+    .sort((a, b) => String(b.issue_date || '').localeCompare(String(a.issue_date || '')))
+    .slice(0, 3);
+  if (!last.length) return '';
+  const rows = last.map(inv => {
+    const [label, cls] = RECENT_STATUS[inv.status] || RECENT_STATUS.draft;
+    const client = inv.clients?.company_name || inv.clients?.name || '—';
+    return `
+      <div class="row-card" data-inv="${inv.id}" role="button" tabindex="0">
+        <div class="row-main">
+          <div class="row-main-title">${escHtml(client)}</div>
+          <div class="row-main-sub">${escHtml(inv.invoice_number || 'Faktura')} · ${fmtDateNL(inv.issue_date)}</div>
+        </div>
+        <div class="row-end">
+          <div class="row-amount">${fmtEur(inv.total_eur ?? inv.total)}</div>
+          <span class="pill ${cls}"><span class="pill-dot"></span>${label}</span>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="panel-head" style="margin-top:6px">
+      <div class="panel-title">Ostatnie faktury</div>
+      <button class="panel-action" id="dash-all-inv">Zobacz wszystkie</button>
+    </div>
+    ${rows}`;
+}
+
 function renderDashboard(wrap, d) {
-  const { now, months, revSeries, costSeries, income, prevIncome, costs, prevCosts, profit, prevProfit, vatDue } = d;
+  const { now, months, revSeries, costSeries, income, prevIncome, costs, prevCosts, profit, prevProfit, vatDue, invoices } = d;
   const monthLong = cap(now.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }));
   const prevMonthLong = cap(months[months.length - 2]?.long || '');
 
@@ -151,6 +187,8 @@ function renderDashboard(wrap, d) {
       </div>
     </div>
 
+    ${isModern() ? recentInvoicesHtml(invoices) : ''}
+
     <h3 class="section-title">Szybkie akcje</h3>
     <div class="quick-actions">
       ${qa('qa-invoice', 'purple', 'filePlus', 'Nowa faktura')}
@@ -165,6 +203,9 @@ function renderDashboard(wrap, d) {
   document.getElementById('qa-time').addEventListener('click', () => navigate('time'));
   document.getElementById('qa-mileage').addEventListener('click', () => navigate('mileage'));
   document.getElementById('dash-bell').addEventListener('click', () => navigate('more'));
+  document.getElementById('dash-all-inv')?.addEventListener('click', () => navigate('invoices'));
+  wrap.querySelectorAll('.row-card[data-inv]').forEach(card =>
+    card.addEventListener('click', () => navigate(`invoice-detail/${card.dataset.inv}`)));
 
   document.getElementById('dash-range').addEventListener('change', (e) => {
     _range = Number(e.target.value) || 6;

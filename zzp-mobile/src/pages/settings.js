@@ -2,6 +2,29 @@ import { navigate } from '../router.js';
 import { escHtml } from '../lib/format.js';
 import { icon } from '../lib/icons.js';
 import { getSettings, saveSettings, getCompany, refreshCompany } from '../data/settings.js';
+import { getTheme, setTheme } from '../lib/theme.js';
+
+const UI_OPTS = [
+  { key: 'original', label: 'Oryginalny', sub: 'Obecny wygląd aplikacji' },
+  { key: 'modern', label: 'Nowoczesny', sub: 'Czysty wygląd ZZP Manager' }
+];
+const SCHEME_OPTS = [
+  { key: 'light', label: '☀ Jasna' },
+  { key: 'dark', label: '☾ Ciemna' },
+  { key: 'system', label: 'Systemowa' }
+];
+
+function appearanceInner() {
+  const t = getTheme();
+  const seg = (opts, cur, attr) => `<div class="seg-tabs">${opts.map(o =>
+    `<button type="button" class="seg-tab${o.key === cur ? ' active' : ''}" data-${attr}="${o.key}">${o.label}</button>`).join('')}</div>`;
+  const uiSub = UI_OPTS.find(o => o.key === t.ui).sub;
+  return `
+      <div class="edit-form-title">🎨 Wygląd aplikacji</div>
+      <div class="form-group"><label>Motyw interfejsu</label>${seg(UI_OPTS, t.ui, 'ui')}
+        <div class="text-muted" style="font-size:12px;margin-top:6px">${uiSub}</div></div>
+      ${t.ui === 'modern' ? `<div class="form-group"><label>Kolorystyka</label>${seg(SCHEME_OPTS, t.scheme, 'scheme')}</div>` : ''}`;
+}
 
 const field = (id, label, value, type = 'text', ph = '') =>
   `<div class="form-group"><label>${label}</label><input type="${type}" id="${id}" value="${escHtml(value || '')}" placeholder="${escHtml(ph)}"></div>`;
@@ -44,6 +67,8 @@ export async function load() {
       <button class="btn btn-secondary btn-sm back-btn" id="set-back">${icon('arrowLeft', { size: 16 })} Wróć</button>
       <h1 class="page-title">Ustawienia</h1>
 
+      <div class="card-form" id="set-appearance">${appearanceInner()}</div>
+
       <div class="card-form">
         <div class="edit-form-title">👤 Profil</div>
         ${field('set-name', 'Nazwa użytkownika (powitanie)', s.displayName, 'text', 'np. Dawid')}
@@ -65,6 +90,14 @@ export async function load() {
   `;
 
   document.getElementById('set-back').addEventListener('click', () => navigate('more'));
+
+  // Wygląd: zmiana działa od razu (bez „Zapisz"); przerysowujemy tylko kartę motywu.
+  document.getElementById('set-appearance').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.seg-tab');
+    if (!btn) return;
+    await setTheme(btn.dataset.ui ? { ui: btn.dataset.ui } : { scheme: btn.dataset.scheme });
+    document.getElementById('set-appearance').innerHTML = appearanceInner();
+  });
 
   document.getElementById('set-refresh').addEventListener('click', async () => {
     const btn = document.getElementById('set-refresh');

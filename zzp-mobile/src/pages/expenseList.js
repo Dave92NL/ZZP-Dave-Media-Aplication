@@ -2,9 +2,81 @@ import { navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
 import * as repo from '../data/repo.js';
 import { icon } from '../lib/icons.js';
+import { isModern } from '../lib/theme.js';
+import { donut } from '../lib/charts.js';
 
 // Wybrany rok utrzymywany między odświeżeniami (null = jeszcze nieustalony).
 let _year = null;
+// Motyw Nowoczesny: dodatkowy filtr miesiąca ('all' albo 'MM').
+let _month = 'all';
+
+const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec',
+  'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
+const CAT_COLORS = ['var(--accent-blue)', 'var(--accent-green)', 'var(--accent-yellow)',
+  'var(--accent-purple)', 'var(--accent-red)'];
+const amountOf = (e) => Number(e.amount_eur ?? e.amount ?? 0);
+
+// Blok „suma + zmiana vs poprzedni miesiąc + donut + kategorie" (tylko motyw Nowoczesny).
+function insightsHtml(rows, allRows, year, month) {
+  const total = rows.reduce((s, e) => s + amountOf(e), 0);
+  const byCat = new Map();
+  for (const e of rows) byCat.set(e.category || 'Inne', (byCat.get(e.category || 'Inne') || 0) + amountOf(e));
+  const sorted = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
+  const top = sorted.slice(0, CAT_COLORS.length).map(([name, value], i) => ({ name, value, color: CAT_COLORS[i] }));
+  const rest = sorted.slice(CAT_COLORS.length).reduce((s, [, v]) => s + v, 0);
+  if (rest > 0) top.push({ name: 'Pozostałe', value: rest, color: 'var(--text-muted)' });
+
+  // Zmiana względem poprzedniego miesiąca — tylko przy wybranym miesiącu i roku.
+  let delta = '';
+  if (month !== 'all' && year !== 'all') {
+    const m = Number(month);
+    const prevY = m === 1 ? String(Number(year) - 1) : year;
+    const prevM = m === 1 ? '12' : String(m - 1).padStart(2, '0');
+    const prev = allRows
+      .filter(e => String(e.date || '').slice(0, 7) === `${prevY}-${prevM}`)
+      .reduce((s, e) => s + amountOf(e), 0);
+    if (prev > 0) {
+      const pct = Math.round(((total - prev) / prev) * 100);
+      const up = pct > 0;
+      delta = `<div class="cost-delta ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct)}% vs. ${MONTHS[(m + 10) % 12]}</div>`;
+    }
+  }
+
+  const monthOpts = [...new Set(allRows
+    .filter(e => year === 'all' || String(e.date || '').slice(0, 4) === year)
+    .map(e => String(e.date || '').slice(5, 7)).filter(x => /^\d{2}$/.test(x)))]
+    .sort().reverse();
+
+  const catRows = top.map(c => {
+    const pct = total > 0 ? Math.round((c.value / total) * 100) : 0;
+    return `
+      <div class="cat-row">
+        <span class="cat-dot" style="background:${c.color}"></span>
+        <div class="cat-main"><div class="cat-name">${escHtml(c.name)}</div><div class="cat-pct">${pct}%</div></div>
+        <div class="cat-amt">${fmtEur(c.value)}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="panel-head">
+      <div class="panel-title">Podsumowanie</div>
+      <label class="chip-select">
+        <span>${month === 'all' ? 'Cały okres' : MONTHS[Number(month) - 1]}</span>${icon('chevronDown', { size: 14 })}
+        <select id="exp-month" aria-label="Miesiąc">
+          <option value="all"${month === 'all' ? ' selected' : ''}>Cały okres</option>
+          ${monthOpts.map(mm => `<option value="${mm}"${mm === month ? ' selected' : ''}>${MONTHS[Number(mm) - 1]}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <div class="cost-top">
+      <div>
+        <div class="cost-total">${fmtEur(total)}</div>
+        ${delta}
+      </div>
+      <div class="donut-wrap">${donut(top.map(c => ({ value: c.value, color: c.color })))}</div>
+    </div>
+    ${total > 0 ? `<div class="cat-list">${catRows}</div>` : '<p class="text-muted">Brak kosztów w tym okresie.</p>'}`;
+}
 
 function yearsFrom(rows) {
   const years = new Set();
@@ -26,6 +98,7 @@ export async function load() {
         <label for="exp-year">Rok</label>
         <select id="exp-year"></select>
       </div>
+      ${isModern() ? '<div class="panel" id="exp-insights"></div>' : ''}
       <div id="exp-summary" class="summary-box hidden"></div>
       <div id="exp-list-wrap"><p class="text-muted">Ładowanie…</p></div>
     </div>
@@ -57,7 +130,17 @@ export async function load() {
   renderList();
 
   function renderList() {
-    const rows = _year === 'all' ? data : data.filter(e => String(e.date || '').slice(0, 4) === _year);
+    let rows = _year === 'all' ? data : data.filter(e => String(e.date || '').slice(0, 4) === _year);
+
+    const insights = document.getElementById('exp-insights');
+    if (insights) {
+      // Wybrany miesiąc musi istnieć w bieżącym roku — inaczej wracamy do „Cały okres".
+      const months = new Set(rows.map(e => String(e.date || '').slice(5, 7)));
+      if (_month !== 'all' && !months.has(_month)) _month = 'all';
+      if (_month !== 'all') rows = rows.filter(e => String(e.date || '').slice(5, 7) === _month);
+      insights.innerHTML = insightsHtml(rows, data, _year, _month);
+      document.getElementById('exp-month').addEventListener('change', (ev) => { _month = ev.target.value; renderList(); });
+    }
 
     const summary = document.getElementById('exp-summary');
     if (rows.length) {

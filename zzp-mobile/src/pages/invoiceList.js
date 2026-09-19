@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { fmtEur, fmtDateNL, escHtml } from '../lib/format.js';
 import * as repo from '../data/repo.js';
 import { icon } from '../lib/icons.js';
+import { isModern } from '../lib/theme.js';
 
 const STATUS = {
   draft: { label: 'Szkic', pill: 'pill-muted', amount: '' },
@@ -47,7 +48,7 @@ export async function load() {
         <input type="text" id="inv-search" placeholder="Szukaj po kliencie lub numerze…" value="${escHtml(_search)}">
       </div>
       <div class="seg-tabs" id="inv-tabs">
-        ${TABS.map(t => `<button class="seg-tab${t.key === _status ? ' active' : ''}" data-status="${t.key}">${t.label}</button>`).join('')}
+        ${TABS.map(t => `<button class="seg-tab${t.key === _status ? ' active' : ''}" data-status="${t.key}">${isModern() && t.key === 'paid' ? 'Zapłacone' : t.label}</button>`).join('')}
       </div>
       <div class="list-filter-bar">
         <label for="inv-year">Rok</label>
@@ -148,7 +149,7 @@ export async function load() {
       const numberLabel = inv._pending ? 'Faktura offline' : escHtml(inv.invoice_number || 'Faktura');
       const pill = inv._pending
         ? '<span class="pill pill-yellow"><span class="pill-dot"></span>oczekuje</span>'
-        : `<span class="pill ${st.pill}"><span class="pill-dot"></span>${st.label}</span>`;
+        : `<span class="pill ${st.pill}"><span class="pill-dot"></span>${isModern() && inv.status === 'paid' ? 'Zapłacona' : st.label}</span>`;
       return `
         <div class="row-card" data-id="${inv.id}" role="button" tabindex="0">
           <div class="row-chip">${icon('file', { size: 20 })}</div>

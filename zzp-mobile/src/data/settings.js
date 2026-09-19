@@ -35,17 +35,19 @@ export async function getSettings() {
   } catch { /* brak / błąd IndexedDB → domyślne */ }
   _cache = {
     displayName: stored.displayName || '',
-    company: { ...COMPANY, ...(stored.company || {}) }
+    company: { ...COMPANY, ...(stored.company || {}) },
+    theme: stored.theme || null // { ui, scheme } — patrz lib/theme.js; null = domyślny (Oryginalny)
   };
   return _cache;
 }
 
-// Zapisuje TYLKO ustawienia lokalne (displayName). Dane firmy pochodzą z komputera.
+// Zapisuje TYLKO ustawienia lokalne (displayName, theme). Dane firmy pochodzą z komputera.
 export async function saveSettings(patch) {
   const cur = await getSettings();
   const next = {
     displayName: patch.displayName ?? cur.displayName,
-    company: { ...cur.company, ...(patch.company || {}) }
+    company: { ...cur.company, ...(patch.company || {}) },
+    theme: patch.theme ?? cur.theme
   };
   _cache = next;
   await idb.put('meta', { key: KEY, value: next });

@@ -1,0 +1,217 @@
+/* ─────────────────────────────────────────────────────────────
+   Motyw „Nowoczesny" (jasny / ciemny). Ładowany PO main.css.
+   Wszystko pod html[data-ui="modern"] — Oryginalny wygląd (main.css) zostaje bez zmian.
+   Zasada: nadpisujemy TOKENY z main.css (--bg-*, --text-*, --accent-* …), więc komponenty
+   przebarwiają się same; niżej tylko geometria/detale wg referencji.
+   Kolor „primary" = --accent-orange (używany w main.css jako akcent przycisków/FAB/nawigacji)
+   przemapowany na niebieski; dekoracyjny pomarańcz w Nowoczesnym też staje się niebieski.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Wspólne (oba schematy) ──────────────────────────────── */
+html[data-ui="modern"] {
+  --radius-sm: 8px;
+  --radius: 11px;      /* pola, przyciski */
+  --radius-lg: 15px;   /* karty */
+  --sp-card: 16px;
+}
+
+/* ── Jasny ───────────────────────────────────────────────── */
+html[data-ui="modern"][data-scheme="light"] {
+  --bg-primary: #F7F9FC;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F1F4F8;
+  --bg-elevated: #FFFFFF;
+  --bg-hover: #EEF2F8;
+  --border: #E2E7EF;
+  --border-soft: #EDF1F6;
+  --text-primary: #10213F;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --accent-orange: #1677FF;   /* primary */
+  --accent-blue: #1677FF;
+  --accent-green: #18A974;
+  --accent-yellow: #C98A0B;   /* ciemniejszy żółty — kontrast na bieli */
+  --accent-red: #E5484D;
+  --accent-purple: #6B5CE7;
+  --shadow-card: 0 1px 3px rgba(16, 33, 63, .06), 0 4px 12px rgba(16, 33, 63, .04);
+  --shadow-pop: 0 10px 30px rgba(16, 33, 63, .16);
+}
+
+/* ── Ciemny ──────────────────────────────────────────────── */
+html[data-ui="modern"][data-scheme="dark"] {
+  --bg-primary: #0B1220;
+  --bg-secondary: #111B2B;
+  --bg-tertiary: #172235;
+  --bg-elevated: #1B2840;
+  --bg-hover: #1B2A42;
+  --border: #26344A;
+  --border-soft: #1C2A3F;
+  --text-primary: #F3F6FB;
+  --text-secondary: #A9B5C7;
+  --text-muted: #8391A6;
+  --accent-orange: #2583FF;   /* primary */
+  --accent-blue: #2583FF;
+  --accent-green: #25C98A;
+  --accent-yellow: #F2B84B;
+  --accent-red: #FF5C63;
+  --accent-purple: #8B7CF6;
+  --shadow-card: none;        /* w ciemnym hierarchię dają obramowania */
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, .45);
+}
+
+/* ── Typografia: ciszej niż w Oryginalnym ─────────────────── */
+html[data-ui="modern"] .page-title,
+html[data-ui="modern"] .greeting-title,
+html[data-ui="modern"] .hero-value,
+html[data-ui="modern"] .sheet-name,
+html[data-ui="modern"] .login-box h1 { font-weight: 700; }
+html[data-ui="modern"] .panel-title,
+html[data-ui="modern"] .detail-title,
+html[data-ui="modern"] .row-amount,
+html[data-ui="modern"] .stat-card-value,
+html[data-ui="modern"] .list-card-amount,
+html[data-ui="modern"] .session-dur,
+html[data-ui="modern"] .ring-time { font-weight: 700; }
+html[data-ui="modern"] .btn { font-weight: 600; }
+html[data-ui="modern"] .section-title { font-weight: 600; letter-spacing: .04em; }
+
+/* ── Przyciski ───────────────────────────────────────────── */
+html[data-ui="modern"] .btn-primary,
+html[data-ui="modern"] .btn-accent-blue { box-shadow: none; }
+html[data-ui="modern"] .btn-primary:hover,
+html[data-ui="modern"] .btn-accent-blue:hover { filter: brightness(1.06); }
+html[data-ui="modern"] .btn-secondary { background: var(--bg-secondary); }
+html[data-ui="modern"] .btn { min-height: 44px; }
+html[data-ui="modern"] .btn-sm { min-height: 36px; }
+
+/* ── Pola formularzy ─────────────────────────────────────── */
+html[data-ui="modern"] input[type="text"],
+html[data-ui="modern"] input[type="email"],
+html[data-ui="modern"] input[type="password"],
+html[data-ui="modern"] input[type="number"],
+html[data-ui="modern"] input[type="date"],
+html[data-ui="modern"] input[type="file"],
+html[data-ui="modern"] select,
+html[data-ui="modern"] textarea {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  min-height: 46px;
+}
+html[data-ui="modern"] .form-group label { font-weight: 500; }
+html[data-ui="modern"] input::placeholder,
+html[data-ui="modern"] textarea::placeholder { color: var(--text-muted); opacity: .7; }
+
+/* ── Karty: cienkie obramowanie + prawie niewidoczny cień ───── */
+html[data-ui="modern"] .stat-card,
+html[data-ui="modern"] .panel,
+html[data-ui="modern"] .row-card,
+html[data-ui="modern"] .list-card,
+html[data-ui="modern"] .card-form,
+html[data-ui="modern"] .menu-group,
+html[data-ui="modern"] .timer-card,
+html[data-ui="modern"] .session-row,
+html[data-ui="modern"] .login-card { border-color: var(--border); }
+html[data-ui="modern"] .hero-card {
+  background: var(--bg-secondary);   /* bez gradientu */
+  border-color: var(--border);
+}
+html[data-ui="modern"] .info-box {
+  background: color-mix(in srgb, var(--accent-blue) 8%, var(--bg-secondary));
+  border-color: color-mix(in srgb, var(--accent-blue) 28%, transparent);
+}
+
+/* ── Chipy / ikony w kartach: stonowane tinty ──────────────── */
+html[data-ui="modern"] .stat-chip.green,
+html[data-ui="modern"] .stat-chip.red,
+html[data-ui="modern"] .stat-chip.blue,
+html[data-ui="modern"] .stat-chip.purple,
+html[data-ui="modern"] .stat-chip.orange { border-radius: 9px; }
+html[data-ui="modern"] .row-chip { border-radius: 10px; background: var(--bg-tertiary); }
+html[data-ui="modern"] .qa-icon { border-radius: 12px; }
+html[data-ui="modern"] .qa-icon.purple { background: color-mix(in srgb, var(--accent-purple) 14%, transparent); color: var(--accent-purple); }
+html[data-ui="modern"] .qa-icon.green  { background: color-mix(in srgb, var(--accent-green) 14%, transparent);  color: var(--accent-green); }
+html[data-ui="modern"] .qa-icon.orange,
+html[data-ui="modern"] .qa-icon.blue   { background: color-mix(in srgb, var(--accent-blue) 14%, transparent);   color: var(--accent-blue); }
+html[data-ui="modern"] .sheet-avatar { background: color-mix(in srgb, var(--accent-blue) 14%, transparent); color: var(--accent-blue); }
+
+/* ── Statusy: tint + tekst (nie tylko kolor) ───────────────── */
+html[data-ui="modern"] .pill {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+html[data-ui="modern"] .pill-muted { color: var(--text-secondary); }
+html[data-ui="modern"] .badge { font-weight: 600; }
+
+/* ── Filtry (segmenty) ─────────────────────────────────────── */
+html[data-ui="modern"] .seg-tab {
+  font-weight: 600;
+  min-height: 34px;
+  background: var(--bg-secondary);
+}
+html[data-ui="modern"] .seg-tab.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+
+/* ── Dolna nawigacja ───────────────────────────────────────── */
+html[data-ui="modern"] .bottom-nav {
+  background: var(--bg-secondary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-ui="modern"] .nav-tab { min-height: 48px; font-weight: 500; }
+html[data-ui="modern"] .nav-tab.active { font-weight: 600; }
+html[data-ui="modern"] .nav-tab.active .nav-icon .icon { stroke-width: 2.1; }
+
+/* ── FAB ───────────────────────────────────────────────────── */
+html[data-ui="modern"] .fab {
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-blue) 35%, transparent);
+}
+
+/* ── Logowanie ─────────────────────────────────────────────── */
+html[data-ui="modern"] .login-logo img { box-shadow: var(--shadow-card); }
+html[data-ui="modern"] .login-card { box-shadow: var(--shadow-card); }
+
+/* ── Timer ─────────────────────────────────────────────────── */
+html[data-ui="modern"] .timer-card { padding-top: 20px; }
+
+/* ── Toast / pasek stanu ───────────────────────────────────── */
+html[data-ui="modern"] .toast { font-weight: 600; }
+
+/* ── Ekran „Dodaj koszt" i inne formularze bez karty ─────────
+   Formularz na białej karcie (jak w referencji) — bez zmiany markupu. */
+html[data-ui="modern"] .form-surface {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 16px 2px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+/* ── Nowe elementy widoczne tylko w Nowoczesnym ─────────────── */
+.modern-only { display: none; }
+html[data-ui="modern"] .modern-only { display: block; }
+
+/* ── Koszty: podsumowanie + donut + kategorie ───────────────── */
+html[data-ui="modern"] .cost-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+html[data-ui="modern"] .cost-total { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+html[data-ui="modern"] .cost-delta { font-size: 13px; font-weight: 600; margin-top: 2px; }
+html[data-ui="modern"] .cost-delta.up { color: var(--accent-red); }
+html[data-ui="modern"] .cost-delta.down { color: var(--accent-green); }
+html[data-ui="modern"] .donut-wrap { width: 112px; height: 112px; flex: 0 0 auto; }
+html[data-ui="modern"] .donut-wrap svg { width: 100%; height: 100%; display: block; }
+html[data-ui="modern"] .cat-list { display: flex; flex-direction: column; }
+html[data-ui="modern"] .cat-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-top: 1px solid var(--border-soft);
+}
+html[data-ui="modern"] .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+html[data-ui="modern"] .cat-main { flex: 1; min-width: 0; }
+html[data-ui="modern"] .cat-name { font-size: 14px; font-weight: 600; }
+html[data-ui="modern"] .cat-pct { font-size: 12px; color: var(--text-muted); }
+html[data-ui="modern"] .cat-amt { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
