@@ -24,6 +24,7 @@ import * as mileagePage from './pages/mileage.js';
 import * as financePage from './pages/finance.js';
 import * as reportsPage from './pages/reports.js';
 import * as backupPage from './pages/backup.js';
+import * as exportPage from './pages/exportData.js';
 import * as settingsPage from './pages/settings.js';
 import * as morePage from './pages/more.js';
 
@@ -43,6 +44,7 @@ registerRoutes({
   finance: financePage.load,
   reports: reportsPage.load,
   backup: backupPage.load,
+  export: exportPage.load,
   settings: settingsPage.load,
   more: morePage.load
 });

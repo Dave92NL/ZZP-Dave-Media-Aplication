@@ -25,7 +25,7 @@ const MORE_PAGES = new Set([
 ]);
 // W Nowoczesnym „Koszty" ma własną zakładkę, a „Czas" trafia pod „Więcej".
 const MORE_PAGES_MODERN = new Set([
-  'projects', 'clients', 'mileage', 'add-expense', 'new-invoice', 'more', 'time', 'reports', 'backup', 'settings'
+  'projects', 'clients', 'mileage', 'add-expense', 'new-invoice', 'more', 'time', 'reports', 'backup', 'export', 'settings'
 ]);
 
 let _last = { page: null, hidden: false };

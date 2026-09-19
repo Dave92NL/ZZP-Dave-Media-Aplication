@@ -20,7 +20,7 @@ const GROUPS = [
     { icon: 'clock', label: 'Czas pracy', page: 'time' },
     { icon: 'chart', label: 'Finanse', page: 'finance' },
     { icon: 'activity', label: 'Raporty', page: 'reports' },
-    { icon: 'download', label: 'Eksport danych', soon: true },
+    { icon: 'download', label: 'Eksport danych', page: 'export' },
     { icon: 'settings', label: 'Ustawienia', page: 'settings' },
     { icon: 'cloud', label: 'Kopia zapasowa', page: 'backup' }
   ]

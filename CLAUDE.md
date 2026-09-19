@@ -434,8 +434,9 @@ ustawieniem lokalnym telefonu.
   synchronizację (push wyśle profil); (3) mobile auto-deploy z `main` — odświeżyć PWA.
 
 #### Do zbudowania w przyszłości (etap 2 — pozostałe ekrany z menu mockupu)
-Ostatni placeholder „Wkrótce" (obsługa „🔒 Wkrótce" w `more.js`): **Eksport danych** (można oprzeć
-na `data/backup.js` — np. CSV per tabela / udostępnienie). Pełny backup wszystkiego (też dane
+**Eksport danych — ZROBIONE** (`pages/exportData.js`, trasa `export`, wpis w `more.js`): CSV (średnik + BOM, Excel PL/NL)
+per tabela z `buildCloudBackup()`, udostępnienie przez Web Share (wiele plików) z fallbackiem pobierania. Niewdrożone/nieprzetestowane na telefonie.
+Obsługa „🔒 Wkrótce" w `more.js` została (brak już użytkowników). Pełny backup wszystkiego (też dane
 tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 
 ### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
