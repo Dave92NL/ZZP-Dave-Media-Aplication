@@ -1,0 +1,265 @@
+/* ─────────────────────────────────────────────────────────────
+   Motyw „Księga" (papier / noc). Ładowany PO main.css i modern.css.
+   Wszystko pod html[data-ui="ledger"] — pozostałe motywy bez zmian.
+   Zasada jak w modern.css: nadpisujemy TOKENY, niżej tylko geometria:
+   zero kart/cieni/gradientów, wiersze księgi z cienkimi liniami, serif na kwotach,
+   statusy jako obrysowane „pieczątki", tekstowa dolna nawigacja.
+   „Primary" = --accent-orange (jak w main.css) → głęboka zieleń.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-ui="ledger"] {
+  --serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  --radius-sm: 2px;
+  --radius: 2px;
+  --radius-lg: 2px;
+  --radius-pill: 2px;
+  --sp-card: 16px;
+}
+
+/* ── Papier ──────────────────────────────────────────────── */
+html[data-ui="ledger"][data-scheme="light"] {
+  --bg-primary: #FBF8F1;
+  --bg-secondary: #FBF8F1;
+  --bg-tertiary: #F3EEE3;
+  --bg-elevated: #FFFDF8;
+  --bg-hover: #F0EADB;
+  --border: #D5CCB6;
+  --border-soft: #E3DCC8;
+  --text-primary: #1B1A17;
+  --text-secondary: #55503F;
+  --text-muted: #8A8470;
+  --accent-orange: #1F5B45;   /* primary */
+  --accent-blue: #3F4A5A;
+  --accent-green: #2F7D5B;
+  --accent-yellow: #9A6412;
+  --accent-red: #B3372B;
+  --accent-purple: #6B4E7A;
+  --shadow-card: none;
+  --shadow-pop: 0 6px 24px rgba(27, 26, 23, .18);
+  --ink-on-accent: #FBF8F1;
+}
+
+/* ── Noc ─────────────────────────────────────────────────── */
+html[data-ui="ledger"][data-scheme="dark"] {
+  --bg-primary: #0C100C;
+  --bg-secondary: #141913;
+  --bg-tertiary: #1A2019;
+  --bg-elevated: #1C231B;
+  --bg-hover: #212A20;
+  --border: #2B3229;
+  --border-soft: #222A21;
+  --text-primary: #EDE6D3;
+  --text-secondary: #B8B19C;
+  --text-muted: #807A68;
+  --accent-orange: #6FBF9A;   /* primary */
+  --accent-blue: #9AA8BC;
+  --accent-green: #7FC9A3;
+  --accent-yellow: #D9A441;
+  --accent-red: #E0796C;
+  --accent-purple: #B79AC6;
+  --shadow-card: none;
+  --shadow-pop: 0 6px 24px rgba(0, 0, 0, .6);
+  --ink-on-accent: #0C100C;
+}
+
+/* ── Typografia: serif na tytułach i kwotach ─────────────── */
+html[data-ui="ledger"] .page-title,
+html[data-ui="ledger"] .greeting-title,
+html[data-ui="ledger"] .hero-value,
+html[data-ui="ledger"] .sheet-name,
+html[data-ui="ledger"] .detail-title,
+html[data-ui="ledger"] .panel-title,
+html[data-ui="ledger"] .login-box h1,
+html[data-ui="ledger"] .row-amount,
+html[data-ui="ledger"] .stat-card-value,
+html[data-ui="ledger"] .list-card-amount,
+html[data-ui="ledger"] .session-dur,
+html[data-ui="ledger"] .ring-time,
+html[data-ui="ledger"] .cost-total,
+html[data-ui="ledger"] .cat-amt {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+html[data-ui="ledger"] .page-title { font-size: 32px; line-height: 1.08; }
+html[data-ui="ledger"] .hero-value { font-size: 44px; font-weight: 400; }
+html[data-ui="ledger"] .section-title,
+html[data-ui="ledger"] .stat-card-label,
+html[data-ui="ledger"] .form-group label {
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+html[data-ui="ledger"] .section-title {
+  border-top: 2px solid var(--text-primary);
+  padding-top: 8px;
+  margin-top: 26px;
+}
+
+/* ── Przyciski: prostokątne, kapitaliki ──────────────────── */
+html[data-ui="ledger"] .btn {
+  min-height: 46px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: none;
+}
+html[data-ui="ledger"] .btn-sm { min-height: 36px; }
+html[data-ui="ledger"] .btn-primary,
+html[data-ui="ledger"] .btn-accent-blue { color: var(--ink-on-accent); box-shadow: none; }
+html[data-ui="ledger"] .btn-secondary {
+  background: transparent;
+  border: 1.5px solid var(--text-primary);
+  color: var(--text-primary);
+}
+html[data-ui="ledger"] .back-btn { text-transform: none; letter-spacing: 0; border: 0; padding-left: 0; }
+
+/* ── Pola: prostokątne, papierowe ────────────────────────── */
+html[data-ui="ledger"] input[type="text"],
+html[data-ui="ledger"] input[type="email"],
+html[data-ui="ledger"] input[type="password"],
+html[data-ui="ledger"] input[type="number"],
+html[data-ui="ledger"] input[type="date"],
+html[data-ui="ledger"] input[type="file"],
+html[data-ui="ledger"] select,
+html[data-ui="ledger"] textarea {
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  min-height: 46px;
+}
+
+/* ── Karty → wiersze księgi (bez obiektów) ───────────────── */
+html[data-ui="ledger"] .stat-card,
+html[data-ui="ledger"] .panel,
+html[data-ui="ledger"] .row-card,
+html[data-ui="ledger"] .list-card,
+html[data-ui="ledger"] .card-form,
+html[data-ui="ledger"] .menu-group,
+html[data-ui="ledger"] .timer-card,
+html[data-ui="ledger"] .session-row,
+html[data-ui="ledger"] .hero-card,
+html[data-ui="ledger"] .form-surface {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-ui="ledger"] .hero-card { border-bottom: 1px solid var(--border); border-top: 2px solid var(--text-primary); }
+html[data-ui="ledger"] .row-card:active,
+html[data-ui="ledger"] .list-card:active { transform: none; background: var(--bg-hover); }
+html[data-ui="ledger"] .form-surface { padding: 16px 0 2px; margin-bottom: 16px; }
+html[data-ui="ledger"] .info-box {
+  background: var(--bg-tertiary);
+  border: 0;
+  border-block: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* ── Ikony/chipy: bez kolorowych pigułek ─────────────────── */
+html[data-ui="ledger"] .stat-chip,
+html[data-ui="ledger"] .row-chip,
+html[data-ui="ledger"] .qa-icon,
+html[data-ui="ledger"] .sheet-avatar {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-primary);
+}
+html[data-ui="ledger"] .qa-icon.purple,
+html[data-ui="ledger"] .qa-icon.green,
+html[data-ui="ledger"] .qa-icon.orange,
+html[data-ui="ledger"] .qa-icon.blue { background: transparent; color: var(--text-primary); }
+
+/* ── Statusy: „pieczątki" ────────────────────────────────── */
+html[data-ui="ledger"] .pill,
+html[data-ui="ledger"] .badge {
+  padding: 2px 6px;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+}
+html[data-ui="ledger"] .pill-dot { display: none; }
+html[data-ui="ledger"] .pill-muted { color: var(--text-muted); }
+
+/* ── Filtry (segmenty) → zakładki z podkreśleniem ─────────── */
+html[data-ui="ledger"] .seg-tabs { gap: 18px; border-bottom: 1px solid var(--border); background: transparent; padding: 0; }
+html[data-ui="ledger"] .seg-tab,
+html[data-ui="ledger"] .seg-tab.active {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: 34px;
+  padding: 0 0 8px;
+  font-weight: 500;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+html[data-ui="ledger"] .seg-tab.active {
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--text-primary);
+}
+
+/* ── Dolna nawigacja: tekstowa, bez ikon ─────────────────── */
+html[data-ui="ledger"] .bottom-nav {
+  background: var(--bg-secondary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: 2px solid var(--text-primary);
+  padding-top: 0;
+}
+html[data-ui="ledger"] .nav-icon { display: none; }
+html[data-ui="ledger"] .nav-tab {
+  position: relative;
+  min-height: 52px;
+  justify-content: center;
+  font-size: 12px;
+  letter-spacing: .04em;
+  font-weight: 500;
+}
+html[data-ui="ledger"] .nav-tab.active { color: var(--text-primary); font-weight: 700; }
+html[data-ui="ledger"] .nav-tab.active::before {
+  content: "";
+  position: absolute;
+  left: 22%; right: 22%; top: -2px;
+  height: 4px;
+  background: var(--accent-orange);
+}
+
+/* ── FAB ───────────────────────────────────────────────────── */
+html[data-ui="ledger"] .fab { border-radius: 2px; box-shadow: none; color: var(--ink-on-accent); }
+
+/* ── Logowanie / toast ─────────────────────────────────────── */
+html[data-ui="ledger"] .login-logo img,
+html[data-ui="ledger"] .login-card { box-shadow: none; }
+html[data-ui="ledger"] .toast { font-weight: 600; border-radius: 2px; }
+
+/* ── Koszty: podsumowanie + donut + kategorie (jak w Nowoczesnym) ── */
+html[data-ui="ledger"] .cost-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+html[data-ui="ledger"] .cost-total { font-size: 34px; font-weight: 400; }
+html[data-ui="ledger"] .cost-delta { font-size: 13px; font-weight: 600; margin-top: 2px; }
+html[data-ui="ledger"] .cost-delta.up { color: var(--accent-red); }
+html[data-ui="ledger"] .cost-delta.down { color: var(--accent-green); }
+html[data-ui="ledger"] .donut-wrap { width: 112px; height: 112px; flex: 0 0 auto; }
+html[data-ui="ledger"] .donut-wrap svg { width: 100%; height: 100%; display: block; }
+html[data-ui="ledger"] .cat-list { display: flex; flex-direction: column; }
+html[data-ui="ledger"] .cat-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-top: 1px dashed var(--border);
+}
+html[data-ui="ledger"] .cat-dot { width: 10px; height: 10px; border-radius: 0; flex: 0 0 auto; }
+html[data-ui="ledger"] .cat-main { flex: 1; min-width: 0; }
+html[data-ui="ledger"] .cat-name { font-size: 14px; font-weight: 600; }
+html[data-ui="ledger"] .cat-pct { font-size: 12px; color: var(--text-muted); }
+html[data-ui="ledger"] .cat-amt { font-size: 15px; }

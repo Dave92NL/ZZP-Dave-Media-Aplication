@@ -9,10 +9,14 @@ import { getSettings, saveSettings } from '../data/settings.js';
 
 const LS_KEY = 'zzp-theme';
 const DEFAULT = { ui: 'original', scheme: 'system' };
-const BAR_COLOR = { original: '#0A0E14', light: '#F7F9FC', dark: '#0B1220' };
+const BAR_COLOR = {
+  original: '#0A0E14',
+  modern: { light: '#F7F9FC', dark: '#0B1220' },
+  ledger: { light: '#FBF8F1', dark: '#0C100C' }
+};
 
 const clean = (v) => ({
-  ui: v?.ui === 'modern' ? 'modern' : 'original',
+  ui: ['modern', 'ledger'].includes(v?.ui) ? v.ui : 'original',
   scheme: ['light', 'dark', 'system'].includes(v?.scheme) ? v.scheme : 'system'
 });
 
@@ -23,13 +27,15 @@ let _theme = (() => {
 const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 function resolveScheme(t) {
-  if (t.ui !== 'modern') return 'dark';
+  if (t.ui === 'original') return 'dark';
   if (t.scheme === 'light' || t.scheme === 'dark') return t.scheme;
   return mq && !mq.matches ? 'light' : 'dark';
 }
 
 export function getTheme() { return { ..._theme }; }
-export const isModern = () => _theme.ui === 'modern';
+// „Układ nowoczesny" (zakładki, podsumowanie kosztów, ostatnie faktury) dotyczy Nowoczesnego i Księgi.
+export const isModern = () => _theme.ui !== 'original';
+export const isLedger = () => _theme.ui === 'ledger';
 
 export function applyTheme() {
   const root = document.documentElement;
@@ -37,9 +43,9 @@ export function applyTheme() {
   root.dataset.ui = _theme.ui;
   root.dataset.scheme = scheme;
   // color-scheme (natywne kontrolki) tylko w Nowoczesnym — Oryginalny ma zostać bez zmian.
-  root.style.colorScheme = _theme.ui === 'modern' ? scheme : '';
+  root.style.colorScheme = _theme.ui !== 'original' ? scheme : '';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', BAR_COLOR[_theme.ui === 'modern' ? scheme : 'original']);
+  if (meta) meta.setAttribute('content', _theme.ui === 'original' ? BAR_COLOR.original : BAR_COLOR[_theme.ui][scheme]);
 }
 
 function mirror() {

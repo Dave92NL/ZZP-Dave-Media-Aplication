@@ -6,7 +6,8 @@ import { getTheme, setTheme } from '../lib/theme.js';
 
 const UI_OPTS = [
   { key: 'original', label: 'Oryginalny', sub: 'Obecny wygląd aplikacji' },
-  { key: 'modern', label: 'Nowoczesny', sub: 'Czysty wygląd ZZP Manager' }
+  { key: 'modern', label: 'Nowoczesny', sub: 'Czysty wygląd ZZP Manager' },
+  { key: 'ledger', label: 'Księga', sub: 'Papierowy układ księgi rachunkowej' }
 ];
 const SCHEME_OPTS = [
   { key: 'light', label: '☀ Jasna' },
@@ -23,7 +24,7 @@ function appearanceInner() {
       <div class="edit-form-title">🎨 Wygląd aplikacji</div>
       <div class="form-group"><label>Motyw interfejsu</label>${seg(UI_OPTS, t.ui, 'ui')}
         <div class="text-muted" style="font-size:12px;margin-top:6px">${uiSub}</div></div>
-      ${t.ui === 'modern' ? `<div class="form-group"><label>Kolorystyka</label>${seg(SCHEME_OPTS, t.scheme, 'scheme')}</div>` : ''}`;
+      ${t.ui !== 'original' ? `<div class="form-group"><label>Kolorystyka</label>${seg(SCHEME_OPTS, t.scheme, 'scheme')}</div>` : ''}`;
 }
 
 const field = (id, label, value, type = 'text', ph = '') =>

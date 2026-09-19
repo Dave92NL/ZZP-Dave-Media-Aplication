@@ -1,5 +1,6 @@
 import './styles/main.css';
 import './styles/modern.css';
+import './styles/ledger.css';
 import { initTheme } from './lib/theme.js';
 import { registerRoutes, navigate, initRouter, currentPage, currentParam } from './router.js';
 import { onAuthStateChange } from './auth.js';

@@ -86,6 +86,17 @@ invoice_items, expenses, time_entries` (+ `push_subscriptions` dla powiadomień)
 
 ## 5. Co zrobiliśmy w tej sesji
 
+### Mobile: trzeci motyw „Księga" (papier/noc/systemowy) (ZROBIONE, niewdrożony — brak commita)
+Trzecia opcja w Ustawieniach → „Wygląd aplikacji": papierowy układ księgi rachunkowej (krem `#FBF8F1`, tusz,
+zielony akcent `#1F5B45`, czerwień pieczątki; Noc: `#0C100C`, akcent `#6FBF9A`). Bez kart/cieni: wiersze z cienkimi
+liniami, serif systemowy (`ui-serif`) na tytułach i kwotach, statusy jako obrysowane „pieczątki", tekstowa dolna nawigacja.
+- **Mechanizm:** `theme.js` — `ui` = `original|modern|ledger`; `isModern()` znaczy teraz „ui ≠ original"
+  (układ nowoczesny: zakładki, podsumowanie kosztów, ostatnie faktury — wspólny dla Nowoczesnego i Księgi),
+  `isLedger()` osobno. `index.html` inline skrypt rozpoznaje `ledger`. CSS: `src/styles/ledger.css`
+  (import po `modern.css`), tokeny `--accent-*` mapowane jak w modern.css (`--accent-orange` = primary).
+  Reguły kosztów (`.cost-*`, `.cat-*`, `.donut-wrap`) zduplikowane pod `data-ui="ledger"`.
+- Podgląd projektu: Artifact „Księga ZZP". Build OK; ekrany za logowaniem nie sprawdzane w przeglądarce (brak `.env.local`) — potwierdzić na telefonie.
+
 ### Mobile: drugi motyw „Nowoczesny" (jasny/ciemny/systemowy) (ZROBIONE)
 W Ustawieniach → „🎨 Wygląd aplikacji": **Oryginalny** (dotychczasowy ciemny wygląd, bez zmian —
 domyślny) albo **Nowoczesny** (biała/granatowa paleta, niebieski akcent, wg referencji) z kolorystyką
