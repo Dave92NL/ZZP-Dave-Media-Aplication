@@ -22,6 +22,8 @@ const App = (() => {
     const allSettings = await window.api.settings.getAll();
     const theme = allSettings.theme || 'dark';
     document.documentElement.dataset.theme = theme;
+    const themeUi = ['modern', 'ledger'].includes(allSettings.theme_ui) ? allSettings.theme_ui : 'original';
+    document.documentElement.dataset.ui = themeUi;
 
     // Apply language
     if (window.i18n) {

@@ -1,0 +1,96 @@
+/* ─────────────────────────────────────────────────────────────
+   Desktop — styl „Nowoczesny" (lustro zzp-mobile/src/styles/modern.css).
+   Ładowany PO main.css/dark.css/light.css. Wszystko pod [data-ui="modern"],
+   rozbite na [data-theme="dark"|"light"] — nadpisujemy TOKENY z main.css,
+   więc komponenty przebarwiają się same; niżej tylko geometria/detale.
+   „Primary" = --accent-orange (main.css używa go dla btn-primary/nav aktywny)
+   przemapowany na niebieski, jak w mobile.
+   ───────────────────────────────────────────────────────────── */
+
+[data-ui="modern"] {
+  --radius-sm: 8px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --font-sans-modern: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono-modern: 'IBM Plex Mono', 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* ── Czcionka: IBM Plex — czytelna, „księgowa" (stonowana, bez charakteru
+   startupu jak Inter) zamiast domyślnej Inter/JetBrains Mono. Podmieniamy
+   na body (dziedziczy większość UI) + osobno każde miejsce, które ma swoją
+   wpisaną na sztywno font-family w main.css (KPI, timer, sumy faktury,
+   scenariusze podatkowe) — notatnik/markdown zostaje przy JetBrains Mono,
+   to edytor tekstu, nie liczby księgowe. ────────────────────────────── */
+[data-ui="modern"] body { font-family: var(--font-sans-modern); }
+[data-ui="modern"] .mono,
+[data-ui="modern"] .amount,
+[data-ui="modern"] .invoice-number,
+[data-ui="modern"] code,
+[data-ui="modern"] .kpi-value,
+[data-ui="modern"] .timer-bar-time,
+[data-ui="modern"] .timer-display,
+[data-ui="modern"] .invoice-total-value,
+[data-ui="modern"] .scenario-value {
+  font-family: var(--font-mono-modern);
+}
+
+[data-ui="modern"][data-theme="light"] {
+  --bg-primary:   #F7F9FC;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary:  #F1F4F8;
+  --bg-card:      #FFFFFF;
+  --bg-hover:     #EEF2F8;
+  --border:       #E2E7EF;
+  --border-soft:  #EDF1F6;
+  --accent-orange:#1677FF;   /* primary */
+  --accent-blue:  #1677FF;
+  --accent-green: #18A974;
+  --accent-yellow:#C98A0B;
+  --accent-red:   #E5484D;
+  --accent-purple:#6B5CE7;
+  --text-primary: #10213F;
+  --text-secondary:#475569;
+  --text-muted:   #64748B;
+  --shadow:       0 1px 3px rgba(16,33,63,.06), 0 4px 12px rgba(16,33,63,.04);
+  --shadow-lg:    0 10px 30px rgba(16,33,63,.14);
+}
+
+[data-ui="modern"][data-theme="dark"] {
+  --bg-primary:   #0B1220;
+  --bg-secondary: #111B2B;
+  --bg-tertiary:  #172235;
+  --bg-card:      #1B2840;
+  --bg-hover:     #1B2A42;
+  --border:       #26344A;
+  --border-soft:  #1C2A3F;
+  --accent-orange:#2583FF;   /* primary */
+  --accent-blue:  #2583FF;
+  --accent-green: #25C98A;
+  --accent-yellow:#F2B84B;
+  --accent-red:   #FF5C63;
+  --accent-purple:#8B7CF6;
+  --text-primary: #F3F6FB;
+  --text-secondary:#A9B5C7;
+  --text-muted:   #8391A6;
+  --shadow:       none;
+  --shadow-lg:    0 10px 30px rgba(0,0,0,.45);
+}
+
+/* ── Karty: cieńsze obramowanie, mniej wyraźny cień/lift ─────── */
+[data-ui="modern"] .kpi-card:hover { transform: translateY(-1px); }
+[data-ui="modern"] .btn-primary { box-shadow: none; }
+[data-ui="modern"] .btn-primary:hover { filter: brightness(1.06); box-shadow: none; }
+[data-ui="modern"] .btn { font-weight: 600; }
+
+/* ── Statusy: tint pełny (nie tylko obramowanie) — jak w main.css, bez zmian geometrii ── */
+[data-ui="modern"] .badge { font-weight: 700; }
+
+/* ── Sidebar / nav aktywny: spójny z primary niebieskim ───────
+   Uwaga: light.css ma dla .nav-item.active kolor zaszyty na sztywno (#CF4F20,
+   nie var(--accent-orange)) — trzeba go tu jawnie nadpisać, inaczej Jasny
+   pokaże oryginalny pomarańcz zamiast niebieskiego (pułapka specyficzności). */
+[data-ui="modern"] .nav-item.active {
+  font-weight: 600;
+  color: var(--accent-orange);
+  background: color-mix(in srgb, var(--accent-orange) 16%, transparent);
+}

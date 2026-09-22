@@ -448,6 +448,31 @@ Filtr rok + kwartał (faktury po `issue_date`, koszty/czas/km po `date`, pozycje
 Obsługa „🔒 Wkrótce" w `more.js` została (brak już użytkowników). Pełny backup wszystkiego (też dane
 tylko-desktopowe) = **backup desktop** (`modules/backup.js`, ZIP z SQLite).
 
+### Desktop: 3 style interfejsu — Oryginalny/Nowoczesny/Księga (ZROBIONE, wymaga `npm start` do potwierdzenia)
+Desktop dostał ten sam wybór stylu co mobile (Ustawienia → zakładka „Wygląd" → nowa sekcja „Styl interfejsu",
+nad istniejącym przełącznikiem Ciemny/Jasny — **osobna, niezależna oś**; desktop nie ma „systemowego" schematu).
+- **Ustawienie:** klucz generyczny `theme_ui` w tabeli `settings` (`original|modern|ledger`, domyślnie `original`)
+  — **bez migracji SQL**, przez istniejące IPC `settings:get/set`. `app.js` `init()` ustawia `data-ui` na `<html>`
+  obok istniejącego `data-theme`. `page-settings.js` `_tplAppearance/_applyUi` (analogicznie do `_applyTheme`).
+- **CSS** (ładowane w `index.html` po `main.css/dark.css/light.css`): `styles/original.css` (tylko akcent —
+  nagłówki i wielkie liczby w **Bebas Neue** na życzenie właściciela, reszta UI zostaje w Inter — świadomie,
+  Bebas Neue źle się czyta w gęstych tabelach/formularzach), `styles/modern.css` (paleta niebiesko-granatowa
+  jak mobile + **IBM Plex Sans/Mono** zamiast Inter/JetBrains Mono — czytelniej „księgowo"; notatnik/markdown
+  zostaje przy JetBrains Mono, to edytor tekstu, nie liczby), `styles/ledger.css` (papierowa/zielona paleta
+  jak mobile Księga, `--radius* 2px`, brak cieni, serif na KPI/kwotach, statusy jako obrysowane „pieczątki",
+  aktywna pozycja menu = kreska z lewej zamiast tła). Wszystko nadpisuje **te same tokeny** co `main.css`
+  (`--bg-*/--accent-*/--text-*/--radius*/--shadow*`) pod `[data-ui="modern"|"ledger"][data-theme="dark"|"light"]`
+  — komponenty przebarwiają się same.
+- **Pułapka specyficzności (złapana i naprawiona):** `styles/light.css` ma dla `.nav-item.active` kolor
+  zaszyty na sztywno (`#CF4F20`, nie `var(--accent-orange)`) zamiast dziedziczyć z tokenu — bez jawnego
+  nadpisania `color` w `modern.css`/`ledger.css` (nie tylko `background`) tryb Jasny pokazywałby oryginalny
+  pomarańcz zamiast koloru stylu. `light.css` samo **nietknięte** (żeby Oryginalny/Jasny zostało identyczne).
+- **i18n:** nowe napisy („Styl interfejsu", „Oryginalny", „Nowoczesny", „Księga", komunikat zapisu) w
+  `translations.js` `DOM_MAP`.
+- **Weryfikacja:** `node --check` na zmienionych plikach OK. Wygląd potwierdzony przez zrzut Chromium z prawdziwym
+  CSS repo (wszystkie 6 kombinacji styl×schemat) — desktop nie ma auto-deployu, końcowe potwierdzenie po
+  `git pull` + `npm start`.
+
 ### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
 Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ
 (sidebar + szeroka treść) i emoji-ikony. Zmiana wyłącznie w CSS (motyw jest w pełni tokenowy):

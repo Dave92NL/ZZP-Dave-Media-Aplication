@@ -1,0 +1,127 @@
+/* ─────────────────────────────────────────────────────────────
+   Desktop — styl „Księga" (lustro zzp-mobile/src/styles/ledger.css).
+   Ładowany PO main.css/dark.css/light.css i (jeśli dołączony) modern.css.
+   Wszystko pod [data-ui="ledger"] × [data-theme]. Zero kart/cieni/gradientów:
+   cienkie linie, serif na tytule strony i kwotach, statusy jako pieczątki,
+   aktywna pozycja menu = kreska z boku zamiast koloru tła.
+   „Primary" = --accent-orange → głęboka zieleń (Papier) / jasna zieleń (Noc).
+   ───────────────────────────────────────────────────────────── */
+
+[data-ui="ledger"] {
+  --serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  --radius-sm: 2px;
+  --radius: 2px;
+  --radius-lg: 2px;
+  --radius-pill: 2px;
+}
+
+[data-ui="ledger"][data-theme="light"] {
+  --bg-primary:   #EFE9DA;
+  --bg-secondary: #FBF8F1;
+  --bg-tertiary:  #F3EEE3;
+  --bg-card:      #FBF8F1;
+  --bg-hover:     #F0EADB;
+  --border:       #D5CCB6;
+  --border-soft:  #E3DCC8;
+  --accent-orange:#1F5B45;   /* primary */
+  --accent-blue:  #3F4A5A;
+  --accent-green: #2F7D5B;
+  --accent-yellow:#9A6412;
+  --accent-red:   #B3372B;
+  --accent-purple:#6B4E7A;
+  --text-primary: #1B1A17;
+  --text-secondary:#55503F;
+  --text-muted:   #8A8470;
+  --shadow:       none;
+  --shadow-lg:    0 6px 24px rgba(27,26,23,.18);
+}
+
+[data-ui="ledger"][data-theme="dark"] {
+  --bg-primary:   #0C100C;
+  --bg-secondary: #141913;
+  --bg-tertiary:  #1A2019;
+  --bg-card:      #1C231B;
+  --bg-hover:     #212A20;
+  --border:       #2B3229;
+  --border-soft:  #222A21;
+  --accent-orange:#6FBF9A;   /* primary */
+  --accent-blue:  #9AA8BC;
+  --accent-green: #7FC9A3;
+  --accent-yellow:#D9A441;
+  --accent-red:   #E0796C;
+  --accent-purple:#B79AC6;
+  --text-primary: #EDE6D3;
+  --text-secondary:#B8B19C;
+  --text-muted:   #807A68;
+  --shadow:       none;
+  --shadow-lg:    0 6px 24px rgba(0,0,0,.6);
+}
+
+/* ── Typografia: serif na tytule strony i kwotach ────────────── */
+[data-ui="ledger"] .page-title,
+[data-ui="ledger"] .kpi-value,
+[data-ui="ledger"] .mono,
+[data-ui="ledger"] .amount,
+[data-ui="ledger"] .invoice-number {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+[data-ui="ledger"] .kpi-value { font-weight: 400; font-size: 26px; }
+[data-ui="ledger"] .kpi-label,
+[data-ui="ledger"] .chart-card-title,
+[data-ui="ledger"] .section-title {
+  letter-spacing: .1em;
+}
+
+/* ── Karty → płaskie panele z cienką linią, bez unoszenia ────── */
+[data-ui="ledger"] .card,
+[data-ui="ledger"] .kpi-card,
+[data-ui="ledger"] .chart-card,
+[data-ui="ledger"] .table-container {
+  box-shadow: none;
+  border-radius: 2px;
+}
+[data-ui="ledger"] .kpi-card:hover { transform: none; box-shadow: none; border-color: var(--text-muted); }
+
+/* ── Przyciski: prostokątne, kapitaliki ───────────────────────  */
+[data-ui="ledger"] .btn {
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-size: 12px;
+  box-shadow: none;
+}
+[data-ui="ledger"] .btn-primary { color: var(--bg-secondary); box-shadow: none; }
+[data-ui="ledger"] .btn-primary:hover { box-shadow: none; filter: brightness(1.08); }
+
+/* ── Statusy: obrysowane „pieczątki" zamiast wypełnionych pigułek ── */
+[data-ui="ledger"] .badge {
+  background: transparent !important;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+  font-weight: 700;
+}
+
+/* ── Pozycja menu aktywna: kreska z boku zamiast koloru tła ──── */
+/* Uwaga: light.css ma dla .nav-item.active kolor zaszyty na sztywno (#CF4F20,
+   nie var(--accent-orange)) — trzeba go tu jawnie nadpisać, inaczej Jasny
+   pokaże oryginalny pomarańcz zamiast koloru Księgi (pułapka specyficzności,
+   patrz CLAUDE.md notatka o mobile). */
+[data-ui="ledger"] .nav-item.active {
+  background: transparent;
+  border-left: 3px solid var(--accent-orange);
+  padding-left: 11px; /* 14px - 3px kreski, żeby tekst nie skakał */
+  color: var(--accent-orange);
+}
+
+/* ── Tabela: separator zamiast paska tła co drugi wiersz ─────── */
+[data-ui="ledger"] tbody tr:nth-child(even) { background: transparent; }
+[data-ui="ledger"] thead th { background: transparent; border-bottom: 2px solid var(--text-primary); }
+
+/* ── Pola formularzy ──────────────────────────────────────────  */
+[data-ui="ledger"] input,
+[data-ui="ledger"] select,
+[data-ui="ledger"] textarea,
+[data-ui="ledger"] .search-input { border-radius: 2px; }

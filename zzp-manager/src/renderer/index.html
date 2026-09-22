@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl" data-theme="dark">
+<html lang="pl" data-theme="dark" data-ui="original">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,10 +7,16 @@
   <title>ZZP Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/main.css">
   <link rel="stylesheet" href="styles/dark.css">
   <link rel="stylesheet" href="styles/light.css">
+  <!-- Style interfejsu (Ustawienia → Wygląd): Oryginalny nie potrzebuje nadpisań tokenów,
+       tylko akcent Bebas Neue na nagłówkach — original.css. Modern/ledger nadpisują tokeny
+       main.css pod [data-ui="modern"|"ledger"], patrz CLAUDE.md. -->
+  <link rel="stylesheet" href="styles/original.css">
+  <link rel="stylesheet" href="styles/modern.css">
+  <link rel="stylesheet" href="styles/ledger.css">
 </head>
 <body>
 

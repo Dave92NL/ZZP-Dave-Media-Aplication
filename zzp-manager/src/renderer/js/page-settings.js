@@ -249,7 +249,20 @@ window.PageSettings = (() => {
   function _tplAppearance() {
     const theme = _settings.theme || 'dark';
     const lang  = _settings.language || 'pl';
+    const ui    = ['modern', 'ledger'].includes(_settings.theme_ui) ? _settings.theme_ui : 'original';
+    const UI_OPTS = [
+      { key: 'original', label: 'Oryginalny' },
+      { key: 'modern',   label: 'Nowoczesny' },
+      { key: 'ledger',   label: 'Księga' }
+    ];
     return `<div class="card">
+      <h3 class="section-title">Styl interfejsu</h3>
+      <div class="toggle-row" style="margin-bottom:24px">
+        ${UI_OPTS.map(o => `<button class="btn ${o.key===ui?'btn-primary':'btn-secondary'}" id="sa-ui-${o.key}-btn" onclick="PageSettings._applyUi('${o.key}')">${o.label}</button>`).join('')}
+      </div>
+      <p class="text-muted" style="font-size:13px">Styl jest zapisywany automatycznie po kliknięciu.</p>
+    </div>
+    <div class="card" style="margin-top:16px">
       <h3 class="section-title">Motyw / Theme / Thema</h3>
       <div class="toggle-row" style="margin-bottom:24px">
         <button class="btn ${theme==='dark'?'btn-primary':'btn-secondary'}" id="sa-dark-btn" onclick="PageSettings._applyTheme('dark')">🌙 Ciemny</button>
@@ -300,6 +313,17 @@ window.PageSettings = (() => {
       document.getElementById(`sa-${t}-btn`)?.classList.toggle('btn-secondary', t!==theme);
     });
     UI.toast('Motyw zmieniony', 'success');
+  }
+
+  async function _applyUi(ui) {
+    document.documentElement.dataset.ui = ui;
+    _settings.theme_ui = ui;
+    await window.api.settings.set('theme_ui', ui);
+    ['original','modern','ledger'].forEach(k => {
+      document.getElementById(`sa-ui-${k}-btn`)?.classList.toggle('btn-primary', k===ui);
+      document.getElementById(`sa-ui-${k}-btn`)?.classList.toggle('btn-secondary', k!==ui);
+    });
+    UI.toast('Styl interfejsu zmieniony', 'success');
   }
 
   async function _initFloatingToggle() {
@@ -1158,7 +1182,7 @@ window.PageSettings = (() => {
 
   // expose for onclick
   window.PageSettings = window.PageSettings || {};
-  Object.assign(window.PageSettings, { _applyTheme, _setAutoBackup, _applyLang });
+  Object.assign(window.PageSettings, { _applyTheme, _applyUi, _setAutoBackup, _applyLang });
 
-  return { load, _applyTheme, _setAutoBackup, _applyLang };
+  return { load, _applyTheme, _applyUi, _setAutoBackup, _applyLang };
 })();

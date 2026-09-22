@@ -79,6 +79,16 @@ const NAV_KEYS = {
 // Keys = exact trimmed text node content that appears in DOM
 // ══════════════════════════════════════════════════════════════
 const DOM_MAP = {
+  // ── Ustawienia → Wygląd: styl interfejsu (Oryginalny/Nowoczesny/Księga) ──
+  'Styl interfejsu':                { en: 'Interface style',                   nl: 'Interfacestijl' },
+  'Styl jest zapisywany automatycznie po kliknięciu.':
+                                     { en: 'The style is saved automatically after clicking.',
+                                       nl: 'De stijl wordt automatisch opgeslagen na het klikken.' },
+  'Oryginalny':                     { en: 'Original',                          nl: 'Origineel' },
+  'Nowoczesny':                     { en: 'Modern',                            nl: 'Modern' },
+  'Księga':                         { en: 'Ledger',                            nl: 'Grootboek' },
+  'Styl interfejsu zmieniony':      { en: 'Interface style changed',           nl: 'Interfacestijl gewijzigd' },
+
   // ── Page titles ────────────────────────────────────────────
   '🏠 Dashboard':                   { en: '🏠 Dashboard',                     nl: '🏠 Dashboard' },
   '📄 Faktury':                     { en: '📄 Invoices',                       nl: '📄 Facturen' },

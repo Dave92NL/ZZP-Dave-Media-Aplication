@@ -1,0 +1,21 @@
+/* ─────────────────────────────────────────────────────────────
+   Desktop — Oryginalny: nagłówki i wielkie liczby w Bebas Neue.
+   Świadomie NIE dotyka tekstu roboczego (tabele, przyciski, pola,
+   nawigacja) — Bebas Neue to zbita, kapitalikowa czcionka afiszowa;
+   dobra do nagłówków, słaba do gęstego czytania na co dzień.
+   ───────────────────────────────────────────────────────────── */
+[data-ui="original"] .sidebar-brand,
+[data-ui="original"] .page-title,
+[data-ui="original"] .kpi-value,
+[data-ui="original"] .kpi-label,
+[data-ui="original"] .section-title,
+[data-ui="original"] .chart-card-title {
+  font-family: 'Bebas Neue', 'Inter', sans-serif;
+  letter-spacing: .03em;
+}
+[data-ui="original"] .sidebar-brand { font-size: 16px; letter-spacing: .06em; }
+[data-ui="original"] .page-title { font-size: 22px; font-weight: 400; letter-spacing: .02em; }
+[data-ui="original"] .kpi-value { font-size: 27px; font-weight: 400; letter-spacing: .01em; }
+[data-ui="original"] .kpi-label,
+[data-ui="original"] .section-title,
+[data-ui="original"] .chart-card-title { letter-spacing: .1em; font-weight: 400; }
