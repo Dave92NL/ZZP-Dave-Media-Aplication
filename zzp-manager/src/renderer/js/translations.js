@@ -1136,6 +1136,20 @@ const DOM_MAP = {
   '⬜ Wyłączona':               { en: '⬜ Off',                  nl: '⬜ Uit' },
   'Pływająca ikonka włączona':  { en: 'Floating icon enabled',   nl: 'Zwevend pictogram ingeschakeld' },
   'Pływająca ikonka wyłączona': { en: 'Floating icon disabled',  nl: 'Zwevend pictogram uitgeschakeld' },
+  'Uruchamianie z Windows':     { en: 'Start with Windows',      nl: 'Starten met Windows' },
+  'Aplikacja startuje razem z Windows w tle (sama ikona przy zegarze, bez okna), dzięki czemu powiadomienia o terminach i fakturach po terminie przychodzą nawet bez otwierania programu. Zamknięcie okna nadal tylko chowa aplikację do zasobnika.':
+    { en: 'The app starts with Windows in the background (just the tray icon, no window), so reminders and overdue-invoice notifications arrive even without opening the program. Closing the window still only hides the app to the tray.',
+      nl: 'De app start met Windows op de achtergrond (alleen het systeemvakpictogram, geen venster), zodat herinneringen en meldingen over achterstallige facturen binnenkomen zonder het programma te openen. Het venster sluiten verbergt de app nog steeds alleen in het systeemvak.' },
+  '✅ Włączone':                { en: '✅ On',                   nl: '✅ Aan' },
+  '⬜ Wyłączone':               { en: '⬜ Off',                  nl: '⬜ Uit' },
+  'Uruchamianie z Windows włączone':  { en: 'Start with Windows enabled',  nl: 'Starten met Windows ingeschakeld' },
+  'Uruchamianie z Windows wyłączone': { en: 'Start with Windows disabled', nl: 'Starten met Windows uitgeschakeld' },
+  'Dostępne tylko w zainstalowanej wersji aplikacji (nie w trybie deweloperskim).':
+    { en: 'Available only in the installed version of the app (not in development mode).',
+      nl: 'Alleen beschikbaar in de geïnstalleerde versie van de app (niet in ontwikkelmodus).' },
+  'Windows blokuje autostart tej aplikacji — włącz ją w Ustawienia Windows → Aplikacje → Autostart.':
+    { en: 'Windows is blocking this app from starting up — enable it in Windows Settings → Apps → Startup.',
+      nl: 'Windows blokkeert het opstarten van deze app — schakel het in via Windows-instellingen → Apps → Opstarten.' },
   'Obecny PIN':                 { en: 'Current PIN',             nl: 'Huidige PIN' },
   'Nowy PIN (4–8 cyfr)':        { en: 'New PIN (4–8 digits)',    nl: 'Nieuwe PIN (4–8 cijfers)' },
   'Powtórz nowy PIN':           { en: 'Repeat new PIN',          nl: 'Herhaal nieuwe PIN' },

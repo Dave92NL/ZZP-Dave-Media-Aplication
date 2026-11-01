@@ -473,6 +473,25 @@ nad istniejącym przełącznikiem Ciemny/Jasny — **osobna, niezależna oś**; 
   CSS repo (wszystkie 6 kombinacji styl×schemat) — desktop nie ma auto-deployu, końcowe potwierdzenie po
   `git pull` + `npm start`.
 
+### Desktop: uruchamianie z Windows w tle (ZROBIONE w kodzie, niewydane — brak commita/release)
+Ustawienia → „Wygląd" → karta „Uruchamianie z Windows" (obok „Pływająca ikonka"): przełącznik Włączone/Wyłączone.
+Po włączeniu aplikacja startuje z Windows **tylko w tray** (bez okna), więc powiadomienia z `notifications.js`
+(cron 9:00 + sprawdzenie 5 s po starcie) przychodzą bez otwierania programu. Zamknięcie okna dalej tylko chowa do tray (już było).
+- **Mechanizm (`main.js`):** `app.setLoginItemSettings({ openAtLogin, path: process.execPath, args: ['--hidden'] })`;
+  start z `--hidden` (`START_HIDDEN`) pomija `mainWindow.show()` w `ready-to-show`. Stan czytany z rejestru Windows
+  (`getLoginItemSettings` z tymi samymi `path`/`args`), nie z tabeli `settings`. IPC `autostart:get/set` (+ `VALID_CHANNELS`
+  i `window.api.autostart` w `preload.js`). `blocked` = wpis wyłączony w Menedżerze zadań (`executableWillLaunchAtLogin === false`).
+- **Tylko wersja zainstalowana:** w dev (`npm start`) `process.execPath` to `electron.exe`, więc UI pokazuje przyciski nieaktywne
+  z notką; **testować można dopiero na zainstalowanym buildzie** (release → aktualizacja).
+- **Jedna instancja (też tylko zainstalowana):** `requestSingleInstanceLock` + `second-instance` pokazuje okno pierwszej kopii
+  (autostart + ręczne kliknięcie skrótu nie odpala drugiej kopii na tej samej bazie SQLite). W dev zamka **celowo brak** —
+  dev i zainstalowana wersja dzielą `%APPDATA%\zzp-manager`, więc zamek po cichu oddawałby dev instalce z tray.
+- **Naprawy przy okazji (powiadomienia):** `notifications.startScheduler(mainWindow)` było wołane PRZED `createWindow()`
+  (referencja `null`) → kliknięcie powiadomienia nic nie otwierało; teraz po `createWindow()`. Dodane
+  `app.setAppUserModelId('com.davemedia.zzpmanager')` (= `appId` electron-builder) dla toastów Windows.
+- **i18n:** nowe napisy w `translations.js` `DOM_MAP` (PL/EN/NL).
+- **Po aktualizacji:** `update:install` uruchamia nową wersję bez `--hidden` (okno się pokaże) — to zamierzone.
+
 ### Redesign UI aplikacji desktop — wyrównanie do mobilnej (ZROBIONE)
 Desktop (`zzp-manager`) dostał **ten sam ciemny „premium" motyw co mobile**, zachowując swój układ
 (sidebar + szeroka treść) i emoji-ikony. Zmiana wyłącznie w CSS (motyw jest w pełni tokenowy):

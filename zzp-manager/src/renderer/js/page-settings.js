@@ -302,6 +302,19 @@ window.PageSettings = (() => {
         <button class="btn btn-secondary" id="sa-floating-on" disabled>⏳ Ładowanie…</button>
         <button class="btn btn-secondary" id="sa-floating-off" disabled>⏳ Ładowanie…</button>
       </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3 class="section-title">Uruchamianie z Windows</h3>
+      <p class="text-muted" style="font-size:13px;margin-bottom:16px">
+        Aplikacja startuje razem z Windows w tle (sama ikona przy zegarze, bez okna), dzięki czemu
+        powiadomienia o terminach i fakturach po terminie przychodzą nawet bez otwierania programu.
+        Zamknięcie okna nadal tylko chowa aplikację do zasobnika.
+      </p>
+      <div class="toggle-row" id="sa-autostart-toggle">
+        <button class="btn btn-secondary" id="sa-autostart-on" disabled>⏳ Ładowanie…</button>
+        <button class="btn btn-secondary" id="sa-autostart-off" disabled>⏳ Ładowanie…</button>
+      </div>
+      <p class="text-muted" id="sa-autostart-note" style="font-size:12px;margin-top:12px"></p>
     </div>`;
   }
 
@@ -356,6 +369,41 @@ window.PageSettings = (() => {
     await window.api.floatingWidget.setEnabled(enabled);
     _renderFloatingToggle(enabled);
     UI.toast(enabled ? 'Pływająca ikonka włączona' : 'Pływająca ikonka wyłączona', 'success');
+  }
+
+  async function _initAutostartToggle() {
+    const onBtn  = document.getElementById('sa-autostart-on');
+    const offBtn = document.getElementById('sa-autostart-off');
+    if (!onBtn || !offBtn) return;
+    _renderAutostartToggle(await window.api.autostart.get());
+    onBtn.addEventListener('click', () => _setAutostart(true));
+    offBtn.addEventListener('click', () => _setAutostart(false));
+  }
+
+  function _renderAutostartToggle(state) {
+    const onBtn  = document.getElementById('sa-autostart-on');
+    const offBtn = document.getElementById('sa-autostart-off');
+    const note   = document.getElementById('sa-autostart-note');
+    if (!onBtn || !offBtn) return;
+    onBtn.textContent  = '✅ Włączone';
+    offBtn.textContent = '⬜ Wyłączone';
+    onBtn.disabled = offBtn.disabled = !state.supported;
+    onBtn.classList.toggle('btn-primary', state.enabled);
+    onBtn.classList.toggle('btn-secondary', !state.enabled);
+    offBtn.classList.toggle('btn-primary', !state.enabled);
+    offBtn.classList.toggle('btn-secondary', state.enabled);
+    if (!note) return;
+    note.textContent = !state.supported
+      ? 'Dostępne tylko w zainstalowanej wersji aplikacji (nie w trybie deweloperskim).'
+      : state.blocked
+        ? 'Windows blokuje autostart tej aplikacji — włącz ją w Ustawienia Windows → Aplikacje → Autostart.'
+        : '';
+  }
+
+  async function _setAutostart(enabled) {
+    const state = await window.api.autostart.set(enabled);
+    _renderAutostartToggle(state);
+    UI.toast(enabled ? 'Uruchamianie z Windows włączone' : 'Uruchamianie z Windows wyłączone', 'success');
   }
 
   // ── Security tab ─────────────────────────────────────────
@@ -717,6 +765,7 @@ window.PageSettings = (() => {
     }
     if (tab === 'appearance') {
       _initFloatingToggle();
+      _initAutostartToggle();
     }
     if (tab === 'security') {
       document.getElementById('ss-change-pin-btn')?.addEventListener('click', _changePin);

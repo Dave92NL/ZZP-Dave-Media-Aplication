@@ -10,6 +10,7 @@ const VALID_CHANNELS = new Set([
   'translate:text',
   'update:install', 'update:check', 'app:getVersion',
   'floating:getEnabled', 'floating:setEnabled',
+  'autostart:get', 'autostart:set',
   'invoices:getAll', 'invoices:getById', 'invoices:create', 'invoices:update',
   'invoices:delete', 'invoices:markPaid', 'invoices:duplicate', 'invoices:exportPDF',
   'invoices:exportUBL', 'invoices:renderPreviewPDF', 'invoices:renderSavedPreviewPDF', 'invoices:getNextNumber', 'invoiceItems:getByInvoice',
@@ -115,6 +116,12 @@ contextBridge.exposeInMainWorld('api', {
   floatingWidget: {
     getEnabled: () => invoke('floating:getEnabled'),
     setEnabled: (enabled) => invoke('floating:setEnabled', enabled)
+  },
+
+  // ── Autostart z Windows ────────────────────
+  autostart: {
+    get: () => invoke('autostart:get'),
+    set: (enabled) => invoke('autostart:set', enabled)
   },
 
   // ── Invoices ──────────────────────────────

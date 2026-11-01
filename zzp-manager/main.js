@@ -20,6 +20,26 @@ let tray = null;
 let floatingWindow = null;
 let isQuitting = false;
 
+// Autostart z Windows uruchamia aplikację z --hidden → tylko tray, bez okna (powiadomienia
+// i cron działają w procesie głównym, okno nie jest potrzebne).
+const AUTOSTART_ARGS = ['--hidden'];
+const START_HIDDEN = process.argv.includes('--hidden');
+
+// Jedna instancja (tylko wersja zainstalowana): autostart + ręczne kliknięcie skrótu nie może
+// odpalić drugiej kopii na tej samej bazie SQLite — druga tylko pokazuje okno pierwszej.
+// W dev (`npm start`) zamka nie ma, inaczej dev po cichu oddawałby sterowanie aplikacji z tray.
+const gotSingleLock = !app.isPackaged || app.requestSingleInstanceLock();
+if (!gotSingleLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
+
 const FLOATING_WIDGET_SIZE = 64;
 
 // Import modules (loaded after app ready)
@@ -86,7 +106,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (!START_HIDDEN) mainWindow.show(); // start z Windows → zostaje w tray
   });
 
   mainWindow.on('close', (event) => {
@@ -321,6 +341,11 @@ function setupAutoUpdater() {
 // App lifecycle
 // ─────────────────────────────────────────────
 app.whenReady().then(() => {
+  if (!gotSingleLock) return; // druga instancja — app.quit() już poszło
+
+  // Powiadomienia toast na Windows są przypisane do AppUserModelID (= appId z electron-builder).
+  if (process.platform === 'win32') app.setAppUserModelId('com.davemedia.zzpmanager');
+
   // Initialize modules
   db = require('./src/database/db');
   auth = require('./src/modules/auth');
@@ -351,11 +376,12 @@ app.whenReady().then(() => {
   // Init database
   db.init();
 
-  // Start notifications scheduler
-  notifications.startScheduler(mainWindow);
-
   createWindow();
   createTray();
+
+  // Start notifications scheduler — PO createWindow(), inaczej kliknięcie w powiadomienie
+  // nie miało referencji do okna (mainWindow było jeszcze null) i nic nie otwierało.
+  notifications.startScheduler(mainWindow);
   registerIpcHandlers();
   setupAutoUpdater();
 
@@ -436,6 +462,23 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:getAll', () => settings.getAll());
   ipcMain.handle('app:getVersion', () => app.getVersion());
   ipcMain.handle('translate:text', (_, text, target) => translate.translate(text, target));
+
+  // ── Autostart (uruchamianie z Windows w tle) ──────────────
+  // Prawda w rejestrze Windows (getLoginItemSettings), nie w tabeli settings. Tylko wersja
+  // zainstalowana — w dev process.execPath to electron.exe, nie nasza aplikacja.
+  const autostartState = () => {
+    if (!app.isPackaged || process.platform !== 'win32') return { supported: false, enabled: false, blocked: false };
+    const s = app.getLoginItemSettings({ path: process.execPath, args: AUTOSTART_ARGS });
+    // executableWillLaunchAtLogin=false przy openAtLogin=true → użytkownik wyłączył wpis w Menedżerze zadań
+    return { supported: true, enabled: !!s.openAtLogin, blocked: !!s.openAtLogin && s.executableWillLaunchAtLogin === false };
+  };
+  ipcMain.handle('autostart:get', () => autostartState());
+  ipcMain.handle('autostart:set', (_, enabled) => {
+    if (autostartState().supported) {
+      app.setLoginItemSettings({ openAtLogin: !!enabled, path: process.execPath, args: AUTOSTART_ARGS });
+    }
+    return autostartState();
+  });
 
   // ── Floating widget ───────────────────────
   ipcMain.handle('floating:getEnabled', () => settings.get('floating_widget_enabled') !== 'false');
